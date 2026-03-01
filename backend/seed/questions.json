@@ -1,0 +1,450 @@
+{
+  "categories": [
+    { "slug": "structural", "name": "Estrutural", "description": "Perguntas diretamente mapeadas aos eixos do Big Five" },
+    { "slug": "moral_dilemma", "name": "Dilema Moral", "description": "Situações éticas que revelam traços de personalidade" },
+    { "slug": "paradoxical", "name": "Paradoxal / Provocativa", "description": "Perguntas que desafiam o pensamento convencional" },
+    { "slug": "interest", "name": "Definidora de Interesses", "description": "Perguntas sobre preferências para melhor alocação de resultado" }
+  ],
+  "questions": [
+    {
+      "category": "structural",
+      "text": "Quando você tem um dia livre sem nenhum compromisso, o que você prefere fazer?",
+      "context": null,
+      "alternatives": [
+        { "text": "Explorar algo novo — um lugar, um livro, uma atividade que nunca experimentei.", "sort_order": 0, "impact_o": 2.5, "impact_c": -0.5, "impact_e": 0.5, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "Organizar minha casa, colocar coisas em dia e planejar a semana.", "sort_order": 1, "impact_o": -0.5, "impact_c": 2.5, "impact_e": -0.5, "impact_a": 0, "impact_n": -1.0 },
+        { "text": "Encontrar amigos ou família, sair para um lugar movimentado.", "sort_order": 2, "impact_o": 0.5, "impact_c": 0, "impact_e": 2.5, "impact_a": 1.0, "impact_n": -0.5 },
+        { "text": "Ficar em casa tranquilo, descansando e curtindo meu próprio espaço.", "sort_order": 3, "impact_o": 0, "impact_c": 0.5, "impact_e": -2.0, "impact_a": 0, "impact_n": 0.5 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Como você reage quando alguém discorda fortemente de uma opinião sua?",
+      "context": null,
+      "alternatives": [
+        { "text": "Fico curioso e quero entender o ponto de vista da outra pessoa.", "sort_order": 0, "impact_o": 2.0, "impact_c": 0.5, "impact_e": 0.5, "impact_a": 1.5, "impact_n": -1.0 },
+        { "text": "Defendo minha posição com argumentos lógicos e organizados.", "sort_order": 1, "impact_o": 0.5, "impact_c": 2.0, "impact_e": 1.0, "impact_a": -1.0, "impact_n": -0.5 },
+        { "text": "Prefiro evitar o conflito e mudo de assunto.", "sort_order": 2, "impact_o": -0.5, "impact_c": 0, "impact_e": -1.5, "impact_a": 1.5, "impact_n": 1.0 },
+        { "text": "Fico incomodado e levo a discordância para o lado pessoal.", "sort_order": 3, "impact_o": -1.0, "impact_c": -0.5, "impact_e": 0, "impact_a": -0.5, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Como você descreveria seu ambiente de trabalho ou estudo ideal?",
+      "context": null,
+      "alternatives": [
+        { "text": "Um espaço criativo e desestruturado, com estímulos variados.", "sort_order": 0, "impact_o": 2.5, "impact_c": -2.0, "impact_e": 0.5, "impact_a": 0, "impact_n": 0 },
+        { "text": "Um ambiente organizado, silencioso e sem distrações.", "sort_order": 1, "impact_o": -0.5, "impact_c": 2.5, "impact_e": -1.0, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "Um lugar colaborativo com pessoas ao redor para trocar ideias.", "sort_order": 2, "impact_o": 1.0, "impact_c": 0, "impact_e": 2.5, "impact_a": 1.0, "impact_n": -0.5 },
+        { "text": "Um espaço confortável onde eu me sinta seguro e sem pressão.", "sort_order": 3, "impact_o": 0, "impact_c": 0.5, "impact_e": -1.0, "impact_a": 0.5, "impact_n": 1.5 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Quando precisa tomar uma decisão importante, qual é sua abordagem?",
+      "context": null,
+      "alternatives": [
+        { "text": "Pesquiso todas as opções possíveis e considero alternativas inusitadas.", "sort_order": 0, "impact_o": 2.0, "impact_c": 1.5, "impact_e": 0, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "Faço uma lista de prós e contras e sigo o plano mais racional.", "sort_order": 1, "impact_o": 0, "impact_c": 2.5, "impact_e": 0, "impact_a": 0, "impact_n": -1.0 },
+        { "text": "Converso com pessoas de confiança e peço opiniões.", "sort_order": 2, "impact_o": 0.5, "impact_c": 0, "impact_e": 1.5, "impact_a": 2.0, "impact_n": 0 },
+        { "text": "Sigo minha intuição e o que meu coração diz.", "sort_order": 3, "impact_o": 1.0, "impact_c": -1.5, "impact_e": 0.5, "impact_a": 0.5, "impact_n": 1.0 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "O que mais te motiva a completar uma tarefa difícil?",
+      "context": null,
+      "alternatives": [
+        { "text": "A curiosidade de ver o resultado final e aprender algo novo.", "sort_order": 0, "impact_o": 2.5, "impact_c": 0.5, "impact_e": 0, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "O senso de dever e a satisfação de cumprir minha responsabilidade.", "sort_order": 1, "impact_o": 0, "impact_c": 2.5, "impact_e": 0, "impact_a": 0.5, "impact_n": -1.0 },
+        { "text": "O reconhecimento e a admiração das pessoas ao meu redor.", "sort_order": 2, "impact_o": 0, "impact_c": 0.5, "impact_e": 2.0, "impact_a": 0, "impact_n": 0.5 },
+        { "text": "O medo de falhar ou de decepcionar alguém.", "sort_order": 3, "impact_o": -0.5, "impact_c": 1.0, "impact_e": -0.5, "impact_a": 1.0, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Como você lida com mudanças inesperadas nos seus planos?",
+      "context": null,
+      "alternatives": [
+        { "text": "Adoro imprevistos — eles tornam a vida mais interessante.", "sort_order": 0, "impact_o": 2.5, "impact_c": -2.0, "impact_e": 1.0, "impact_a": 0, "impact_n": -1.5 },
+        { "text": "Fico frustrado, mas reorganizo rapidamente.", "sort_order": 1, "impact_o": 0, "impact_c": 2.0, "impact_e": 0, "impact_a": 0, "impact_n": 0.5 },
+        { "text": "Depende de quem está comigo — com boas companhias tudo fica melhor.", "sort_order": 2, "impact_o": 0.5, "impact_c": 0, "impact_e": 2.0, "impact_a": 1.0, "impact_n": 0 },
+        { "text": "Fico ansioso e preciso de tempo para me adaptar.", "sort_order": 3, "impact_o": -1.0, "impact_c": 0.5, "impact_e": -0.5, "impact_a": 0, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Numa festa com muitas pessoas que você não conhece, como você se comporta?",
+      "context": null,
+      "alternatives": [
+        { "text": "Vou conversar com pessoas diferentes e conhecer histórias novas.", "sort_order": 0, "impact_o": 1.5, "impact_c": 0, "impact_e": 2.5, "impact_a": 1.0, "impact_n": -1.5 },
+        { "text": "Observo o ambiente e escolho com cuidado com quem vou interagir.", "sort_order": 1, "impact_o": 1.0, "impact_c": 1.5, "impact_e": -1.0, "impact_a": 0, "impact_n": 0.5 },
+        { "text": "Fico perto das poucas pessoas que conheço.", "sort_order": 2, "impact_o": -0.5, "impact_c": 0.5, "impact_e": -2.0, "impact_a": 0.5, "impact_n": 1.0 },
+        { "text": "Saio o mais rápido possível — festas assim me esgotam.", "sort_order": 3, "impact_o": -0.5, "impact_c": 0, "impact_e": -2.5, "impact_a": 0, "impact_n": 2.0 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "O que você faz quando comete um erro no trabalho ou nos estudos?",
+      "context": null,
+      "alternatives": [
+        { "text": "Vejo como uma oportunidade de aprender e experimentar uma nova abordagem.", "sort_order": 0, "impact_o": 2.5, "impact_c": 0.5, "impact_e": 0, "impact_a": 0, "impact_n": -1.5 },
+        { "text": "Analiso o que deu errado, corrijo e crio um sistema para evitar que aconteça de novo.", "sort_order": 1, "impact_o": 0.5, "impact_c": 2.5, "impact_e": 0, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "Peço ajuda ou feedback de alguém para resolver juntos.", "sort_order": 2, "impact_o": 0.5, "impact_c": 0, "impact_e": 1.5, "impact_a": 2.0, "impact_n": 0 },
+        { "text": "Fico remoendo o erro por bastante tempo e me cobrando.", "sort_order": 3, "impact_o": -0.5, "impact_c": 0.5, "impact_e": -0.5, "impact_a": 0, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Como você se sente em relação a regras e normas sociais?",
+      "context": null,
+      "alternatives": [
+        { "text": "Questiono a maioria delas — muitas são antiquadas e limitantes.", "sort_order": 0, "impact_o": 2.5, "impact_c": -2.0, "impact_e": 0.5, "impact_a": -1.0, "impact_n": 0 },
+        { "text": "Acredito que são necessárias para a organização da sociedade.", "sort_order": 1, "impact_o": -1.0, "impact_c": 2.5, "impact_e": 0, "impact_a": 0.5, "impact_n": -0.5 },
+        { "text": "Depende do contexto — sigo as que fazem sentido para o grupo.", "sort_order": 2, "impact_o": 0.5, "impact_c": 0.5, "impact_e": 0.5, "impact_a": 2.0, "impact_n": 0 },
+        { "text": "Sigo porque tenho medo das consequências de não seguir.", "sort_order": 3, "impact_o": -1.5, "impact_c": 1.0, "impact_e": -1.0, "impact_a": 0.5, "impact_n": 2.0 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Se você pudesse escolher um superpoder, qual seria?",
+      "context": null,
+      "alternatives": [
+        { "text": "Ler mentes — entender o que as pessoas realmente pensam.", "sort_order": 0, "impact_o": 2.0, "impact_c": 0, "impact_e": 0.5, "impact_a": 0, "impact_n": 1.5 },
+        { "text": "Parar o tempo — para terminar tudo que preciso fazer.", "sort_order": 1, "impact_o": 0, "impact_c": 2.5, "impact_e": -0.5, "impact_a": 0, "impact_n": 0.5 },
+        { "text": "Teletransporte — para estar com quem eu quiser, quando eu quiser.", "sort_order": 2, "impact_o": 1.0, "impact_c": 0, "impact_e": 2.0, "impact_a": 1.5, "impact_n": -0.5 },
+        { "text": "Invisibilidade — para observar sem ser percebido.", "sort_order": 3, "impact_o": 1.0, "impact_c": 0, "impact_e": -2.5, "impact_a": -0.5, "impact_n": 1.0 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Quando você vê alguém precisando de ajuda na rua, como reage?",
+      "context": null,
+      "alternatives": [
+        { "text": "Paro imediatamente e ofereço ajuda sem pensar duas vezes.", "sort_order": 0, "impact_o": 0.5, "impact_c": 0, "impact_e": 1.5, "impact_a": 2.5, "impact_n": -0.5 },
+        { "text": "Avalio a situação primeiro — se for seguro, ajudo.", "sort_order": 1, "impact_o": 0, "impact_c": 2.0, "impact_e": 0, "impact_a": 1.0, "impact_n": -0.5 },
+        { "text": "Quero ajudar, mas geralmente fico sem saber o que fazer.", "sort_order": 2, "impact_o": 0, "impact_c": -0.5, "impact_e": -1.0, "impact_a": 1.0, "impact_n": 2.0 },
+        { "text": "Sigo em frente — não é minha responsabilidade.", "sort_order": 3, "impact_o": -0.5, "impact_c": 0.5, "impact_e": -0.5, "impact_a": -2.5, "impact_n": -0.5 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Como você se sente quando fica sozinho por longos períodos?",
+      "context": null,
+      "alternatives": [
+        { "text": "Adoro — é quando tenho minhas melhores ideias e reflexões.", "sort_order": 0, "impact_o": 2.0, "impact_c": 0.5, "impact_e": -2.5, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "Aproveito para ser produtivo e organizar minha vida.", "sort_order": 1, "impact_o": 0, "impact_c": 2.5, "impact_e": -1.0, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "Começo a sentir falta de companhia rapidamente.", "sort_order": 2, "impact_o": 0, "impact_c": 0, "impact_e": 2.0, "impact_a": 1.0, "impact_n": 0.5 },
+        { "text": "Fico inquieto e ansioso — preciso de interação.", "sort_order": 3, "impact_o": -0.5, "impact_c": -0.5, "impact_e": 1.5, "impact_a": 0, "impact_n": 2.0 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Qual tipo de filme ou série mais te atrai?",
+      "context": null,
+      "alternatives": [
+        { "text": "Ficção científica ou fantasia — mundos diferentes e ideias ousadas.", "sort_order": 0, "impact_o": 2.5, "impact_c": 0, "impact_e": 0, "impact_a": 0, "impact_n": 0 },
+        { "text": "Documentários ou dramas baseados em fatos reais.", "sort_order": 1, "impact_o": 0.5, "impact_c": 2.0, "impact_e": 0, "impact_a": 0.5, "impact_n": 0 },
+        { "text": "Comédias ou filmes de ação — quero me divertir e ter adrenalina.", "sort_order": 2, "impact_o": 0, "impact_c": -0.5, "impact_e": 2.0, "impact_a": 0.5, "impact_n": -1.0 },
+        { "text": "Dramas emocionais ou romances — histórias que me fazem sentir.", "sort_order": 3, "impact_o": 0.5, "impact_c": 0, "impact_e": 0, "impact_a": 1.5, "impact_n": 1.5 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Como você reage quando recebe uma crítica construtiva?",
+      "context": null,
+      "alternatives": [
+        { "text": "Agradeço e reflito — toda perspectiva nova é valiosa.", "sort_order": 0, "impact_o": 2.0, "impact_c": 0.5, "impact_e": 0, "impact_a": 2.0, "impact_n": -1.5 },
+        { "text": "Anoto e implemento as melhorias sugeridas imediatamente.", "sort_order": 1, "impact_o": 0, "impact_c": 2.5, "impact_e": 0, "impact_a": 0.5, "impact_n": -0.5 },
+        { "text": "Aceito na hora, mas por dentro fico um pouco defensivo.", "sort_order": 2, "impact_o": -0.5, "impact_c": 0.5, "impact_e": 0, "impact_a": 0, "impact_n": 2.0 },
+        { "text": "Depende de quem vem — de certas pessoas eu não aceito.", "sort_order": 3, "impact_o": -0.5, "impact_c": -0.5, "impact_e": 0.5, "impact_a": -2.0, "impact_n": 1.0 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Se você ganhasse uma viagem para qualquer lugar, escolheria:",
+      "context": null,
+      "alternatives": [
+        { "text": "Um país com cultura radicalmente diferente da minha.", "sort_order": 0, "impact_o": 2.5, "impact_c": -0.5, "impact_e": 1.0, "impact_a": 0.5, "impact_n": -0.5 },
+        { "text": "Um destino bem planejado com roteiro detalhado.", "sort_order": 1, "impact_o": 0, "impact_c": 2.5, "impact_e": 0, "impact_a": 0, "impact_n": -1.0 },
+        { "text": "Uma viagem em grupo com amigos para celebrar.", "sort_order": 2, "impact_o": 0.5, "impact_c": 0, "impact_e": 2.5, "impact_a": 1.5, "impact_n": -0.5 },
+        { "text": "Um retiro tranquilo e isolado na natureza.", "sort_order": 3, "impact_o": 1.0, "impact_c": 0.5, "impact_e": -2.5, "impact_a": 0, "impact_n": 0.5 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Como você lida com prazos apertados?",
+      "context": null,
+      "alternatives": [
+        { "text": "Improviso e encontro soluções criativas sob pressão.", "sort_order": 0, "impact_o": 2.0, "impact_c": -1.0, "impact_e": 0.5, "impact_a": 0, "impact_n": 0 },
+        { "text": "Sigo meu cronograma — se planejei bem, o prazo não é problema.", "sort_order": 1, "impact_o": 0, "impact_c": 2.5, "impact_e": 0, "impact_a": 0, "impact_n": -1.5 },
+        { "text": "Peço ajuda para dividir a carga de trabalho.", "sort_order": 2, "impact_o": 0, "impact_c": 0.5, "impact_e": 1.5, "impact_a": 1.5, "impact_n": 0 },
+        { "text": "Fico muito estressado e tenho dificuldade de me concentrar.", "sort_order": 3, "impact_o": -0.5, "impact_c": -0.5, "impact_e": -0.5, "impact_a": 0, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "O que você faz quando está entediado?",
+      "context": null,
+      "alternatives": [
+        { "text": "Procuro aprender algo novo — um idioma, um instrumento, uma habilidade.", "sort_order": 0, "impact_o": 2.5, "impact_c": 1.0, "impact_e": 0, "impact_a": 0, "impact_n": -1.0 },
+        { "text": "Organizo ou limpo algo que estava pendente.", "sort_order": 1, "impact_o": -1.0, "impact_c": 2.5, "impact_e": -0.5, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "Ligo para alguém ou saio para encontrar pessoas.", "sort_order": 2, "impact_o": 0, "impact_c": 0, "impact_e": 2.5, "impact_a": 1.0, "impact_n": -0.5 },
+        { "text": "Fico rolando redes sociais sem objetivo, me sentindo improdutivo.", "sort_order": 3, "impact_o": -0.5, "impact_c": -1.5, "impact_e": 0, "impact_a": 0, "impact_n": 1.5 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Como você se sente quando precisa falar em público?",
+      "context": null,
+      "alternatives": [
+        { "text": "Gosto — é uma chance de compartilhar ideias e inspirar pessoas.", "sort_order": 0, "impact_o": 1.5, "impact_c": 0.5, "impact_e": 2.5, "impact_a": 0.5, "impact_n": -2.0 },
+        { "text": "Me preparo intensamente e consigo fazer bem quando estou preparado.", "sort_order": 1, "impact_o": 0, "impact_c": 2.5, "impact_e": 0, "impact_a": 0, "impact_n": 0 },
+        { "text": "Prefiro evitar, mas faço quando necessário.", "sort_order": 2, "impact_o": -0.5, "impact_c": 0.5, "impact_e": -1.5, "impact_a": 0.5, "impact_n": 1.0 },
+        { "text": "Fico paralisado de ansiedade — é uma das piores coisas pra mim.", "sort_order": 3, "impact_o": -0.5, "impact_c": 0, "impact_e": -2.0, "impact_a": 0, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Qual a sua relação com dinheiro?",
+      "context": null,
+      "alternatives": [
+        { "text": "Dinheiro é um meio para viver experiências — não me prendo a ele.", "sort_order": 0, "impact_o": 2.0, "impact_c": -1.5, "impact_e": 0.5, "impact_a": 0.5, "impact_n": -0.5 },
+        { "text": "Planejo cada gasto com cuidado e tenho reserva de emergência.", "sort_order": 1, "impact_o": -0.5, "impact_c": 2.5, "impact_e": 0, "impact_a": 0, "impact_n": -1.0 },
+        { "text": "Gasto mais quando estou com amigos — generosidade é importante.", "sort_order": 2, "impact_o": 0, "impact_c": -0.5, "impact_e": 1.5, "impact_a": 2.0, "impact_n": 0 },
+        { "text": "Tenho medo constante de ficar sem dinheiro.", "sort_order": 3, "impact_o": -1.0, "impact_c": 1.0, "impact_e": -0.5, "impact_a": 0, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "structural",
+      "text": "Como você se descreve em uma palavra?",
+      "context": null,
+      "alternatives": [
+        { "text": "Criativo.", "sort_order": 0, "impact_o": 2.5, "impact_c": 0, "impact_e": 0, "impact_a": 0, "impact_n": 0 },
+        { "text": "Responsável.", "sort_order": 1, "impact_o": 0, "impact_c": 2.5, "impact_e": 0, "impact_a": 0.5, "impact_n": -0.5 },
+        { "text": "Comunicativo.", "sort_order": 2, "impact_o": 0.5, "impact_c": 0, "impact_e": 2.5, "impact_a": 0.5, "impact_n": -0.5 },
+        { "text": "Sensível.", "sort_order": 3, "impact_o": 0.5, "impact_c": 0, "impact_e": 0, "impact_a": 1.5, "impact_n": 1.5 }
+      ]
+    },
+    {
+      "category": "moral_dilemma",
+      "text": "Você descobre que um colega de trabalho está levando crédito por uma ideia sua em uma reunião importante. O que você faz?",
+      "context": "Seu chefe está presente e parece impressionado com a 'ideia' do seu colega.",
+      "alternatives": [
+        { "text": "Interrompo educadamente e esclareço que a ideia foi minha.", "sort_order": 0, "impact_o": 0, "impact_c": 1.5, "impact_e": 2.0, "impact_a": -1.0, "impact_n": -0.5 },
+        { "text": "Fico quieto na reunião, mas converso com o colega em particular depois.", "sort_order": 1, "impact_o": 0, "impact_c": 1.0, "impact_e": -1.0, "impact_a": 1.5, "impact_n": 1.0 },
+        { "text": "Deixo passar — não vale a pena criar conflito por isso.", "sort_order": 2, "impact_o": -0.5, "impact_c": -0.5, "impact_e": -1.5, "impact_a": 2.0, "impact_n": 0.5 },
+        { "text": "Proponho uma ideia ainda melhor na hora, mostrando minha capacidade.", "sort_order": 3, "impact_o": 2.5, "impact_c": 0.5, "impact_e": 1.5, "impact_a": -1.5, "impact_n": -1.0 }
+      ]
+    },
+    {
+      "category": "moral_dilemma",
+      "text": "Você encontra uma carteira com uma grande quantia de dinheiro e o documento do dono. O que você faz?",
+      "context": "Você está passando por dificuldades financeiras.",
+      "alternatives": [
+        { "text": "Procuro o dono e devolvo tudo, sem pensar duas vezes.", "sort_order": 0, "impact_o": 0, "impact_c": 2.0, "impact_e": 0.5, "impact_a": 2.5, "impact_n": -0.5 },
+        { "text": "Devolvo o documento e uma parte do dinheiro — preciso sobreviver.", "sort_order": 1, "impact_o": 0.5, "impact_c": -0.5, "impact_e": 0, "impact_a": -0.5, "impact_n": 1.0 },
+        { "text": "Entrego na delegacia e deixo que eles resolvam.", "sort_order": 2, "impact_o": -0.5, "impact_c": 2.5, "impact_e": -0.5, "impact_a": 0.5, "impact_n": -0.5 },
+        { "text": "Devolveria, mas ficaria pensando no que poderia ter feito com o dinheiro.", "sort_order": 3, "impact_o": 0, "impact_c": 0.5, "impact_e": -0.5, "impact_a": 1.0, "impact_n": 2.0 }
+      ]
+    },
+    {
+      "category": "moral_dilemma",
+      "text": "Seu melhor amigo te conta que traiu o(a) parceiro(a). Ele pede segredo absoluto. O que você faz?",
+      "context": "Você também é amigo(a) do(a) parceiro(a) traído(a).",
+      "alternatives": [
+        { "text": "Guardo o segredo — lealdade ao meu amigo vem primeiro.", "sort_order": 0, "impact_o": 0, "impact_c": -0.5, "impact_e": 0, "impact_a": 1.0, "impact_n": 1.5 },
+        { "text": "Aconselho meu amigo a contar a verdade, mas não me meto.", "sort_order": 1, "impact_o": 0.5, "impact_c": 2.0, "impact_e": 0, "impact_a": 1.5, "impact_n": -0.5 },
+        { "text": "Conto para o(a) parceiro(a) — a verdade é mais importante.", "sort_order": 2, "impact_o": 1.0, "impact_c": 1.0, "impact_e": 1.0, "impact_a": -1.0, "impact_n": 0 },
+        { "text": "Me afasto da situação — não quero me envolver nesse drama.", "sort_order": 3, "impact_o": -0.5, "impact_c": 0.5, "impact_e": -1.5, "impact_a": -0.5, "impact_n": 1.5 }
+      ]
+    },
+    {
+      "category": "moral_dilemma",
+      "text": "Você é gerente e precisa demitir um funcionário. Ele é competente, mas a empresa precisa cortar custos. O que você faz?",
+      "context": "Você sabe que ele tem uma família para sustentar.",
+      "alternatives": [
+        { "text": "Sigo a decisão da empresa — é meu dever profissional.", "sort_order": 0, "impact_o": -0.5, "impact_c": 2.5, "impact_e": 0, "impact_a": -1.0, "impact_n": -0.5 },
+        { "text": "Procuro alternativas criativas para manter o funcionário.", "sort_order": 1, "impact_o": 2.0, "impact_c": 0.5, "impact_e": 0.5, "impact_a": 1.5, "impact_n": 0 },
+        { "text": "Converso abertamente com ele e ajudo na transição.", "sort_order": 2, "impact_o": 0.5, "impact_c": 0.5, "impact_e": 1.0, "impact_a": 2.0, "impact_n": 0.5 },
+        { "text": "Adio a decisão o máximo possível — não consigo lidar com isso.", "sort_order": 3, "impact_o": -0.5, "impact_c": -2.0, "impact_e": -1.0, "impact_a": 0.5, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "moral_dilemma",
+      "text": "Você descobre que uma empresa onde trabalha está fazendo algo antiético, mas legal. O que você faz?",
+      "context": "Denunciar pode custar seu emprego.",
+      "alternatives": [
+        { "text": "Denuncio — meus valores são mais importantes que meu emprego.", "sort_order": 0, "impact_o": 1.5, "impact_c": 1.5, "impact_e": 1.0, "impact_a": 1.0, "impact_n": -0.5 },
+        { "text": "Procuro resolver internamente antes de tomar medidas drásticas.", "sort_order": 1, "impact_o": 0.5, "impact_c": 2.0, "impact_e": 0, "impact_a": 1.0, "impact_n": 0 },
+        { "text": "Se é legal, não é problema meu — foco no meu trabalho.", "sort_order": 2, "impact_o": -1.5, "impact_c": 0.5, "impact_e": -0.5, "impact_a": -2.0, "impact_n": -0.5 },
+        { "text": "Fico angustiado, mas não tenho coragem de agir.", "sort_order": 3, "impact_o": 0, "impact_c": -0.5, "impact_e": -1.0, "impact_a": 0.5, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "moral_dilemma",
+      "text": "Um estranho te pede para mentir e dizer à polícia que ele estava com você ontem à noite. Ele parece desesperado, mas você não sabe o que ele fez.",
+      "context": null,
+      "alternatives": [
+        { "text": "Recuso — não vou mentir para alguém que não conheço.", "sort_order": 0, "impact_o": -0.5, "impact_c": 2.0, "impact_e": 0, "impact_a": -1.0, "impact_n": -0.5 },
+        { "text": "Pergunto mais antes de decidir — quero entender a situação.", "sort_order": 1, "impact_o": 2.0, "impact_c": 0.5, "impact_e": 0.5, "impact_a": 1.0, "impact_n": 0 },
+        { "text": "Ajudo — seu desespero me comove.", "sort_order": 2, "impact_o": 0.5, "impact_c": -1.5, "impact_e": 0.5, "impact_a": 2.5, "impact_n": 0 },
+        { "text": "Me afasto rapidamente — essa situação me assusta.", "sort_order": 3, "impact_o": -1.0, "impact_c": 0.5, "impact_e": -1.5, "impact_a": -0.5, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "moral_dilemma",
+      "text": "Você pode salvar 5 pessoas sacrificando 1 pessoa inocente. O que você faz?",
+      "context": "O clássico dilema do trolley, aplicado a uma situação hipotética.",
+      "alternatives": [
+        { "text": "Sacrifico a pessoa — a matemática é clara, 5 vidas valem mais.", "sort_order": 0, "impact_o": 0.5, "impact_c": 1.5, "impact_e": 0.5, "impact_a": -2.0, "impact_n": -1.0 },
+        { "text": "Não ajo — não tenho o direito de decidir quem vive ou morre.", "sort_order": 1, "impact_o": 0, "impact_c": 0.5, "impact_e": -0.5, "impact_a": 1.0, "impact_n": 1.5 },
+        { "text": "Procuro desesperadamente uma terceira opção.", "sort_order": 2, "impact_o": 2.5, "impact_c": -0.5, "impact_e": 0.5, "impact_a": 1.0, "impact_n": 0.5 },
+        { "text": "Entro em choque e não consigo decidir.", "sort_order": 3, "impact_o": -0.5, "impact_c": -1.0, "impact_e": -0.5, "impact_a": 0.5, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "moral_dilemma",
+      "text": "Você tem a oportunidade de colar numa prova que decide seu futuro acadêmico. Ninguém nunca vai descobrir. O que você faz?",
+      "context": "Se você reprovar, perde a bolsa de estudos.",
+      "alternatives": [
+        { "text": "Não colo — minha integridade vale mais que qualquer nota.", "sort_order": 0, "impact_o": 0, "impact_c": 2.5, "impact_e": 0, "impact_a": 0.5, "impact_n": -0.5 },
+        { "text": "Colo — as circunstâncias justificam.", "sort_order": 1, "impact_o": 0.5, "impact_c": -2.0, "impact_e": 0.5, "impact_a": -1.0, "impact_n": 0.5 },
+        { "text": "Peço ajuda a um professor ou colega de forma legítima.", "sort_order": 2, "impact_o": 0.5, "impact_c": 1.0, "impact_e": 1.5, "impact_a": 1.5, "impact_n": 0 },
+        { "text": "Fico paralisado entre a ética e a necessidade.", "sort_order": 3, "impact_o": 0, "impact_c": 0.5, "impact_e": -0.5, "impact_a": 0, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "paradoxical",
+      "text": "Se você pudesse saber com certeza absoluta uma coisa sobre o seu futuro, você escolheria saber?",
+      "context": "Considere que essa informação não poderia ser mudada.",
+      "alternatives": [
+        { "text": "Sim, o conhecimento sempre é melhor do que a ignorância.", "sort_order": 0, "impact_o": 2.0, "impact_c": 1.5, "impact_e": 0, "impact_a": 0, "impact_n": -1.0 },
+        { "text": "Não, a incerteza é o que torna a vida interessante.", "sort_order": 1, "impact_o": 1.5, "impact_c": -1.0, "impact_e": 0.5, "impact_a": 0, "impact_n": -1.5 },
+        { "text": "Depende do que eu poderia saber — só se fosse algo positivo.", "sort_order": 2, "impact_o": -0.5, "impact_c": 0.5, "impact_e": 0, "impact_a": 0.5, "impact_n": 2.0 },
+        { "text": "Não, acho que esse tipo de conhecimento traria mais ansiedade do que paz.", "sort_order": 3, "impact_o": -1.0, "impact_c": 0, "impact_e": -0.5, "impact_a": 1.0, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "paradoxical",
+      "text": "É possível ser completamente livre e completamente feliz ao mesmo tempo?",
+      "context": null,
+      "alternatives": [
+        { "text": "Sim — a liberdade total é a essência da felicidade.", "sort_order": 0, "impact_o": 2.5, "impact_c": -1.5, "impact_e": 1.0, "impact_a": 0, "impact_n": -1.0 },
+        { "text": "Não — a felicidade depende de vínculos e compromissos, que limitam a liberdade.", "sort_order": 1, "impact_o": 0.5, "impact_c": 1.5, "impact_e": 0, "impact_a": 2.0, "impact_n": 0 },
+        { "text": "Liberdade e felicidade são ilusões — buscamos as duas sem nunca alcançar.", "sort_order": 2, "impact_o": 2.0, "impact_c": 0, "impact_e": -0.5, "impact_a": -0.5, "impact_n": 1.5 },
+        { "text": "Não sei — essa pergunta me faz sentir desconfortável.", "sort_order": 3, "impact_o": -0.5, "impact_c": 0, "impact_e": -1.0, "impact_a": 0.5, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "paradoxical",
+      "text": "Se todos pensassem exatamente como você, o mundo seria melhor ou pior?",
+      "context": null,
+      "alternatives": [
+        { "text": "Melhor — minhas ideias e valores melhorariam tudo.", "sort_order": 0, "impact_o": -0.5, "impact_c": 0.5, "impact_e": 1.5, "impact_a": -1.5, "impact_n": -0.5 },
+        { "text": "Pior — a diversidade de pensamento é essencial para o progresso.", "sort_order": 1, "impact_o": 2.5, "impact_c": 0.5, "impact_e": 0, "impact_a": 2.0, "impact_n": -0.5 },
+        { "text": "Mais organizado, mas menos criativo.", "sort_order": 2, "impact_o": 0, "impact_c": 2.0, "impact_e": 0, "impact_a": 0, "impact_n": 0 },
+        { "text": "Caótico — eu sei que tenho muitas contradições.", "sort_order": 3, "impact_o": 1.0, "impact_c": -1.0, "impact_e": 0, "impact_a": 0, "impact_n": 2.0 }
+      ]
+    },
+    {
+      "category": "paradoxical",
+      "text": "Você prefere uma vida longa e mediana ou uma vida curta e extraordinária?",
+      "context": null,
+      "alternatives": [
+        { "text": "Curta e extraordinária — intensidade importa mais que duração.", "sort_order": 0, "impact_o": 2.5, "impact_c": -1.5, "impact_e": 1.5, "impact_a": 0, "impact_n": 0.5 },
+        { "text": "Longa e mediana — estabilidade e segurança são prioridades.", "sort_order": 1, "impact_o": -1.0, "impact_c": 2.0, "impact_e": -0.5, "impact_a": 0.5, "impact_n": 1.0 },
+        { "text": "Longa e extraordinária — por que não as duas?", "sort_order": 2, "impact_o": 1.5, "impact_c": 1.5, "impact_e": 1.0, "impact_a": 0, "impact_n": -1.5 },
+        { "text": "Essa pergunta me angustia — não quero pensar na morte.", "sort_order": 3, "impact_o": -1.0, "impact_c": 0, "impact_e": -0.5, "impact_a": 0, "impact_n": 2.5 }
+      ]
+    },
+    {
+      "category": "paradoxical",
+      "text": "É melhor ser amado ou respeitado?",
+      "context": "Considere que você não pode ter os dois na mesma intensidade.",
+      "alternatives": [
+        { "text": "Amado — conexões emocionais são o que dá sentido à vida.", "sort_order": 0, "impact_o": 0.5, "impact_c": 0, "impact_e": 0.5, "impact_a": 2.5, "impact_n": 0.5 },
+        { "text": "Respeitado — respeito é duradouro, amor é volátil.", "sort_order": 1, "impact_o": 0, "impact_c": 2.0, "impact_e": 0.5, "impact_a": -1.0, "impact_n": -0.5 },
+        { "text": "Respeito é uma forma de amor — a pergunta é uma falsa dicotomia.", "sort_order": 2, "impact_o": 2.5, "impact_c": 0.5, "impact_e": 0, "impact_a": 0.5, "impact_n": -0.5 },
+        { "text": "Nenhum dos dois — prefiro ser autêntico, mesmo que solitário.", "sort_order": 3, "impact_o": 1.5, "impact_c": 0, "impact_e": -2.0, "impact_a": -0.5, "impact_n": 1.0 }
+      ]
+    },
+    {
+      "category": "paradoxical",
+      "text": "Se você pudesse apagar uma memória dolorosa, mas que te ensinou algo importante, você apagaria?",
+      "context": null,
+      "alternatives": [
+        { "text": "Não — a dor me moldou e me tornou mais forte.", "sort_order": 0, "impact_o": 1.5, "impact_c": 1.5, "impact_e": 0, "impact_a": 0, "impact_n": -1.0 },
+        { "text": "Sim — prefiro paz de espírito, mesmo sem a lição.", "sort_order": 1, "impact_o": -0.5, "impact_c": -0.5, "impact_e": 0, "impact_a": 0.5, "impact_n": 1.5 },
+        { "text": "Apagaria a dor, mas gostaria de manter a lição.", "sort_order": 2, "impact_o": 2.0, "impact_c": 0.5, "impact_e": 0, "impact_a": 0.5, "impact_n": 0 },
+        { "text": "Não sei — algumas memórias são complexas demais para decidir.", "sort_order": 3, "impact_o": 0.5, "impact_c": 0, "impact_e": -0.5, "impact_a": 0, "impact_n": 2.0 }
+      ]
+    },
+    {
+      "category": "interest",
+      "text": "Qual desses campos mais desperta sua curiosidade?",
+      "context": null,
+      "alternatives": [
+        { "text": "Arte, design ou expressão criativa.", "sort_order": 0, "impact_o": 2.5, "impact_c": 0, "impact_e": 0.5, "impact_a": 0.5, "impact_n": 0 },
+        { "text": "Ciência, tecnologia ou engenharia.", "sort_order": 1, "impact_o": 1.5, "impact_c": 2.0, "impact_e": -0.5, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "Pessoas, psicologia ou relações humanas.", "sort_order": 2, "impact_o": 1.0, "impact_c": 0, "impact_e": 1.0, "impact_a": 2.0, "impact_n": 0.5 },
+        { "text": "Negócios, liderança ou empreendedorismo.", "sort_order": 3, "impact_o": 0.5, "impact_c": 1.5, "impact_e": 2.0, "impact_a": -0.5, "impact_n": -0.5 }
+      ]
+    },
+    {
+      "category": "interest",
+      "text": "Se você tivesse um ano sabático pago, como usaria?",
+      "context": null,
+      "alternatives": [
+        { "text": "Viajaria o mundo conhecendo culturas e lugares diferentes.", "sort_order": 0, "impact_o": 2.5, "impact_c": -1.0, "impact_e": 1.5, "impact_a": 0.5, "impact_n": -0.5 },
+        { "text": "Faria um curso intensivo ou escreveria algo significativo.", "sort_order": 1, "impact_o": 1.5, "impact_c": 2.0, "impact_e": -0.5, "impact_a": 0, "impact_n": 0 },
+        { "text": "Me dedicaria ao voluntariado e a ajudar comunidades.", "sort_order": 2, "impact_o": 0.5, "impact_c": 0.5, "impact_e": 1.0, "impact_a": 2.5, "impact_n": -0.5 },
+        { "text": "Finalmente descansaria e cuidaria da minha saúde mental.", "sort_order": 3, "impact_o": 0, "impact_c": 0.5, "impact_e": -1.0, "impact_a": 0.5, "impact_n": 1.5 }
+      ]
+    },
+    {
+      "category": "interest",
+      "text": "Qual tipo de conteúdo você mais consome no dia a dia?",
+      "context": null,
+      "alternatives": [
+        { "text": "Podcasts, livros ou artigos sobre temas profundos.", "sort_order": 0, "impact_o": 2.5, "impact_c": 1.0, "impact_e": -0.5, "impact_a": 0, "impact_n": 0 },
+        { "text": "Tutoriais, cursos online ou conteúdo técnico.", "sort_order": 1, "impact_o": 1.0, "impact_c": 2.5, "impact_e": 0, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "Redes sociais, memes e conteúdo de entretenimento.", "sort_order": 2, "impact_o": 0, "impact_c": -1.0, "impact_e": 2.0, "impact_a": 0.5, "impact_n": 0 },
+        { "text": "Música, filmes ou séries que mexem com as emoções.", "sort_order": 3, "impact_o": 1.5, "impact_c": -0.5, "impact_e": 0, "impact_a": 0.5, "impact_n": 1.0 }
+      ]
+    },
+    {
+      "category": "interest",
+      "text": "O que te faz perder a noção do tempo?",
+      "context": null,
+      "alternatives": [
+        { "text": "Criar algo — desenhar, programar, escrever, construir.", "sort_order": 0, "impact_o": 2.5, "impact_c": 1.0, "impact_e": -0.5, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "Resolver problemas complexos ou puzzles.", "sort_order": 1, "impact_o": 1.5, "impact_c": 2.0, "impact_e": -0.5, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "Conversas profundas com pessoas interessantes.", "sort_order": 2, "impact_o": 1.0, "impact_c": 0, "impact_e": 2.5, "impact_a": 1.5, "impact_n": -0.5 },
+        { "text": "Jogos, competições ou atividades com adrenalina.", "sort_order": 3, "impact_o": 0.5, "impact_c": -0.5, "impact_e": 2.0, "impact_a": -0.5, "impact_n": 0 }
+      ]
+    },
+    {
+      "category": "interest",
+      "text": "Se você pudesse dominar uma habilidade instantaneamente, qual seria?",
+      "context": null,
+      "alternatives": [
+        { "text": "Tocar um instrumento musical com maestria.", "sort_order": 0, "impact_o": 2.5, "impact_c": 0, "impact_e": 0.5, "impact_a": 0.5, "impact_n": -0.5 },
+        { "text": "Falar 10 idiomas fluentemente.", "sort_order": 1, "impact_o": 2.0, "impact_c": 0.5, "impact_e": 1.5, "impact_a": 1.0, "impact_n": -0.5 },
+        { "text": "Programação avançada ou engenharia.", "sort_order": 2, "impact_o": 1.0, "impact_c": 2.5, "impact_e": -0.5, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "Oratória e persuasão — influenciar pessoas com palavras.", "sort_order": 3, "impact_o": 0.5, "impact_c": 0.5, "impact_e": 2.5, "impact_a": 0, "impact_n": -0.5 }
+      ]
+    },
+    {
+      "category": "interest",
+      "text": "Qual cenário de fim de semana te parece mais atraente?",
+      "context": null,
+      "alternatives": [
+        { "text": "Visitar uma exposição de arte ou um museu.", "sort_order": 0, "impact_o": 2.5, "impact_c": 0.5, "impact_e": 0, "impact_a": 0.5, "impact_n": -0.5 },
+        { "text": "Participar de um hackathon ou workshop técnico.", "sort_order": 1, "impact_o": 1.5, "impact_c": 2.0, "impact_e": 0.5, "impact_a": 0, "impact_n": -0.5 },
+        { "text": "Ir a um festival de música ou evento ao ar livre com amigos.", "sort_order": 2, "impact_o": 0.5, "impact_c": -0.5, "impact_e": 2.5, "impact_a": 1.0, "impact_n": -0.5 },
+        { "text": "Uma tarde lendo ou meditando em um lugar tranquilo.", "sort_order": 3, "impact_o": 1.5, "impact_c": 0.5, "impact_e": -2.5, "impact_a": 0, "impact_n": 0.5 }
+      ]
+    }
+  ]
+}
