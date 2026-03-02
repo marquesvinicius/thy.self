@@ -26,6 +26,8 @@ export const env = {
   allowedOrigins: process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
     : [],
+  geminiApiKey: process.env.GEMINI_API_KEY || null,
+  llmDailyLimit: parseInt(process.env.LLM_DAILY_LIMIT, 10) || 50,
   minAnswersForAnalysis: parseInt(process.env.MIN_ANSWERS_FOR_ANALYSIS, 10) || 20,
   maxQuestionsPerSession: parseInt(process.env.MAX_QUESTIONS_PER_SESSION, 10) || 40,
 };

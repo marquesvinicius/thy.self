@@ -69,6 +69,12 @@ export default function DimensionBar({ dimension, animate = false, delay = 0 }) 
           <span className="text-foreground/60">{dimension.level}</span>
           <span>{dimension.highLabel}</span>
         </div>
+
+        {dimension.description && (
+          <p className="text-[11px] leading-relaxed text-muted/70 mt-3 pt-3 border-t border-border/50">
+            {dimension.description}
+          </p>
+        )}
       </div>
     </div>
   );

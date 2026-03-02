@@ -7,6 +7,7 @@ export async function getAllActiveQuestions() {
       id,
       text,
       context,
+      type,
       category_id,
       question_categories ( slug, name )
     `)
@@ -23,6 +24,7 @@ export async function getQuestionsWithAlternatives(questionIds) {
       id,
       text,
       context,
+      type,
       question_categories ( slug, name ),
       alternatives ( id, text, sort_order )
     `)

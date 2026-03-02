@@ -54,6 +54,7 @@ async function seed() {
         category_id: categoryId,
         text: q.text,
         context: q.context,
+        type: q.type || 'multiple_choice'
       })
       .select()
       .single();

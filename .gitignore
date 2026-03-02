@@ -56,3 +56,9 @@ next-env.d.ts
 # Supabase (if used locally)
 supabase/.branches
 supabase/.temp
+
+# Datasets and Test Scripts
+*.csv
+SWCPQ-Features-Aggregated-Dataset-*/
+test-*.js
+test-*.txt

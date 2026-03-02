@@ -3,26 +3,28 @@ import { getAlternativeWithImpacts } from '../database/queries/question.queries.
 import { AppError } from '../utils/AppError.js';
 import { MIN_ANSWERS_FOR_ANALYSIS } from '../config/constants.js';
 
-export async function recordAnswer(sessionId, questionId, alternativeId) {
-  // Validate that the alternative belongs to the question
-  const alternative = await getAlternativeWithImpacts(alternativeId);
+export async function recordAnswer(sessionId, questionId, alternativeId, answerType = 'alternative_id', rankPosition = null, sliderValue = null, userObservation = null) {
+  // Validate that the alternative belongs to the question only if using standard alternatives
+  if (answerType === 'alternative_id' && alternativeId) {
+    const alternative = await getAlternativeWithImpacts(alternativeId);
 
-  if (!alternative) {
-    throw new AppError('Alternative not found.', 404, 'NOT_FOUND');
-  }
+    if (!alternative) {
+      throw new AppError('Alternative not found.', 404, 'NOT_FOUND');
+    }
 
-  if (alternative.question_id !== questionId) {
-    throw new AppError(
-      'Alternative does not belong to the specified question.',
-      400,
-      'VALIDATION_ERROR'
-    );
+    if (alternative.question_id !== questionId) {
+      throw new AppError(
+        'Alternative does not belong to the specified question.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
   }
 
   // Try to insert the answer (UNIQUE constraint handles duplicates)
   let answer;
   try {
-    answer = await createAnswerQuery(sessionId, questionId, alternativeId);
+    answer = await createAnswerQuery(sessionId, questionId, alternativeId, answerType, rankPosition, sliderValue, userObservation);
   } catch (err) {
     if (err.code === '23505') {
       throw new AppError(
@@ -41,6 +43,7 @@ export async function recordAnswer(sessionId, questionId, alternativeId) {
     session_id: sessionId,
     question_id: questionId,
     alternative_id: alternativeId,
+    answer_type: answerType,
     answered_at: answer.answered_at,
     progress: {
       answered: totalAnswered,

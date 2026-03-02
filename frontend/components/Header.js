@@ -9,13 +9,13 @@ export default function Header() {
       <Logo size="sm" />
       <nav className="flex gap-6 text-xs uppercase tracking-widest text-muted">
         <Link href="/" className="hover:text-foreground transition-colors">
-          home
+          início
         </Link>
         <Link href="/about" className="hover:text-foreground transition-colors">
-          about
+          sobre
         </Link>
         <Link href="/method" className="hover:text-foreground transition-colors">
-          method
+          método
         </Link>
       </nav>
     </header>

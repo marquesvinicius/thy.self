@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSession } from '@/services/api';
 import Logo from '@/components/Logo';
+import MysticBackground from '@/components/MysticBackground';
 
 export default function Home() {
   const router = useRouter();
@@ -23,7 +24,9 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-6">
-      <div className="text-center space-y-8 animate-fade-in">
+      <MysticBackground />
+
+      <div className="relative z-[1] text-center space-y-8 animate-fade-in">
         <Logo size="xl" />
 
         <p className="text-xs md:text-sm uppercase tracking-[0.3em] text-muted">
@@ -41,7 +44,7 @@ export default function Home() {
         </div>
       </div>
 
-      <footer className="absolute bottom-6 text-[10px] uppercase tracking-widest text-muted">
+      <footer className="absolute bottom-6 text-[10px] uppercase tracking-widest text-muted z-[1]">
         thy.self &mdash; big five ocean
       </footer>
     </main>

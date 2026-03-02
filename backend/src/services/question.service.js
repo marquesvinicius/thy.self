@@ -59,16 +59,27 @@ export async function getQuestions(sessionId, count = 10) {
   const questionsWithAlts = await getQuestionsWithAlternatives(batchIds);
 
   // Shuffle alternatives within each question
-  const formatted = questionsWithAlts.map(q => ({
-    id: q.id,
-    text: q.text,
-    context: q.context,
-    category: q.question_categories?.slug,
-    alternatives: shuffle(q.alternatives).map(a => ({
-      id: a.id,
-      text: a.text,
-    })),
-  }));
+  const formatted = questionsWithAlts.map(q => {
+    // Determine dynamic properties based on question type
+    let alternatives = [];
+    if (q.type !== 'slider' && q.type !== 'reflection') {
+      alternatives = shuffle(q.alternatives).map(a => ({
+        id: a.id,
+        text: a.text,
+      }));
+    }
+
+    return {
+      id: q.id,
+      text: q.text,
+      context: q.context,
+      category: q.question_categories?.slug,
+      type: q.type || 'multiple_choice',
+      lowLabel: q.type === 'slider' ? 'Discordo Totalmente' : undefined,
+      highLabel: q.type === 'slider' ? 'Concordo Totalmente' : undefined,
+      alternatives,
+    };
+  });
 
   return {
     questions: shuffle(formatted),

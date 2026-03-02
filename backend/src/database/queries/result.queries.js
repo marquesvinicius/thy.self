@@ -1,6 +1,6 @@
 import { supabase } from '../../config/supabase.js';
 
-export async function createResult(sessionId, profile) {
+export async function createResult(sessionId, profile, consistency = null, llmInterpretation = null) {
   const { data, error } = await supabase
     .from('results')
     .upsert({
@@ -12,6 +12,8 @@ export async function createResult(sessionId, profile) {
       score_n: profile.scores.N,
       answer_count: profile.answerCount,
       raw_impacts: profile.rawImpacts,
+      consistency,
+      llm_interpretation: llmInterpretation,
     }, { onConflict: 'session_id' })
     .select()
     .single();
