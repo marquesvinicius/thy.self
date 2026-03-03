@@ -5,7 +5,11 @@ export default function ReflectionInput({ question, onSelect, disabled }) {
 
     const handleChange = (e) => {
         setText(e.target.value);
-        onSelect({ user_observation: e.target.value, answer_type: 'reflection' });
+        onSelect({
+            user_observation: e.target.value,
+            answer_type: 'reflection',
+            alternative_id: question.alternatives?.[0]?.id
+        });
     };
 
     return (

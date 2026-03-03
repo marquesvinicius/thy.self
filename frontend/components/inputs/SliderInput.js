@@ -1,75 +1,128 @@
-import { useState } from 'react';
+'use client';
 
-const LIKERT_OPTIONS = [
-    { value: 0, label: 'Discordo Totalmente' },
-    { value: 25, label: 'Discordo' },
-    { value: 50, label: 'Neutro' },
-    { value: 75, label: 'Concordo' },
-    { value: 100, label: 'Concordo Totalmente' }
+import { useMemo, useState } from 'react';
+
+const SCALE_LABELS = [
+  'discordo totalmente',
+  'discordo',
+  'neutro',
+  'concordo',
+  'concordo totalmente',
 ];
 
-export default function SliderInput({ question, onSelect, disabled }) {
-    const [value, setValue] = useState(50); // Padrão: Neutro
-    const [dirty, setDirty] = useState(false);
+function getIndexFromValue(value) {
+  return Math.round(value / 25);
+}
 
-    const handleChange = (e) => {
-        const val = Number(e.target.value);
-        setValue(val);
-        setDirty(true);
-        onSelect({
-            slider_value: val,
-            answer_type: 'slider',
-            alternative_id: question.alternatives?.[0]?.id
-        });
+export default function SliderInput(props) {
+  const {
+    onSelect,
+    onSubmit,
+    onConfirm,
+    disabled = false,
+    isSubmitting = false,
+    submitting = false,
+    initialValue = 50,
+  } = props;
+
+  const [value, setValue] = useState(initialValue);
+  const activeIndex = useMemo(() => getIndexFromValue(value), [value]);
+  const busy = disabled || isSubmitting || submitting;
+
+  async function handleConfirm() {
+    const payload = {
+      alternative_id: null,
+      slider_value: value,
+      text_value: null,
     };
 
-    return (
-        <div className="w-full space-y-12 mt-8 mb-4">
-            <div className="relative pt-6 pb-2">
-                <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="25"
-                    value={value}
-                    onChange={handleChange}
-                    disabled={disabled}
-                    className={`absolute z-20 w-full h-2 opacity-0 cursor-pointer ${disabled ? 'opacity-0 cursor-not-allowed' : ''}`}
-                />
+    if (typeof onSubmit === 'function') {
+      await onSubmit(payload);
+      return;
+    }
 
-                {/* Custom Track Background */}
-                <div className="absolute top-1/2 left-0 w-full h-1 bg-foreground/20 rounded-full -translate-y-1/2 pointer-events-none z-0"></div>
+    if (typeof onConfirm === 'function') {
+      await onConfirm(payload);
+      return;
+    }
 
-                {/* Custom Track Progress */}
-                <div
-                    className="absolute top-1/2 left-0 h-1 bg-foreground rounded-full -translate-y-1/2 pointer-events-none z-0 transition-all duration-150"
-                    style={{ width: `${value}%` }}
-                ></div>
+    if (typeof onSelect === 'function') {
+      await onSelect(payload);
+    }
+  }
 
-                {/* Custom Thumb Element */}
-                <div
-                    className="absolute top-1/2 w-8 h-8 -mt-4 -ml-4 rounded-full border-2 border-foreground bg-background flex flex-col items-center justify-center pointer-events-none transition-all duration-150 shadow-[0_0_15px_rgba(255,255,255,0.1)] z-10"
-                    style={{ left: `${value}%` }}
-                >
-                    <div className="w-2 h-2 bg-foreground rounded-full"></div>
-                </div>
+  return (
+    <div className="w-full max-w-[620px] mx-auto space-y-8">
+      <div className="px-2">
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={25}
+          value={value}
+          onChange={(e) => setValue(Number(e.target.value))}
+          disabled={busy}
+          className="thy-slider w-full"
+          aria-label="Escala de concordância"
+        />
+      </div>
 
-                {/* Markers and Labels */}
-                <div className="absolute top-8 left-0 w-full flex justify-between px-0 pointer-events-none z-0 mt-2">
-                    {LIKERT_OPTIONS.map((opt) => (
-                        <div key={opt.value} className="relative flex flex-col items-center" style={{ width: 0 }}>
-                            <div className="absolute w-1 h-2 bg-foreground/40 -mt-6 rounded-full"></div>
-                            <span
-                                className={`absolute top-0 text-[9px] sm:text-[10px] uppercase tracking-widest whitespace-nowrap transition-colors ${value === opt.value ? 'text-foreground font-bold' : 'text-muted'
-                                    }`}
-                                style={{ transform: 'translateX(-50%)' }}
-                            >
-                                {opt.label}
-                            </span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
+      <div className="grid grid-cols-5 gap-2 text-[10px] uppercase tracking-[0.18em] text-muted">
+        {SCALE_LABELS.map((label, index) => (
+          <span
+            key={label}
+            className={`text-center leading-tight transition-colors ${
+              activeIndex === index ? 'text-foreground font-semibold' : ''
+            }`}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+
+      <div className="pt-2 text-center">
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={busy}
+          className="min-w-[240px] border border-border px-8 py-3 text-xs uppercase tracking-[0.35em] hover:border-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {busy ? 'confirmando...' : 'confirmar'}
+        </button>
+      </div>
+
+      <style jsx>{`
+        .thy-slider {
+          -webkit-appearance: none;
+          appearance: none;
+          height: 4px;
+          border-radius: 999px;
+          background: linear-gradient(to right, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.45));
+          outline: none;
+        }
+
+        .thy-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          border: 2px solid rgba(255, 255, 255, 0.95);
+          background: #050505;
+          cursor: pointer;
+          box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+        }
+
+        .thy-slider::-moz-range-thumb {
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          border: 2px solid rgba(255, 255, 255, 0.95);
+          background: #050505;
+          cursor: pointer;
+          box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+        }
+      `}</style>
+    </div>
+  );
 }

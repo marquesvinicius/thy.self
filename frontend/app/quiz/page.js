@@ -83,7 +83,7 @@ export default function Quiz() {
     setAnswers(prev => ({ ...prev, [questionId]: alternativeId }));
 
     const q = questions.find((x) => x.id === questionId);
-    if (q && (!q.type || q.type === 'multiple_choice' || q.type === 'binary')) {
+    if (q && (!q.type || q.type === 'multiple_choice' || q.type === 'binary' || q.type === 'slider')) {
       const immediateAnswers = { ...answers, [questionId]: alternativeId };
       if (Object.keys(immediateAnswers).length === questions.length) {
         handleSubmitBlock(immediateAnswers);
@@ -93,7 +93,8 @@ export default function Quiz() {
 
   async function handleSubmitBlock(immediateAnswers = null) {
     const submitData = (immediateAnswers && !immediateAnswers.nativeEvent) ? immediateAnswers : answers;
-    const readyToSubmit = questions.length > 0 && Object.keys(submitData).length === questions.length;
+    const validAnswersKeys = Object.keys(submitData).filter(key => submitData[key]?.answer_type !== 'ranking_incomplete');
+    const readyToSubmit = questions.length > 0 && validAnswersKeys.length === questions.length;
 
     if (submitting || !readyToSubmit) return;
     setSubmitting(true);
@@ -114,8 +115,8 @@ export default function Quiz() {
       let currentProgress = progress;
       for (const q of questions) {
         const payload = submitData[q.id];
-        // Skip submission if payload is missing (edge cases for reflections)
-        if (!payload) continue;
+        // Skip submission if payload is missing or incomplete
+        if (!payload || payload.answer_type === 'ranking_incomplete') continue;
 
         const res = await submitAnswer(sessionId, q.id, payload);
         currentProgress = {
@@ -213,63 +214,68 @@ export default function Quiz() {
           <div className={`flex-1 flex flex-col items-center justify-center p-6 md:p-10 overflow-hidden ${phaseClasses[phase]}`}>
             <MysticEyesOverlay />
 
-            <div className="w-full max-w-2xl">
+            <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-center">
               {questions.map((q) => (
-                <div key={q.id} className="space-y-10" style={phase === 'entering' ? { animationDelay: `0ms`, animationFillMode: 'both' } : undefined}>
-                  <div className="space-y-3 text-center md:text-left">
+                <div key={q.id} className="w-full flex flex-col md:grid md:grid-cols-2 gap-10 md:gap-20 items-center justify-center relative z-10" style={phase === 'entering' ? { animationDelay: `0ms`, animationFillMode: 'both' } : undefined}>
+
+                  {/* Left Side: Question */}
+                  <div className="w-full space-y-6 md:pr-10 md:border-r border-border/50 text-center md:text-left">
                     <span className="text-[10px] uppercase tracking-widest text-muted">{q.category}</span>
-                    <h2 className="text-lg md:text-xl lg:text-2xl font-bold leading-tight tracking-tight">{q.text}</h2>
-                    {q.context && <p className="text-xs text-muted leading-relaxed">{q.context}</p>}
+                    <h2 className="text-xl md:text-3xl lg:text-4xl font-bold leading-tight tracking-tight">{q.text}</h2>
+                    {q.context && <p className="text-sm text-muted leading-relaxed">{q.context}</p>}
                   </div>
 
-                  <div className="mt-6 w-full flex justify-center">
-                    {q.type === 'slider' && (
-                      <SliderInput question={q} currentValue={answers[q.id]} onSelect={(val) => handleSelect(q.id, val)} disabled={submitting} />
-                    )}
-                    {q.type === 'binary' && (
-                      <BinaryInput question={q} currentValue={answers[q.id]} onSelect={(val) => handleSelect(q.id, val)} disabled={submitting} />
-                    )}
-                    {q.type === 'reflection' && (
-                      <ReflectionInput question={q} currentValue={answers[q.id]} onSelect={(val) => handleSelect(q.id, val)} disabled={submitting} />
-                    )}
-                    {q.type === 'ranking' && (
-                      <DragRankInput question={q} currentValue={answers[q.id]} onSelect={(val) => handleSelect(q.id, val)} disabled={submitting} />
-                    )}
-                    {(!q.type || q.type === 'multiple_choice') && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
-                        {q.alternatives.map((alt) => {
-                          const isSelected = answers[q.id]?.alternative_id === alt.id || answers[q.id] === alt.id;
-                          return (
-                            <button
-                              key={alt.id}
-                              onClick={() => handleSelect(q.id, { alternative_id: alt.id, answer_type: 'alternative_id' })}
-                              disabled={submitting}
-                              className={`text-left border px-5 py-3 text-sm leading-relaxed transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${isSelected
-                                ? 'bg-foreground/10 border-foreground shadow-[0_0_15px_rgba(255,255,255,0.1)]'
-                                : 'border-border hover:border-foreground/50 hover:bg-foreground/5'
-                                }`}
-                            >
-                              {alt.text}
-                            </button>
-                          );
-                        })}
+                  {/* Right Side: Options & Submit */}
+                  <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center space-y-12">
+                    <div className="w-full flex justify-center">
+                      {q.type === 'slider' && (
+                        <SliderInput question={q} currentValue={answers[q.id]} onSelect={(val) => handleSelect(q.id, val)} disabled={submitting} />
+                      )}
+                      {q.type === 'binary' && (
+                        <BinaryInput question={q} currentValue={answers[q.id]} onSelect={(val) => handleSelect(q.id, val)} disabled={submitting} />
+                      )}
+                      {q.type === 'reflection' && (
+                        <ReflectionInput question={q} currentValue={answers[q.id]} onSelect={(val) => handleSelect(q.id, val)} disabled={submitting} />
+                      )}
+                      {q.type === 'ranking' && (
+                        <DragRankInput question={q} currentValue={answers[q.id]} onSelect={(val) => handleSelect(q.id, val)} disabled={submitting} />
+                      )}
+                      {(!q.type || q.type === 'multiple_choice') && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                          {q.alternatives.map((alt) => {
+                            const isSelected = answers[q.id]?.alternative_id === alt.id || answers[q.id] === alt.id;
+                            return (
+                              <button
+                                key={alt.id}
+                                onClick={() => handleSelect(q.id, { alternative_id: alt.id, answer_type: 'alternative_id' })}
+                                disabled={submitting}
+                                className={`text-left border px-5 py-3 text-sm leading-relaxed transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${isSelected
+                                  ? 'bg-foreground/10 border-foreground shadow-[0_0_15px_rgba(255,255,255,0.1)]'
+                                  : 'border-border hover:border-foreground/50 hover:bg-foreground/5'
+                                  }`}
+                              >
+                                {alt.text}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {(!(!q.type || q.type === 'multiple_choice' || q.type === 'binary' || q.type === 'slider')) && (
+                      <div className="flex justify-center w-full">
+                        <button
+                          onClick={() => handleSubmitBlock()}
+                          disabled={!isBlockComplete || submitting}
+                          className="border border-foreground px-12 py-4 text-xs uppercase tracking-[0.3em] transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-foreground hover:text-background"
+                        >
+                          {submitting ? 'Enviando...' : 'Confirmar'}
+                        </button>
                       </div>
                     )}
                   </div>
                 </div>
               ))}
-
-              {questions[0] && (!(!questions[0].type || questions[0].type === 'multiple_choice' || questions[0].type === 'binary')) && (
-                <div className="flex justify-center pt-12 mt-4">
-                  <button
-                    onClick={() => handleSubmitBlock()}
-                    disabled={!isBlockComplete || submitting}
-                    className="border border-foreground px-12 py-4 text-xs uppercase tracking-[0.3em] transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-foreground hover:text-background"
-                  >
-                    {submitting ? 'Enviando...' : 'Confirmar'}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         ) : (

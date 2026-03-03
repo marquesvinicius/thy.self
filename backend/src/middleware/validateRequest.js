@@ -13,8 +13,10 @@ export function validateRequest(schema) {
     for (const [field, rules] of Object.entries(schema)) {
       const value = req.body[field];
 
-      if (rules.required && (value === undefined || value === null || value === '')) {
-        errors.push(`Field '${field}' is required.`);
+      if (value === undefined || value === null || value === '') {
+        if (rules.required) {
+          errors.push(`Field '${field}' is required.`);
+        }
         continue;
       }
 

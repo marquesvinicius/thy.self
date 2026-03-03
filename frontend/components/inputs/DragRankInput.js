@@ -29,7 +29,11 @@ export default function DragRankInput({ question, currentValue, onSelect, disabl
                     answer_type: 'ranking'
                 });
             } else {
-                onSelect(null);
+                onSelect({
+                    alternative_id: alternatives[0]?.id,
+                    rank_position: null,
+                    answer_type: 'ranking_incomplete'
+                });
             }
 
             return nextRanked;

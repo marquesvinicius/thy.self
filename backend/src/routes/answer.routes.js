@@ -10,7 +10,7 @@ router.post(
   validateRequest({
     session_id: { required: true, type: 'string' },
     question_id: { required: true, type: 'number' },
-    alternative_id: { required: true, type: 'number' },
+    alternative_id: { required: false, type: 'number' },
   }),
   sessionGuard,
   handleAnswer

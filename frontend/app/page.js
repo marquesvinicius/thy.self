@@ -6,11 +6,35 @@ import { createSession } from '@/services/api';
 import Logo from '@/components/Logo';
 import MysticBackground from '@/components/MysticBackground';
 
+const QUESTION_TYPE_GUIDE = [
+  {
+    key: 'ranking',
+    title: 'Ordenacao de prioridades',
+    desc: 'Clique nas opcoes na ordem da sua preferencia. O primeiro clique vira sua maior prioridade.',
+  },
+  {
+    key: 'slider',
+    title: 'Nivel de concordancia',
+    desc: 'Deslize a escala para indicar o quanto voce concorda com a afirmacao e confirme sua resposta.',
+  },
+  {
+    key: 'binary',
+    title: 'Escolha extrema',
+    desc: 'Voce escolhe entre duas alternativas sem meio-termo. Selecione a que mais se aproxima de voce.',
+  },
+  {
+    key: 'reflection',
+    title: 'Reflexao livre',
+    desc: 'Escreva com suas palavras o que pensa sobre o tema. Quanto mais autentico, melhor a leitura final.',
+  },
+];
+
 export default function Home() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
-  async function handleStart() {
+  async function handleStartQuiz() {
     setLoading(true);
     try {
       const session = await createSession();
@@ -22,9 +46,53 @@ export default function Home() {
     }
   }
 
+  function handleStartClick() {
+    if (loading) return;
+    setShowGuide(true);
+  }
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-6">
-      <MysticBackground />
+      <MysticBackground mode="home" />
+
+      {showGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-sm p-4">
+          <div className="w-full max-w-3xl border border-foreground/25 bg-background p-6 md:p-8 space-y-6">
+            <div className="space-y-2">
+              <h2 className="text-sm md:text-base uppercase tracking-[0.2em]">Como responder o quiz</h2>
+              <p className="text-xs md:text-sm text-muted">
+                O quiz usa 4 formatos de pergunta. Leia rapido e siga pelo instinto.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {QUESTION_TYPE_GUIDE.map((item) => (
+                <section key={item.key} className="border border-border/80 p-4 space-y-2">
+                  <h3 className="text-[11px] uppercase tracking-[0.2em]">{item.title}</h3>
+                  <p className="text-xs text-muted leading-relaxed">{item.desc}</p>
+                </section>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowGuide(false)}
+                disabled={loading}
+                className="border border-border px-6 py-2 text-[11px] uppercase tracking-[0.2em] hover:border-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                voltar
+              </button>
+              <button
+                onClick={handleStartQuiz}
+                disabled={loading}
+                className="border border-foreground px-6 py-2 text-[11px] uppercase tracking-[0.2em] hover:bg-foreground hover:text-background transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {loading ? 'iniciando...' : 'entendi, comecar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="relative z-[1] text-center space-y-8 animate-fade-in">
         <Logo size="xl" />
@@ -35,7 +103,7 @@ export default function Home() {
 
         <div className="pt-8">
           <button
-            onClick={handleStart}
+            onClick={handleStartClick}
             disabled={loading}
             className="border border-foreground px-10 py-3 text-xs uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
           >

@@ -10,6 +10,7 @@ import VibeHero from '@/components/VibeHero';
 import CulturalCard from '@/components/CulturalCard';
 import NarrativeBlock from '@/components/NarrativeBlock';
 import DimensionBar from '@/components/DimensionBar';
+import WorksBlock from '@/components/WorksBlock';
 
 const MAX_REGENS = 3;
 
@@ -156,6 +157,11 @@ function ResultContent() {
                   />
                 ))}
               </div>
+            )}
+
+            {/* 2b. Obras culturais recomendadas */}
+            {llmInterpretation.obras_culturais && llmInterpretation.obras_culturais.length > 0 && (
+              <WorksBlock works={llmInterpretation.obras_culturais} />
             )}
 
             {/* 3. Botão de re-geração com contador */}
