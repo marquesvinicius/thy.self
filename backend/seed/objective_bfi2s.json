@@ -1,0 +1,49 @@
+{
+  "instrument": "BFI-2-S",
+  "source": "Soto, C. J. & John, O. P. (2017). The next Big Five Inventory (BFI-2): Developing and assessing a hierarchical model with 15 facets to enhance bandwidth, fidelity, and predictive power. Journal of Personality and Social Psychology, 113(1), 117–143.",
+  "stem": "Eu sou alguém que…",
+  "category_slug": "objective_bfi2s",
+  "likert_scale": [
+    { "sort_order": 0, "text": "Discordo totalmente", "value": -2 },
+    { "sort_order": 1, "text": "Discordo",            "value": -1 },
+    { "sort_order": 2, "text": "Neutro",              "value":  0 },
+    { "sort_order": 3, "text": "Concordo",            "value":  1 },
+    { "sort_order": 4, "text": "Concordo totalmente", "value":  2 }
+  ],
+  "items": [
+    { "bfi2s_id": "E1",  "trait": "E", "reverse_key": false, "statement": "é extrovertido e sociável." },
+    { "bfi2s_id": "E6",  "trait": "E", "reverse_key": true,  "statement": "tende a ser quieto." },
+    { "bfi2s_id": "E11", "trait": "E", "reverse_key": false, "statement": "tem postura de liderança e assume a frente em grupos." },
+    { "bfi2s_id": "E16", "trait": "E", "reverse_key": true,  "statement": "é menos ativo do que as outras pessoas." },
+    { "bfi2s_id": "E21", "trait": "E", "reverse_key": false, "statement": "é cheio de energia." },
+    { "bfi2s_id": "E26", "trait": "E", "reverse_key": true,  "statement": "prefere que os outros tomem as decisões." },
+
+    { "bfi2s_id": "A2",  "trait": "A", "reverse_key": false, "statement": "é compassivo e tem o coração mole." },
+    { "bfi2s_id": "A7",  "trait": "A", "reverse_key": true,  "statement": "às vezes é rude com os outros." },
+    { "bfi2s_id": "A12", "trait": "A", "reverse_key": true,  "statement": "pode ser frio e indiferente." },
+    { "bfi2s_id": "A17", "trait": "A", "reverse_key": true,  "statement": "tende a encontrar defeitos nos outros." },
+    { "bfi2s_id": "A22", "trait": "A", "reverse_key": false, "statement": "é respeitoso e trata os outros com consideração." },
+    { "bfi2s_id": "A27", "trait": "A", "reverse_key": false, "statement": "confia nas outras pessoas." },
+
+    { "bfi2s_id": "C3",  "trait": "C", "reverse_key": true,  "statement": "tende a ser desorganizado." },
+    { "bfi2s_id": "C8",  "trait": "C", "reverse_key": true,  "statement": "tende a ser preguiçoso." },
+    { "bfi2s_id": "C13", "trait": "C", "reverse_key": false, "statement": "é confiável e pode sempre ser contado." },
+    { "bfi2s_id": "C18", "trait": "C", "reverse_key": false, "statement": "mantém as coisas limpas e arrumadas." },
+    { "bfi2s_id": "C23", "trait": "C", "reverse_key": false, "statement": "é persistente e trabalha até terminar o que começa." },
+    { "bfi2s_id": "C28", "trait": "C", "reverse_key": true,  "statement": "às vezes age de forma irresponsável." },
+
+    { "bfi2s_id": "N4",  "trait": "N", "reverse_key": false, "statement": "tem oscilações de humor." },
+    { "bfi2s_id": "N9",  "trait": "N", "reverse_key": true,  "statement": "sente-se seguro e confortável consigo mesmo." },
+    { "bfi2s_id": "N14", "trait": "N", "reverse_key": true,  "statement": "é emocionalmente estável e não se abala facilmente." },
+    { "bfi2s_id": "N19", "trait": "N", "reverse_key": false, "statement": "pode ficar tenso com facilidade." },
+    { "bfi2s_id": "N24", "trait": "N", "reverse_key": true,  "statement": "raramente se sente ansioso ou com medo." },
+    { "bfi2s_id": "N29", "trait": "N", "reverse_key": false, "statement": "se preocupa bastante." },
+
+    { "bfi2s_id": "O5",  "trait": "O", "reverse_key": false, "statement": "é fascinado por arte, música ou literatura." },
+    { "bfi2s_id": "O10", "trait": "O", "reverse_key": true,  "statement": "tem pouca criatividade." },
+    { "bfi2s_id": "O15", "trait": "O", "reverse_key": false, "statement": "é original e traz ideias novas." },
+    { "bfi2s_id": "O20", "trait": "O", "reverse_key": true,  "statement": "tem pouco interesse por ideias abstratas." },
+    { "bfi2s_id": "O25", "trait": "O", "reverse_key": false, "statement": "valoriza a arte e a beleza." },
+    { "bfi2s_id": "O30", "trait": "O", "reverse_key": true,  "statement": "tem dificuldade para imaginar coisas." }
+  ]
+}

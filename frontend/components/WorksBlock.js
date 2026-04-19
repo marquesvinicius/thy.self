@@ -19,9 +19,9 @@ export default function WorksBlock({ works = [], delay = 1200 }) {
         opacity: visible ? 1 : 0,
         transform: visible ? 'translateY(0)' : 'translateY(12px)',
       }}
-    >
+      >
       <p className="text-[10px] uppercase tracking-[0.4em] text-muted mb-4">
-        obras culturais
+        obras culturais em destaque
       </p>
       <div className="space-y-3">
         {works.map((work, index) => (

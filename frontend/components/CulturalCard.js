@@ -1,28 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-
-export default function CulturalCard({ reference, index = 0, animate = true }) {
-  const [visible, setVisible] = useState(!animate);
-
-  useEffect(() => {
-    if (!animate) {
-      setVisible(true);
-      return;
-    }
-    const timer = setTimeout(() => setVisible(true), 400 + index * 200);
-    return () => clearTimeout(timer);
-  }, [animate, index]);
-
+export default function CulturalCard({
+  reference,
+  index = 0,
+  animate = true,
+  onMoreDetails = null,
+  detailsLoading = false,
+}) {
   const { categoria, nome, motivo, image_url } = reference;
+  const cardAnimationStyle = animate
+    ? {
+      animationDelay: `${400 + index * 200}ms`,
+      animationFillMode: 'both',
+    }
+    : undefined;
 
   return (
     <div
-      className="border border-border overflow-hidden transition-all duration-700 ease-out"
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(20px)',
-      }}
+      className={`border border-border overflow-hidden transition-all duration-700 ease-out ${animate ? 'animate-fade-in-up' : ''}`}
+      style={cardAnimationStyle}
     >
       {/* Image area */}
       <div className="aspect-[4/3] bg-surface relative overflow-hidden">
@@ -57,6 +53,15 @@ export default function CulturalCard({ reference, index = 0, animate = true }) {
         <p className="text-[11px] leading-relaxed text-muted">
           {motivo}
         </p>
+        {onMoreDetails && (
+          <button
+            onClick={onMoreDetails}
+            disabled={detailsLoading}
+            className="text-[10px] uppercase tracking-[0.22em] text-foreground/70 hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {detailsLoading ? 'gerando detalhes...' : 'mais detalhes'}
+          </button>
+        )}
       </div>
     </div>
   );

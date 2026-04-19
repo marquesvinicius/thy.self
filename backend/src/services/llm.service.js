@@ -9,7 +9,50 @@ const LLM_TIMEOUT = 60000;
 const MODEL_NAME = 'gemini-2.5-flash-lite';
 const MAX_RETRIES = 2;
 const RETRY_BASE_MS = 800;
-const INTERPRETATION_SCHEMA_VERSION = '1.1.0';
+const INTERPRETATION_SCHEMA_VERSION = '1.3.0';
+const DETAIL_SCHEMA_VERSION = '1.0.0';
+const TARGET_WORK_TYPES = ['serie', 'filme', 'anime'];
+
+const WORK_TYPE_ALIASES = new Map([
+  ['serie', 'serie'],
+  ['series', 'serie'],
+  ['seriado', 'serie'],
+  ['tv', 'serie'],
+  ['show', 'serie'],
+  ['filme', 'filme'],
+  ['movie', 'filme'],
+  ['cinema', 'filme'],
+  ['anime', 'anime'],
+  ['animacao', 'anime'],
+  ['animacao japonesa', 'anime'],
+]);
+
+const WORK_FALLBACKS = {
+  serie: [
+    { titulo: 'Breaking Bad', autor_ou_artista: 'Vince Gilligan' },
+    { titulo: 'Game of Thrones', autor_ou_artista: 'David Benioff e D. B. Weiss' },
+    { titulo: 'Succession', autor_ou_artista: 'Jesse Armstrong' },
+  ],
+  filme: [
+    { titulo: 'Oppenheimer', autor_ou_artista: 'Christopher Nolan' },
+    { titulo: 'Duna: Parte Dois', autor_ou_artista: 'Denis Villeneuve' },
+    { titulo: 'Bastardos Inglórios', autor_ou_artista: 'Quentin Tarantino' },
+  ],
+  anime: [
+    { titulo: 'Attack on Titan', autor_ou_artista: 'Hajime Isayama' },
+    { titulo: 'Jujutsu Kaisen', autor_ou_artista: 'Gege Akutami' },
+    { titulo: 'Demon Slayer', autor_ou_artista: 'Koyoharu Gotouge' },
+  ],
+};
+
+const REFERENCE_FALLBACKS = [
+  { categoria: 'Diretor', nome: 'Christopher Nolan', wiki_query: 'Christopher_Nolan' },
+  { categoria: 'Diretor', nome: 'Quentin Tarantino', wiki_query: 'Quentin_Tarantino' },
+  { categoria: 'Criador de Série', nome: 'Vince Gilligan', wiki_query: 'Vince_Gilligan' },
+  { categoria: 'Ator', nome: 'Cillian Murphy', wiki_query: 'Cillian_Murphy' },
+  { categoria: 'Personagem', nome: 'Walter White', wiki_query: 'Walter_White' },
+  { categoria: 'Personagem', nome: 'Daenerys Targaryen', wiki_query: 'Daenerys_Targaryen' },
+];
 
 let genAI = null;
 
@@ -26,84 +69,468 @@ function sleep(ms) {
 }
 
 function normalizeToken(value) {
-  return value
+  return `${value || ''}`
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
 }
 
-function buildSystemInstruction() {
-  return `Você é um analista comportamental e especialista em cultura, história e ficção.
-Analise o perfil Big Five de um usuário e gere paralelos culturais personalizados.
-Responda EXCLUSIVAMENTE com JSON válido, sem markdown, sem blocos de código, sem explicações extras.
-Todas as respostas devem ser em português brasileiro.
-Cada referência deve incluir o nome real (buscável na Wikipedia) e a categoria da referência.
-As categorias devem ser DIVERSAS entre si — não repita o mesmo tipo (ex: não coloque dois músicos).
-Priorize referências que o usuário reconheceria com base nos seus interesses declarados.
-Inclua também recomendações de obras culturais reais (filme, livro e música), sempre uma de cada tipo.`;
+function sanitizeString(value) {
+  return typeof value === 'string' ? value.trim() : '';
 }
 
-function buildUserPrompt(profile, consistency, interestSignals, archetype) {
+function uniqueByNormalized(items, getKey) {
+  const seen = new Set();
+  const unique = [];
+
+  for (const item of items) {
+    const rawKey = getKey(item);
+    const key = normalizeToken(rawKey);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(item);
+  }
+
+  return unique;
+}
+
+function normalizeStringList(values) {
+  if (!Array.isArray(values)) return [];
+  return uniqueByNormalized(
+    values
+      .map(v => sanitizeString(v))
+      .filter(Boolean),
+    item => item
+  );
+}
+
+function normalizeWorkType(value) {
+  const normalized = normalizeToken(value);
+  return WORK_TYPE_ALIASES.get(normalized) || '';
+}
+
+function getTopTraitNames(profile) {
+  if (!profile?.scores || typeof profile.scores !== 'object') return [];
+
+  return Object.entries(profile.scores)
+    .filter(([, score]) => Number.isFinite(Number(score)))
+    .sort((a, b) => Number(b[1]) - Number(a[1]))
+    .slice(0, 2)
+    .map(([key]) => DIMENSIONS.find(dim => dim.key === key)?.name || key);
+}
+
+function buildTraitHook(profile) {
+  const topTraits = getTopTraitNames(profile);
+  if (topTraits.length === 0) return 'seu perfil psicológico';
+  if (topTraits.length === 1) return `seu traço de ${topTraits[0]}`;
+  return `seus traços de ${topTraits[0]} e ${topTraits[1]}`;
+}
+
+function buildWorkReason(workType, profile, archetype) {
+  const traitHook = buildTraitHook(profile);
+  const archetypeHook = archetype?.name ? ` e a energia parecida com ${archetype.name}` : '';
+
+  if (workType === 'serie') {
+    return `Conecta com ${traitHook}, com conflitos e decisões que refletem seu modo de agir${archetypeHook}.`;
+  }
+  if (workType === 'filme') {
+    return `Dialoga com ${traitHook}, trazendo ambição, profundidade e escolhas de alto impacto${archetypeHook}.`;
+  }
+  return `Resoa com ${traitHook}, especialmente pela intensidade emocional e evolução pessoal${archetypeHook}.`;
+}
+
+function buildReferenceReason(profile, archetype) {
+  const traitHook = buildTraitHook(profile);
+  const archetypeHook = archetype?.name ? `, em linha com ${archetype.name}` : '';
+  return `Reflete ${traitHook}${archetypeHook}, com uma combinação de visão, intensidade e execução.`;
+}
+
+function normalizeReferences(referencias, context = {}) {
+  const excludedReferenceNames = normalizeStringList(context.excludedReferenceNames);
+  const excludedSet = new Set(excludedReferenceNames.map(name => normalizeToken(name)));
+
+  const normalized = (referencias || [])
+    .filter(ref => ref && typeof ref === 'object')
+    .map(ref => ({
+      categoria: sanitizeString(ref.categoria) || 'Personalidade',
+      nome: sanitizeString(ref.nome),
+      motivo: sanitizeString(ref.motivo),
+      wiki_query: sanitizeString(ref.wiki_query) || sanitizeString(ref.nome),
+    }))
+    .filter(ref => ref.nome && ref.motivo)
+    .filter(ref => !excludedSet.has(normalizeToken(ref.nome)));
+
+  const unique = uniqueByNormalized(normalized, ref => ref.nome);
+
+  if (unique.length >= 3) {
+    return unique.slice(0, 3);
+  }
+
+  const usedNames = new Set(unique.map(ref => normalizeToken(ref.nome)));
+  const fallbackReason = buildReferenceReason(context.profile, context.archetype);
+
+  for (const fallback of REFERENCE_FALLBACKS) {
+    const nameKey = normalizeToken(fallback.nome);
+    if (excludedSet.has(nameKey) || usedNames.has(nameKey)) continue;
+    unique.push({
+      ...fallback,
+      motivo: fallbackReason,
+    });
+    usedNames.add(nameKey);
+    if (unique.length === 3) break;
+  }
+
+  if (unique.length === 0) {
+    throw new Error('Missing or empty referencias array');
+  }
+
+  return unique.slice(0, 3);
+}
+
+function normalizeWorks(works, context = {}) {
+  const excludedWorkTitles = normalizeStringList(context.excludedWorkTitles);
+  const excludedSet = new Set(excludedWorkTitles.map(title => normalizeToken(title)));
+
+  const normalized = (works || [])
+    .filter(work => work && typeof work === 'object')
+    .map(work => ({
+      tipo: normalizeWorkType(work.tipo),
+      titulo: sanitizeString(work.titulo),
+      autor_ou_artista: sanitizeString(work.autor_ou_artista),
+      motivo: sanitizeString(work.motivo),
+    }))
+    .filter(work => TARGET_WORK_TYPES.includes(work.tipo))
+    .filter(work => work.titulo)
+    .filter(work => !excludedSet.has(normalizeToken(work.titulo)));
+
+  const unique = uniqueByNormalized(normalized, work => work.titulo);
+  const usedTitles = new Set(unique.map(work => normalizeToken(work.titulo)));
+  const selectedByType = new Map();
+
+  for (const work of unique) {
+    if (!selectedByType.has(work.tipo)) {
+      selectedByType.set(work.tipo, {
+        ...work,
+        motivo: work.motivo || buildWorkReason(work.tipo, context.profile, context.archetype),
+      });
+    }
+  }
+
+  for (const missingType of TARGET_WORK_TYPES.filter(type => !selectedByType.has(type))) {
+    const fallback = (WORK_FALLBACKS[missingType] || []).find(item => {
+      const titleKey = normalizeToken(item.titulo);
+      return !excludedSet.has(titleKey) && !usedTitles.has(titleKey);
+    });
+
+    if (!fallback) continue;
+
+    selectedByType.set(missingType, {
+      tipo: missingType,
+      titulo: fallback.titulo,
+      autor_ou_artista: fallback.autor_ou_artista,
+      motivo: buildWorkReason(missingType, context.profile, context.archetype),
+    });
+    usedTitles.add(normalizeToken(fallback.titulo));
+  }
+
+  const orderedWorks = TARGET_WORK_TYPES
+    .map(type => selectedByType.get(type))
+    .filter(Boolean);
+
+  if (orderedWorks.length === 0) {
+    throw new Error('Missing or empty obras_culturais array');
+  }
+
+  return orderedWorks;
+}
+
+function buildSystemInstruction() {
+  return `Você é um analista comportamental especializado em Big Five e em referências
+culturais amplas (figuras históricas, artistas, pensadores, cientistas e personagens
+de ficção). Sua tarefa é cruzar um perfil Big Five com respostas interpretativas
+do usuário e gerar paralelos culturais personalizados.
+
+Regras obrigatórias (respeite sempre):
+- Responda EXCLUSIVAMENTE com JSON válido. Nunca use markdown, blocos de código ou comentários.
+- Todo o texto gerado deve estar em português brasileiro.
+- Cada referência deve trazer um nome real e buscável na Wikipedia, uma categoria precisa e um motivo conectando ao perfil.
+- O campo "vibe_resumo" NUNCA pode exceder 10 palavras — conte antes de responder.
+- Evite repetir pessoas/títulos dentro da mesma resposta e evite sugestões obscuras.
+- Varie a categoria das referências (ex.: não três atores seguidos).
+- As obras devem ser EXATAMENTE destes tipos: 1 série, 1 filme e 1 anime (uma de cada).`;
+}
+
+const INTERPRETATIVE_CATEGORY_LABELS = {
+  moral_dilemma: 'Dilemas morais',
+  paradoxical: 'Paradoxos',
+  interest: 'Interesses manifestados',
+};
+
+function isPlainSignalString(signal) {
+  return typeof signal === 'string';
+}
+
+function groupInterpretativeSignals(signals) {
+  const groups = new Map();
+
+  for (const signal of signals || []) {
+    if (isPlainSignalString(signal)) {
+      if (!signal.trim()) continue;
+      const list = groups.get('interest') || [];
+      list.push({ question_text: null, alternative_text: signal.trim(), user_observation: null });
+      groups.set('interest', list);
+      continue;
+    }
+
+    if (!signal || typeof signal !== 'object') continue;
+    const slug = signal.category_slug || 'interest';
+    const list = groups.get(slug) || [];
+    list.push({
+      question_text: sanitizeString(signal.question_text) || null,
+      alternative_text: sanitizeString(signal.alternative_text) || null,
+      user_observation: sanitizeString(signal.user_observation) || null,
+    });
+    groups.set(slug, list);
+  }
+
+  return groups;
+}
+
+function formatInterpretativeBlock(signals) {
+  const groups = groupInterpretativeSignals(signals);
+  if (groups.size === 0) {
+    return 'Nenhuma resposta interpretativa registrada pelo usuário.';
+  }
+
+  const order = ['moral_dilemma', 'paradoxical', 'interest'];
+  const remaining = [...groups.keys()].filter(k => !order.includes(k));
+  const ordered = [...order, ...remaining];
+
+  const lines = [];
+  for (const slug of ordered) {
+    const list = groups.get(slug);
+    if (!list || list.length === 0) continue;
+
+    const label = INTERPRETATIVE_CATEGORY_LABELS[slug] || slug;
+    lines.push(`${label}:`);
+
+    for (const entry of list) {
+      const qPreview = entry.question_text
+        ? `[${entry.question_text.slice(0, 80)}${entry.question_text.length > 80 ? '…' : ''}] `
+        : '';
+
+      if (entry.alternative_text) {
+        lines.push(`- ${qPreview}→ "${entry.alternative_text}"`);
+        if (entry.user_observation) {
+          lines.push(`  (comentário do usuário: "${entry.user_observation}")`);
+        }
+      } else if (entry.user_observation) {
+        // Reflexão livre: a "voz" da resposta é a própria observação.
+        lines.push(`- ${qPreview}(reflexão do usuário)`);
+        lines.push(`  "${entry.user_observation}"`);
+      } else {
+        lines.push(`- ${qPreview}(sem resposta registrada)`);
+      }
+    }
+
+    lines.push('');
+  }
+
+  return lines.join('\n').trim();
+}
+
+function buildUserPrompt(profile, consistency, interpretativeSignals, archetype, options = {}) {
   const dimensionLines = DIMENSIONS.map(dim => {
     const score = profile.scores[dim.key];
     const level = profile.dimensions.find(d => d.key === dim.key)?.level || 'moderado';
     return `- ${dim.name} (${dim.key}): ${score}% — ${level}`;
   }).join('\n');
 
-  let consistencyContext = '';
+  let tensionsBlock = '';
   if (consistency) {
     const tensions = Object.entries(consistency)
       .filter(([, val]) => val.tension)
       .map(([key, val]) => {
         const dim = DIMENSIONS.find(d => d.key === key);
-        return `${dim?.name || key} (desvio: ${val.stddev})`;
+        return `- ${dim?.name || key} (desvio: ${val.stddev}) — respostas oscilaram entre extremos.`;
       });
 
-    if (tensions.length > 0) {
-      consistencyContext = `\nAtenção: O usuário demonstrou tensão interna (respostas contraditórias) nos seguintes eixos: ${tensions.join(', ')}.
-Isso sugere identidade em conflito nesses aspectos — não confunda com equilíbrio.
-Mencione essa dualidade na interpretação.\n`;
-    }
+    tensionsBlock = tensions.length > 0
+      ? `Tensões internas detectadas (desvio-padrão por eixo > 1.2):\n${tensions.join('\n')}`
+      : 'Sem tensões internas relevantes — respostas coerentes dentro de cada eixo.';
   }
 
-  let interestContext = 'Nenhum interesse específico identificado.';
-  if (interestSignals && interestSignals.length > 0) {
-    interestContext = interestSignals.map(s => `- ${s}`).join('\n');
-  }
+  const interpretativeBlock = formatInterpretativeBlock(interpretativeSignals);
 
-  let archetypeContext = '';
-  if (archetype) {
-    archetypeContext = `\nBaseado na comparação de distância estatística (Euclidiana) do teste Big Five, a persona histórico-cultural/ficcional que esse usuário mais se aproxima é: **${archetype.name}**, do universo **${archetype.universe}**. 
-Use essa informação vital para moldar a poesia e o tom da interpretação. O modelo mental ou a 'vibe' do usuário é muito similar ao de ${archetype.name}.`;
-  }
+  const archetypeBlock = archetype?.name
+    ? `${archetype.name}${archetype.universe ? ` (universo ${archetype.universe})` : ''}${
+        archetype.distance !== undefined ? ` — distância euclidiana ${Number(archetype.distance).toFixed(2)}` : ''
+      }.`
+    : 'Nenhum arquétipo identificado — calibre o tom livremente.';
 
-  return `Perfil Big Five do usuário:
+  const excludedReferenceNames = normalizeStringList(options.excludedReferenceNames);
+  const excludedWorkTitles = normalizeStringList(options.excludedWorkTitles);
+  const exclusionLines = [];
+  if (excludedReferenceNames.length > 0) {
+    exclusionLines.push(`NÃO repita nenhuma destas referências já usadas: ${excludedReferenceNames.join(', ')}.`);
+    exclusionLines.push('Prefira categorias diferentes das referências anteriores (ex.: se antes veio um ator, tente cientista, escritor ou personagem de ficção).');
+  }
+  if (excludedWorkTitles.length > 0) {
+    exclusionLines.push(`NÃO repita nenhuma destas obras já usadas: ${excludedWorkTitles.join(', ')}.`);
+  }
+  const exclusionBlock = exclusionLines.length > 0
+    ? `\n========================================\n[EXCLUSÕES]\n========================================\n${exclusionLines.join('\n')}\n`
+    : '';
+
+  return `Você está interpretando o perfil de um usuário que respondeu um questionário
+dual-core (camada objetiva validada + camada interpretativa narrativa).
+
+========================================
+[1] PERFIL BIG FIVE — QUANTITATIVO
+(Calculado a partir de 30 itens BFI-2-S — Soto & John, 2017)
+========================================
 ${dimensionLines}
-${consistencyContext}
-Interesses identificados do usuário:
-${interestContext}
-${archetypeContext}
 
-Gere EXATAMENTE 3 referências culturais variadas e relevantes aos interesses acima e a semelhança estatística com ${archetype ? archetype.name : 'o perfil'}.
-As categorias devem ser DIVERSAS (não repetir o mesmo tipo).
-Exemplos de categorias: Músico, Cientista, Personagem, Ator, Líder Histórico.
+${tensionsBlock}
+
+========================================
+[2] RESPOSTAS INTERPRETATIVAS — QUALITATIVO
+(Autorais; NÃO influenciam o cálculo. Servem apenas como contexto narrativo.)
+========================================
+${interpretativeBlock}
+
+========================================
+[3] ARQUÉTIPO ESTATÍSTICO MAIS PRÓXIMO
+========================================
+${archetypeBlock}
+${exclusionBlock}
+========================================
+TAREFA
+========================================
+Cruze os números do bloco [1] com as escolhas narrativas do bloco [2].
+Dentro de "interpretacao", destaque CONVERGÊNCIAS (onde dilemas/paradoxos
+reforçam os escores) e, se existirem, DIVERGÊNCIAS (onde respostas
+qualitativas contradizem o que os números sozinhos sugeririam). Se não
+houver divergência real, diga isso em vez de forçar uma.
+Cite ao menos uma resposta específica do usuário (entre aspas, máx 20 palavras)
+para ancorar a análise. Use o arquétipo [3] apenas como calibrador de tom,
+sem transformá-lo em rótulo principal.
+
+Gere EXATAMENTE 3 referências culturais com CATEGORIAS DIFERENTES entre si.
+Gere EXATAMENTE 3 obras (1 série, 1 filme, 1 anime), todas reconhecíveis no
+zeitgeist contemporâneo. Não repita pessoas nem títulos dentro da mesma resposta.
 
 Retorne JSON com esta estrutura exata:
 {
   "schema_version": "${INTERPRETATION_SCHEMA_VERSION}",
-  "vibe_resumo": "Frase de impacto (máx 10 palavras) resumindo a energia da pessoa",
+  "vibe_resumo": "Frase de impacto resumindo a energia da pessoa (OBRIGATÓRIO: no máximo 10 palavras)",
   "referencias": [
     { "categoria": "Tipo", "nome": "Nome Real", "motivo": "1 frase curta conectando aos traços", "wiki_query": "Nome_Wikipedia" },
     { "categoria": "Tipo", "nome": "...", "motivo": "...", "wiki_query": "..." },
     { "categoria": "Tipo", "nome": "...", "motivo": "...", "wiki_query": "..." }
   ],
   "obras_culturais": [
-    { "tipo": "filme", "titulo": "Título da obra", "autor_ou_artista": "Diretor ou elenco principal", "motivo": "1 frase conectando ao perfil" },
-    { "tipo": "livro", "titulo": "Título da obra", "autor_ou_artista": "Autor(a)", "motivo": "1 frase conectando ao perfil" },
-    { "tipo": "musica", "titulo": "Título da música", "autor_ou_artista": "Artista/Banda", "motivo": "1 frase conectando ao perfil" }
+    { "tipo": "serie", "titulo": "Título da série", "autor_ou_artista": "Criador(a) ou showrunner", "motivo": "1 frase conectando ao perfil" },
+    { "tipo": "filme", "titulo": "Título do filme", "autor_ou_artista": "Diretor(a)", "motivo": "1 frase conectando ao perfil" },
+    { "tipo": "anime", "titulo": "Título do anime", "autor_ou_artista": "Autor(a) ou estúdio", "motivo": "1 frase conectando ao perfil" }
   ],
-  "interpretacao": "Parágrafo de até 3 frases interpretando o perfil de forma poética"
+  "interpretacao": "Parágrafo de até 4 frases integrando números do bloco [1] e escolhas narrativas do bloco [2], citando ao menos uma convergência e, se houver, uma divergência."
+}`;
+}
+
+function buildDetailSystemInstruction() {
+  return `Você é um analista de personalidade especializado em Big Five e em
+referências culturais amplas (figuras históricas, artistas, pensadores,
+cientistas e personagens de ficção). Compare o perfil psicológico do usuário
+com uma personalidade específica, sendo honesto sobre semelhanças E tensões.
+Responda EXCLUSIVAMENTE com JSON válido em português brasileiro.
+O texto deve ser claro, específico e ancorado nas respostas reais do usuário.`;
+}
+
+function buildReferenceDetailPrompt(profile, consistency, interpretativeSignals, archetype, reference) {
+  const referenceName = sanitizeString(reference?.nome);
+  const referenceCategory = sanitizeString(reference?.categoria) || 'Personalidade cultural';
+  const referenceMotivo = sanitizeString(reference?.motivo);
+
+  const dimensionLines = DIMENSIONS.map(dim => {
+    const score = profile.scores[dim.key];
+    const level = profile.dimensions.find(d => d.key === dim.key)?.level || 'moderado';
+    return `- ${dim.name} (${dim.key}): ${score}% — ${level}`;
+  }).join('\n');
+
+  const interpretativeContext = formatInterpretativeBlock(interpretativeSignals);
+
+  let tensionsBlock = '';
+  if (consistency) {
+    const tensions = Object.entries(consistency)
+      .filter(([, val]) => val.tension)
+      .map(([key, val]) => {
+        const dim = DIMENSIONS.find(d => d.key === key);
+        return `- ${dim?.name || key} (desvio: ${val.stddev}) — oscilação entre extremos dentro do eixo.`;
+      });
+
+    tensionsBlock = tensions.length > 0
+      ? `Tensões internas detectadas (desvio-padrão por eixo > 1.2):\n${tensions.join('\n')}`
+      : 'Sem tensões internas relevantes — respostas coerentes dentro de cada eixo.';
+  }
+
+  const archetypeBlock = archetype?.name
+    ? `${archetype.name}${archetype.universe ? ` (universo ${archetype.universe})` : ''}${
+        archetype.distance !== undefined ? ` — distância euclidiana ${Number(archetype.distance).toFixed(2)}` : ''
+      }.`
+    : 'Nenhum arquétipo identificado — calibre o tom livremente.';
+
+  return `Você vai comparar o perfil de um usuário com uma personalidade escolhida por ele.
+
+========================================
+[0] PERSONALIDADE SELECIONADA
+========================================
+- Nome: ${referenceName}
+- Categoria: ${referenceCategory}
+- Motivo inicial (não reescreva literalmente): ${referenceMotivo || 'Sem motivo inicial'}
+
+========================================
+[1] PERFIL BIG FIVE DO USUÁRIO — QUANTITATIVO
+(Calculado a partir de 30 itens BFI-2-S — Soto & John, 2017)
+========================================
+${dimensionLines}
+
+${tensionsBlock}
+
+========================================
+[2] RESPOSTAS INTERPRETATIVAS DO USUÁRIO — QUALITATIVO
+(Autorais; NÃO alimentam o cálculo. Servem como contexto narrativo.)
+========================================
+${interpretativeContext}
+
+========================================
+[3] ARQUÉTIPO ESTATÍSTICO MAIS PRÓXIMO
+========================================
+${archetypeBlock}
+
+========================================
+TAREFA
+========================================
+Construa uma comparação honesta entre o usuário e ${referenceName}. Destaque
+tanto CONVERGÊNCIAS (onde perfil + respostas se alinham com a referência)
+quanto DIVERGÊNCIAS / pontos de tensão (quando houver — não force semelhança
+artificial). Cite ao menos uma resposta específica do usuário entre aspas
+(máx 20 palavras) para ancorar a análise.
+
+Formato: 2 a 3 seções, cada uma com título curto e conteúdo de 2 a 4 frases.
+A última seção pode ser reservada para uma nuance ou ponto de tensão quando
+isso agregar valor.
+
+Retorne JSON com esta estrutura exata:
+{
+  "schema_version": "${DETAIL_SCHEMA_VERSION}",
+  "titulo": "Usuário x ${referenceName}",
+  "secoes": [
+    { "titulo": "Convergências de traço", "conteudo": "2 a 4 frases com comparação objetiva dos eixos Big Five relevantes" },
+    { "titulo": "Convergências de comportamento", "conteudo": "2 a 4 frases ancoradas em respostas interpretativas específicas" },
+    { "titulo": "Nuance ou tensão (opcional)", "conteudo": "2 a 4 frases com divergência real, se houver; caso contrário, omita esta seção" }
+  ]
 }`;
 }
 
@@ -122,16 +549,19 @@ function extractJsonCandidate(text) {
     .replace(/,\s*([}\]])/g, '$1');
 }
 
-function parseResponse(text) {
-  let parsed;
+function parseStructuredJson(text) {
   const directCandidate = text.trim();
 
   try {
-    parsed = JSON.parse(directCandidate);
+    return JSON.parse(directCandidate);
   } catch {
     const recoveredCandidate = extractJsonCandidate(text);
-    parsed = JSON.parse(recoveredCandidate);
+    return JSON.parse(recoveredCandidate);
   }
+}
+
+function parseResponse(text, context = {}) {
+  const parsed = parseStructuredJson(text);
 
   if (!parsed.schema_version || typeof parsed.schema_version !== 'string') {
     throw new Error('Missing or invalid schema_version');
@@ -149,38 +579,37 @@ function parseResponse(text) {
     throw new Error('Missing or invalid interpretacao');
   }
 
-  for (const ref of parsed.referencias) {
-    if (!ref.categoria || !ref.nome || !ref.motivo) {
-      throw new Error('Invalid reference: missing required fields');
-    }
-    if (!ref.wiki_query) {
-      ref.wiki_query = ref.nome;
-    }
-  }
-
-  parsed.obras_culturais = parsed.obras_culturais
-    .filter(work => work && typeof work === 'object')
-    .map(work => ({
-      tipo: typeof work.tipo === 'string' ? normalizeToken(work.tipo) : '',
-      titulo: typeof work.titulo === 'string' ? work.titulo.trim() : '',
-      autor_ou_artista: typeof work.autor_ou_artista === 'string'
-        ? work.autor_ou_artista.trim()
-        : '',
-      motivo: typeof work.motivo === 'string' ? work.motivo.trim() : '',
-    }));
-
-  if (parsed.obras_culturais.some(work => !work.tipo || !work.titulo || !work.motivo)) {
-    throw new Error('Invalid obras_culturais item: missing required fields');
-  }
-
-  const requiredWorkTypes = ['filme', 'livro', 'musica'];
-  const receivedTypes = new Set(parsed.obras_culturais.map(work => work.tipo));
-  const missingType = requiredWorkTypes.find(type => !receivedTypes.has(type));
-  if (missingType) {
-    throw new Error(`Missing cultural work type: ${missingType}`);
-  }
+  parsed.referencias = normalizeReferences(parsed.referencias, context);
+  parsed.obras_culturais = normalizeWorks(parsed.obras_culturais, context);
 
   return parsed;
+}
+
+function parseReferenceDetailResponse(text, referenceName) {
+  const parsed = parseStructuredJson(text);
+
+  const fallbackTitle = referenceName ? `Usuário x ${referenceName}` : 'Comparação detalhada';
+  const title = sanitizeString(parsed.titulo) || fallbackTitle;
+  const sections = (parsed.secoes || [])
+    .filter(section => section && typeof section === 'object')
+    .map(section => ({
+      titulo: sanitizeString(section.titulo),
+      conteudo: sanitizeString(section.conteudo),
+    }))
+    .filter(section => section.titulo && section.conteudo)
+    .slice(0, 3);
+
+  if (sections.length < 2) {
+    throw new Error('Invalid detail response: expected 2 to 3 sections');
+  }
+
+  return {
+    schema_version: typeof parsed.schema_version === 'string'
+      ? parsed.schema_version
+      : DETAIL_SCHEMA_VERSION,
+    titulo: title,
+    secoes: sections,
+  };
 }
 
 function shouldRetryError(err) {
@@ -263,48 +692,78 @@ async function generateRawInterpretation(model, prompt) {
 }
 
 /**
- * Generates a narrative interpretation using Gemini.
- * Returns null gracefully on any failure (missing key, timeout, parse error).
- *
- * @param {Object} profile - From calculateProfile(): { scores, dimensions, ... }
- * @param {Object} consistency - From calculateConsistency(): { O: {stddev, tension}, ... }
- * @param {Array<string>} interestSignals - Texts of chosen interest alternatives
- * @param {Object} archetype - From findClosestArchetype(): { name, universe, distance }
- * @param {Object} options - { temperature?: number }
- * @returns {Promise<Object|null>} { schema_version, vibe_resumo, referencias[], obras_culturais[], interpretacao } or null
+ * Pretty-prints the full payload being handed to Gemini. Kept as a plain
+ * console banner (not logger.info) on purpose: the JSON-envelope logger
+ * would escape newlines and make the prompt unreadable during local
+ * verification runs. Controlled by LLM_LOG_PROMPT (default: enabled in
+ * non-production).
  */
-export async function generateInterpretation(profile, consistency, interestSignals, archetype, options = {}) {
+function logPromptPayload(label, systemInstruction, prompt, temperature) {
+  const flag = (process.env.LLM_LOG_PROMPT || '').toLowerCase();
+  const enabled = flag === ''
+    ? env.nodeEnv !== 'production'
+    : ['1', 'true', 'yes', 'on'].includes(flag);
+
+  if (!enabled) return;
+
+  logger.info(`${label} → prompt dispatched`, {
+    model: MODEL_NAME,
+    temperature,
+    system_length: systemInstruction.length,
+    prompt_length: prompt.length,
+  });
+
+  const banner = '─'.repeat(72);
+  console.log(`\n${banner}`);
+  console.log(`[LLM PROMPT] ${label} · model=${MODEL_NAME} · temp=${temperature}`);
+  console.log(banner);
+  console.log('--- system_instruction ---');
+  console.log(systemInstruction);
+  console.log('--- user_prompt ---');
+  console.log(prompt);
+  console.log(`${banner}\n`);
+}
+
+async function generateStructuredOutput({
+  systemInstruction,
+  prompt,
+  temperature = 0.9,
+  parser,
+  parseContext = {},
+  errorLabel,
+}) {
   const client = getClient();
   if (!client) {
-    logger.info('LLM skipped: GEMINI_API_KEY not configured');
+    logger.info(`${errorLabel} skipped: GEMINI_API_KEY not configured`);
     return null;
   }
 
   const budget = checkDailyBudget();
   if (!budget.allowed) {
-    logger.info(`LLM skipped: daily limit reached (${budget.used}/${budget.limit})`);
+    logger.info(`${errorLabel} skipped: daily limit reached (${budget.used}/${budget.limit})`);
     return null;
   }
 
   try {
     const model = client.getGenerativeModel({
       model: MODEL_NAME,
-      systemInstruction: buildSystemInstruction(),
+      systemInstruction,
       generationConfig: {
-        temperature: options.temperature || 0.9,
+        temperature,
         maxOutputTokens: 8192,
         responseMimeType: 'application/json',
       },
     });
 
-    const prompt = buildUserPrompt(profile, consistency, interestSignals, archetype);
+    logPromptPayload(errorLabel, systemInstruction, prompt, temperature);
+
     const text = await generateRawInterpretation(model, prompt);
 
-    let interpretation;
+    let parsed;
     try {
-      interpretation = parseResponse(text);
+      parsed = parser(text, parseContext);
     } catch (parseErr) {
-      logger.error('LLM parse failed', {
+      logger.error(`${errorLabel} parse failed`, {
         error: parseErr.message,
         raw_preview: text.slice(0, 500),
       });
@@ -312,14 +771,83 @@ export async function generateInterpretation(profile, consistency, interestSigna
     }
 
     recordLLMCall();
-    interpretation.referencias = await fetchReferenceImages(interpretation.referencias);
-    return interpretation;
+    return parsed;
   } catch (err) {
-    logger.error('LLM interpretation failed (graceful skip)', {
+    logger.error(`${errorLabel} failed (graceful skip)`, {
       error: err.message,
       name: err.name,
       model: MODEL_NAME,
     });
     return null;
   }
+}
+
+/**
+ * Generates a narrative interpretation using Gemini.
+ * Returns null gracefully on any failure (missing key, timeout, parse error).
+ *
+ * @param {Object} profile - From calculateProfile(): { scores, dimensions, ... }
+ * @param {Object} consistency - From calculateConsistency(): { O: {stddev, tension}, ... }
+ * @param {Array<Object|string>} interpretativeSignals - Structured signals from
+ *   interpretative answers (moral dilemmas, paradoxes, interests). Each entry
+ *   may be either `{ category_slug, question_text, alternative_text, user_observation }`
+ *   (new Dual-Core shape) or a plain string (legacy interest alternative text).
+ * @param {Object} archetype - From findClosestArchetype(): { name, universe, distance }
+ * @param {Object} options - { temperature?: number, excludedReferenceNames?: string[], excludedWorkTitles?: string[] }
+ * @returns {Promise<Object|null>} { schema_version, vibe_resumo, referencias[], obras_culturais[], interpretacao } or null
+ */
+export async function generateInterpretation(profile, consistency, interpretativeSignals, archetype, options = {}) {
+  const prompt = buildUserPrompt(profile, consistency, interpretativeSignals, archetype, options);
+  const interpretation = await generateStructuredOutput({
+    systemInstruction: buildSystemInstruction(),
+    prompt,
+    temperature: options.temperature || 0.9,
+    parser: parseResponse,
+    parseContext: {
+      profile,
+      archetype,
+      excludedReferenceNames: options.excludedReferenceNames,
+      excludedWorkTitles: options.excludedWorkTitles,
+    },
+    errorLabel: 'LLM interpretation',
+  });
+
+  if (!interpretation) return null;
+  interpretation.referencias = await fetchReferenceImages(interpretation.referencias);
+  return interpretation;
+}
+
+/**
+ * Generates a deeper comparison between user profile and selected cultural reference.
+ * Returns null gracefully on any failure.
+ *
+ * @param {Object} profile
+ * @param {Object} consistency
+ * @param {Array<Object|string>} interpretativeSignals - See generateInterpretation.
+ * @param {Object} archetype
+ * @param {Object} reference - { nome, categoria, motivo, image_url? }
+ * @param {Object} options - { temperature?: number }
+ * @returns {Promise<Object|null>} { schema_version, titulo, secoes[] } or null
+ */
+export async function generateReferenceDetail(profile, consistency, interpretativeSignals, archetype, reference, options = {}) {
+  const referenceName = sanitizeString(reference?.nome);
+  if (!referenceName) {
+    throw new Error('reference.nome is required');
+  }
+
+  const prompt = buildReferenceDetailPrompt(
+    profile,
+    consistency,
+    interpretativeSignals,
+    archetype,
+    reference
+  );
+
+  return generateStructuredOutput({
+    systemInstruction: buildDetailSystemInstruction(),
+    prompt,
+    temperature: options.temperature || 0.85,
+    parser: text => parseReferenceDetailResponse(text, referenceName),
+    errorLabel: 'LLM reference detail',
+  });
 }

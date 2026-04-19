@@ -1,68 +1,59 @@
-import { DIMENSION_KEYS } from '../config/constants.js';
+import {
+  DIMENSION_KEYS,
+  ITEMS_PER_TRAIT,
+  QUESTION_KIND,
+} from '../config/constants.js';
 import { DIMENSIONS } from './dimensions.js';
-import { normalizeScore, classifyScore } from './normalization.js';
-
-export function resolveImpacts(answer) {
-  const zeros = { impact_o: 0, impact_c: 0, impact_e: 0, impact_a: 0, impact_n: 0 };
-  const type = answer.questions?.type || 'multiple_choice';
-
-  if (!answer.alternatives) return zeros;
-
-  if (type === 'multiple_choice' || type === 'binary' || type === 'ranking') {
-    return {
-      impact_o: answer.alternatives.impact_o || 0,
-      impact_c: answer.alternatives.impact_c || 0,
-      impact_e: answer.alternatives.impact_e || 0,
-      impact_a: answer.alternatives.impact_a || 0,
-      impact_n: answer.alternatives.impact_n || 0,
-    };
-  }
-
-  if (type === 'slider') {
-    const val = answer.slider_value ?? 50;
-    // Scale from -1 to 1 based on 0-100 slider
-    const modifier = (val - 50) / 50;
-
-    return {
-      impact_o: parseFloat(((answer.alternatives.impact_o || 0) * modifier).toFixed(2)),
-      impact_c: parseFloat(((answer.alternatives.impact_c || 0) * modifier).toFixed(2)),
-      impact_e: parseFloat(((answer.alternatives.impact_e || 0) * modifier).toFixed(2)),
-      impact_a: parseFloat(((answer.alternatives.impact_a || 0) * modifier).toFixed(2)),
-      impact_n: parseFloat(((answer.alternatives.impact_n || 0) * modifier).toFixed(2)),
-    };
-  }
-
-  return zeros;
-}
+import { normalizeByTrait, classifyScore } from './normalization.js';
 
 /**
- * Calculates a Big Five profile from a list of answers with their impacts.
+ * @typedef {Object} Question
+ * @property {number} id
+ * @property {'objective'|'interpretative'} kind
+ * @property {'O'|'C'|'E'|'A'|'N'|null} trait      non-null only if kind === 'objective'
+ * @property {boolean} reverse_key                  always false if kind === 'interpretative'
+ * @property {'slider'|'binary'|'ranking'|'reflection'|'multiple_choice'} type
+ * @property {string} text
+ * @property {string|null} context
+ */
+
+/**
+ * Dual-Core engine.
  *
- * @param {Array} answers - Each answer must include questions and alternatives.
- *
- * @returns {Object} Profile with scores, rawImpacts, dimensions, answerCount
+ * Only answers whose question is `kind === 'objective'` (BFI-2-S items) feed
+ * the Big Five calculation. Each objective answer contributes a Likert value
+ * in [-2, +2] to the item's single trait column, with the sign flipped when
+ * the item is reverse-keyed. Interpretative answers are ignored here and are
+ * consumed downstream as qualitative LLM context only.
  */
 export function calculateProfile(answers) {
   const rawImpacts = { O: 0, C: 0, E: 0, A: 0, N: 0 };
-  let validAnswers = 0;
+  const itemsPerTrait = { O: 0, C: 0, E: 0, A: 0, N: 0 };
+  let objectiveCount = 0;
 
   for (const answer of answers) {
-    if (answer.questions?.type === 'reflection') continue;
-    validAnswers++;
+    if (answer?.questions?.kind !== QUESTION_KIND.OBJECTIVE) continue;
 
-    const impacts = resolveImpacts(answer);
-    rawImpacts.O += Number(impacts.impact_o);
-    rawImpacts.C += Number(impacts.impact_c);
-    rawImpacts.E += Number(impacts.impact_e);
-    rawImpacts.A += Number(impacts.impact_a);
-    rawImpacts.N += Number(impacts.impact_n);
+    const trait = answer.questions.trait;
+    if (!trait || !DIMENSION_KEYS.includes(trait)) continue;
+
+    const col = `impact_${trait.toLowerCase()}`;
+    const likertValue = Number(answer.alternatives?.[col] ?? 0);
+    if (!Number.isFinite(likertValue)) continue;
+
+    const signed = answer.questions.reverse_key ? -likertValue : likertValue;
+
+    rawImpacts[trait] += signed;
+    itemsPerTrait[trait] += 1;
+    objectiveCount += 1;
   }
-
-  const answerCount = validAnswers;
 
   const scores = {};
   for (const key of DIMENSION_KEYS) {
-    scores[key] = normalizeScore(rawImpacts[key], answerCount);
+    // Fall back to the canonical 6 items per trait when we have none yet,
+    // so normalization remains well-defined for partially filled fixtures.
+    const n = itemsPerTrait[key] || ITEMS_PER_TRAIT;
+    scores[key] = normalizeByTrait(rawImpacts[key], n);
   }
 
   const dimensions = DIMENSIONS.map(dim => ({
@@ -78,7 +69,8 @@ export function calculateProfile(answers) {
   return {
     scores,
     rawImpacts,
-    answerCount,
+    itemsPerTrait,
+    answerCount: objectiveCount,
     dimensions,
   };
 }

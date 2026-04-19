@@ -32,3 +32,54 @@ export async function getResultBySessionId(sessionId) {
   if (error && error.code !== 'PGRST116') throw error;
   return data;
 }
+
+/**
+ * Flips a saved result into public read-only mode (or vice-versa).
+ * The public_token itself is never regenerated — toggling off and on
+ * resurrects the same share URL.
+ *
+ * @param {string} sessionId
+ * @param {boolean} isPublic
+ * @returns {Promise<Object|null>} Updated row (includes `public_token`) or null if the result doesn't exist.
+ */
+export async function setResultPublic(sessionId, isPublic) {
+  const patch = {
+    is_public: isPublic,
+    published_at: isPublic ? new Date().toISOString() : null,
+  };
+
+  const { data, error } = await supabase
+    .from('results')
+    .update(patch)
+    .eq('session_id', sessionId)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
+
+  return data;
+}
+
+/**
+ * Returns a result row by its public_token — only if it is currently marked
+ * as public. Any other case yields null (404 upstream) so we never leak
+ * private data through a guessed token.
+ */
+export async function getPublicResultByToken(token) {
+  const { data, error } = await supabase
+    .from('results')
+    .select('*')
+    .eq('public_token', token)
+    .eq('is_public', true)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
+
+  return data;
+}

@@ -4,86 +4,129 @@ import test from 'node:test';
 process.env.SUPABASE_URL ||= 'http://localhost:54321';
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key';
 
-const { resolveImpacts, calculateProfile } = await import('../src/engine/BigFiveEngine.js');
+const { calculateProfile } = await import('../src/engine/BigFiveEngine.js');
 const { calculateConsistency } = await import('../src/engine/consistency.js');
 
-function makeAnswer({
-  type = 'multiple_choice',
-  impacts = {},
-  sliderValue = null,
-} = {}) {
+/**
+ * Builds a Dual-Core answer fixture.
+ *
+ * For objective answers, only the `impact_<trait.lower()>` column is read
+ * by the engine — the other trait columns must stay at zero to mirror the
+ * seed format (one-trait-per-item BFI-2-S Likert).
+ */
+function makeObjective({ trait, value, reverseKey = false }) {
+  const col = `impact_${trait.toLowerCase()}`;
   return {
-    questions: { type },
+    questions: { kind: 'objective', trait, reverse_key: reverseKey, type: 'multiple_choice' },
     alternatives: {
-      impact_o: 0,
-      impact_c: 0,
-      impact_e: 0,
-      impact_a: 0,
-      impact_n: 0,
-      ...impacts,
+      impact_o: 0, impact_c: 0, impact_e: 0, impact_a: 0, impact_n: 0,
+      [col]: value,
     },
-    ...(sliderValue !== null ? { slider_value: sliderValue } : {}),
   };
 }
 
-test('resolveImpacts returns direct impacts for multiple_choice', () => {
-  const answer = makeAnswer({
-    type: 'multiple_choice',
-    impacts: { impact_o: 2.5, impact_c: -1.5, impact_e: 1, impact_a: 0.5, impact_n: -2 },
-  });
-  assert.deepEqual(resolveImpacts(answer), answer.alternatives);
-});
+function makeInterpretative({ type = 'multiple_choice' } = {}) {
+  return {
+    questions: { kind: 'interpretative', trait: null, reverse_key: false, type },
+    alternatives: { impact_o: 0, impact_c: 0, impact_e: 0, impact_a: 0, impact_n: 0 },
+  };
+}
 
-test('resolveImpacts scales slider impacts between -1 and 1', () => {
-  const top = resolveImpacts(makeAnswer({
-    type: 'slider',
-    impacts: { impact_o: 3, impact_c: -3 },
-    sliderValue: 100,
-  }));
-  const middle = resolveImpacts(makeAnswer({
-    type: 'slider',
-    impacts: { impact_o: 3, impact_c: -3 },
-    sliderValue: 50,
-  }));
-  const bottom = resolveImpacts(makeAnswer({
-    type: 'slider',
-    impacts: { impact_o: 3, impact_c: -3 },
-    sliderValue: 0,
-  }));
+/**
+ * Builds 6 objective items for a single trait with the same Likert value.
+ */
+function sixItems(trait, value, reverseKey = false) {
+  return Array.from({ length: 6 }, () => makeObjective({ trait, value, reverseKey }));
+}
 
-  assert.equal(top.impact_o, 3);
-  assert.equal(top.impact_c, -3);
-  assert.equal(middle.impact_o, 0);
-  assert.equal(middle.impact_c, 0);
-  assert.equal(bottom.impact_o, -3);
-  assert.equal(bottom.impact_c, 3);
-});
-
-test('calculateProfile ignores reflection answers and computes normalized scores', () => {
+test('calculateProfile only reads objective (BFI-2-S) answers', () => {
   const answers = [
-    makeAnswer({ impacts: { impact_o: 3, impact_c: 3, impact_e: 3, impact_a: 3, impact_n: 3 } }),
-    makeAnswer({ impacts: { impact_o: -3, impact_c: -3, impact_e: -3, impact_a: -3, impact_n: -3 } }),
-    makeAnswer({ type: 'reflection', impacts: { impact_o: 3, impact_c: 3 } }),
+    ...sixItems('O', 2),
+    ...sixItems('C', 2),
+    ...sixItems('E', 2),
+    ...sixItems('A', 2),
+    ...sixItems('N', 2),
+    // Interpretative noise that must be ignored:
+    makeInterpretative({ type: 'binary' }),
+    makeInterpretative({ type: 'ranking' }),
+    makeInterpretative({ type: 'reflection' }),
   ];
 
   const profile = calculateProfile(answers);
 
-  assert.equal(profile.answerCount, 2);
-  assert.deepEqual(profile.rawImpacts, { O: 0, C: 0, E: 0, A: 0, N: 0 });
-  assert.deepEqual(profile.scores, { O: 50, C: 50, E: 50, A: 50, N: 50 });
-  assert.ok(profile.dimensions.every(dim => dim.level === 'moderado'));
+  assert.equal(profile.answerCount, 30);
+  assert.deepEqual(profile.rawImpacts, { O: 12, C: 12, E: 12, A: 12, N: 12 });
+  // Full agreement on all 6 items per trait → normalized 100
+  assert.deepEqual(profile.scores, { O: 100, C: 100, E: 100, A: 100, N: 100 });
 });
 
-test('calculateConsistency flags high-variance dimensions as tension', () => {
+test('calculateProfile returns 50 for a perfectly neutral respondent', () => {
   const answers = [
-    makeAnswer({ impacts: { impact_o: 3 } }),
-    makeAnswer({ impacts: { impact_o: -3 } }),
-    makeAnswer({ impacts: { impact_o: 3 } }),
-    makeAnswer({ impacts: { impact_o: -3 } }),
+    ...sixItems('O', 0),
+    ...sixItems('C', 0),
+    ...sixItems('E', 0),
+    ...sixItems('A', 0),
+    ...sixItems('N', 0),
   ];
 
-  const consistency = calculateConsistency(answers);
+  const profile = calculateProfile(answers);
+  assert.deepEqual(profile.scores, { O: 50, C: 50, E: 50, A: 50, N: 50 });
+  assert.deepEqual(profile.rawImpacts, { O: 0, C: 0, E: 0, A: 0, N: 0 });
+});
+
+test('reverse_key flips the signed contribution of the Likert value', () => {
+  // One item answered +2 with reverse_key=true should count as -2.
+  const answers = [
+    makeObjective({ trait: 'C', value: 2, reverseKey: true }),
+    makeObjective({ trait: 'C', value: 2, reverseKey: false }),
+  ];
+
+  const profile = calculateProfile(answers);
+  assert.equal(profile.rawImpacts.C, 0, 'reverse + direct should cancel');
+});
+
+test('calculateProfile ignores interpretative answers entirely', () => {
+  const answers = [
+    makeInterpretative(),
+    makeInterpretative({ type: 'binary' }),
+    makeInterpretative({ type: 'reflection' }),
+  ];
+
+  const profile = calculateProfile(answers);
+  assert.equal(profile.answerCount, 0);
+  assert.deepEqual(profile.rawImpacts, { O: 0, C: 0, E: 0, A: 0, N: 0 });
+  // With no objective items the scores fall back to the neutral midpoint.
+  assert.deepEqual(profile.scores, { O: 50, C: 50, E: 50, A: 50, N: 50 });
+});
+
+test('calculateConsistency flags high-variance traits as tension', () => {
+  // Alternating +2 / -2 across 6 items for O → stddev = 2.0 > 1.2
+  const alternating = [
+    makeObjective({ trait: 'O', value:  2 }),
+    makeObjective({ trait: 'O', value: -2 }),
+    makeObjective({ trait: 'O', value:  2 }),
+    makeObjective({ trait: 'O', value: -2 }),
+    makeObjective({ trait: 'O', value:  2 }),
+    makeObjective({ trait: 'O', value: -2 }),
+  ];
+  // Consistent +2 across 6 items for C → stddev = 0, no tension
+  const consistent = sixItems('C', 2);
+
+  const consistency = calculateConsistency([...alternating, ...consistent]);
+
   assert.equal(consistency.O.tension, true);
-  assert.equal(consistency.O.n, 4);
+  assert.equal(consistency.O.n, 6);
   assert.equal(consistency.C.tension, false);
+  assert.equal(consistency.C.n, 6);
+  assert.equal(consistency.E.n, 0);
+});
+
+test('calculateConsistency ignores interpretative answers', () => {
+  const answers = [makeInterpretative(), makeInterpretative({ type: 'reflection' })];
+  const consistency = calculateConsistency(answers);
+
+  for (const key of ['O', 'C', 'E', 'A', 'N']) {
+    assert.equal(consistency[key].n, 0);
+    assert.equal(consistency[key].tension, false);
+  }
 });

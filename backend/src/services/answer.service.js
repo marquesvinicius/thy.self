@@ -1,7 +1,11 @@
-import { createAnswer as createAnswerQuery, countAnswersBySessionId } from '../database/queries/answer.queries.js';
+import {
+  createAnswer as createAnswerQuery,
+  countAnswersBySessionId,
+  countObjectiveAnswersBySessionId,
+} from '../database/queries/answer.queries.js';
 import { getAlternativeWithImpacts } from '../database/queries/question.queries.js';
 import { AppError } from '../utils/AppError.js';
-import { MIN_ANSWERS_FOR_ANALYSIS } from '../config/constants.js';
+import { MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS } from '../config/constants.js';
 
 export async function recordAnswer(sessionId, questionId, alternativeId, answerType = 'alternative_id', rankPosition = null, sliderValue = null, userObservation = null) {
   // Validate that the alternative belongs to the question only if using standard alternatives
@@ -36,7 +40,10 @@ export async function recordAnswer(sessionId, questionId, alternativeId, answerT
     throw err;
   }
 
-  const totalAnswered = await countAnswersBySessionId(sessionId);
+  const [totalAnswered, objectiveAnswered] = await Promise.all([
+    countAnswersBySessionId(sessionId),
+    countObjectiveAnswersBySessionId(sessionId),
+  ]);
 
   return {
     answer_id: answer.id,
@@ -47,8 +54,9 @@ export async function recordAnswer(sessionId, questionId, alternativeId, answerT
     answered_at: answer.answered_at,
     progress: {
       answered: totalAnswered,
-      minimum_for_analysis: MIN_ANSWERS_FOR_ANALYSIS,
-      can_analyze: totalAnswered >= MIN_ANSWERS_FOR_ANALYSIS,
+      objective_answered: objectiveAnswered,
+      minimum_for_analysis: MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS,
+      can_analyze: objectiveAnswered >= MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS,
     },
   };
 }

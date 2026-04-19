@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-export default function VibeHero({ text }) {
+export default function VibeHero({ text, kicker = 'tua essência' }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function VibeHero({ text }) {
       }}
     >
       <p className="text-[10px] uppercase tracking-[0.5em] text-muted mb-4">
-        tua essência
+        {kicker}
       </p>
       <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight leading-snug px-4">
         &ldquo;{text}&rdquo;

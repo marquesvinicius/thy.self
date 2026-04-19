@@ -28,6 +28,6 @@ export const env = {
     : [],
   geminiApiKey: process.env.GEMINI_API_KEY || null,
   llmDailyLimit: parseInt(process.env.LLM_DAILY_LIMIT, 10) || 50,
-  minAnswersForAnalysis: parseInt(process.env.MIN_ANSWERS_FOR_ANALYSIS, 10) || 20,
+  minAnswersForAnalysis: parseInt(process.env.MIN_ANSWERS_FOR_ANALYSIS, 10) || 30,
   maxQuestionsPerSession: parseInt(process.env.MAX_QUESTIONS_PER_SESSION, 10) || 40,
 };

@@ -8,6 +8,9 @@ export async function getAllActiveQuestions() {
       text,
       context,
       type,
+      kind,
+      trait,
+      reverse_key,
       category_id,
       question_categories ( slug, name )
     `)
@@ -25,6 +28,9 @@ export async function getQuestionsWithAlternatives(questionIds) {
       text,
       context,
       type,
+      kind,
+      trait,
+      reverse_key,
       question_categories ( slug, name ),
       alternatives ( id, text, sort_order )
     `)

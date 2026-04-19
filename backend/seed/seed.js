@@ -12,100 +12,175 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-async function seed() {
-  console.log('Starting seed...\n');
+const OBJECTIVE_CATEGORY = {
+  slug: 'objective_bfi2s',
+  name: 'BFI-2-S (objetivo)',
+  description: 'Itens do BFI-2-S (Soto & John, 2017). Alimentam o cálculo determinístico OCEAN.',
+};
 
-  const raw = await readFile(join(__dirname, 'questions.json'), 'utf-8');
-  const data = JSON.parse(raw);
+function impactColumnFor(trait) {
+  return `impact_${trait.toLowerCase()}`;
+}
 
-  // 1. Insert categories
-  console.log('Inserting categories...');
-  const { data: categories, error: catError } = await supabase
+async function upsertCategories(categoriesFromLegacy) {
+  const interpretativeCats = categoriesFromLegacy.filter(c => c.slug !== 'structural');
+  const allCategories = [OBJECTIVE_CATEGORY, ...interpretativeCats];
+
+  const { data, error } = await supabase
     .from('question_categories')
-    .upsert(data.categories, { onConflict: 'slug' })
+    .upsert(allCategories, { onConflict: 'slug' })
     .select();
 
-  if (catError) {
-    console.error('Error inserting categories:', catError);
-    process.exit(1);
-  }
+  if (error) throw error;
 
-  const categoryMap = {};
-  for (const cat of categories) {
-    categoryMap[cat.slug] = cat.id;
-  }
-  console.log(`  ${categories.length} categories inserted.\n`);
+  const map = {};
+  for (const cat of data) map[cat.slug] = cat.id;
+  return map;
+}
 
-  // 2. Insert questions and alternatives
-  let questionCount = 0;
-  let altCount = 0;
+async function seedObjective(categoryId) {
+  const raw = await readFile(join(__dirname, 'objective_bfi2s.json'), 'utf-8');
+  const data = JSON.parse(raw);
+  const { items, likert_scale: likertScale, stem } = data;
 
-  for (const q of data.questions) {
-    const categoryId = categoryMap[q.category];
-    if (!categoryId) {
-      console.error(`  Unknown category: ${q.category}`);
-      continue;
-    }
+  let inserted = 0;
+  let altInserted = 0;
 
-    // Insert question
-    const { data: question, error: qError } = await supabase
+  for (const item of items) {
+    const questionText = `${stem} ${item.statement}`;
+
+    const { data: question, error: qErr } = await supabase
       .from('questions')
-      .insert({
-        category_id: categoryId,
-        text: q.text,
-        context: q.context,
-        type: q.type || 'multiple_choice'
-      })
+      .upsert(
+        {
+          category_id: categoryId,
+          text: questionText,
+          context: null,
+          type: 'multiple_choice',
+          kind: 'objective',
+          trait: item.trait,
+          reverse_key: !!item.reverse_key,
+          external_id: item.bfi2s_id,
+        },
+        { onConflict: 'external_id' }
+      )
       .select()
       .single();
 
-    if (qError) {
-      console.error(`  Error inserting question: ${q.text.slice(0, 50)}...`, qError);
+    if (qErr) {
+      console.error(`  Error upserting BFI-2-S item ${item.bfi2s_id}:`, qErr);
       continue;
     }
 
-    questionCount++;
+    inserted++;
 
-    // Insert alternatives
-    const alts = q.alternatives.map(a => ({
+    // Clear any pre-existing alternatives for this question (idempotent reseed)
+    await supabase.from('alternatives').delete().eq('question_id', question.id);
+
+    const impactCol = impactColumnFor(item.trait);
+    const alts = likertScale.map(step => ({
       question_id: question.id,
-      text: a.text,
-      sort_order: a.sort_order,
-      impact_o: a.impact_o,
-      impact_c: a.impact_c,
-      impact_e: a.impact_e,
-      impact_a: a.impact_a,
-      impact_n: a.impact_n,
+      text: step.text,
+      sort_order: step.sort_order,
+      impact_o: 0, impact_c: 0, impact_e: 0, impact_a: 0, impact_n: 0,
+      [impactCol]: step.value,
     }));
 
-    const { data: insertedAlts, error: aError } = await supabase
+    const { data: insertedAlts, error: aErr } = await supabase
       .from('alternatives')
       .insert(alts)
       .select();
 
-    if (aError) {
-      console.error(`  Error inserting alternatives for question ${question.id}:`, aError);
+    if (aErr) {
+      console.error(`  Error inserting Likert alternatives for ${item.bfi2s_id}:`, aErr);
       continue;
     }
 
-    altCount += insertedAlts.length;
+    altInserted += insertedAlts.length;
   }
 
-  console.log(`Inserting questions and alternatives...`);
-  console.log(`  ${questionCount} questions inserted.`);
-  console.log(`  ${altCount} alternatives inserted.\n`);
+  return { inserted, altInserted };
+}
 
-  // Summary
-  const catBreakdown = {};
-  for (const q of data.questions) {
-    catBreakdown[q.category] = (catBreakdown[q.category] || 0) + 1;
-  }
-  console.log('Distribution by category:');
-  for (const [cat, count] of Object.entries(catBreakdown)) {
-    console.log(`  ${cat}: ${count}`);
+async function seedInterpretative(categoryMap) {
+  const raw = await readFile(join(__dirname, 'interpretative.json'), 'utf-8');
+  const data = JSON.parse(raw);
+
+  let inserted = 0;
+  let altInserted = 0;
+
+  for (const q of data.items) {
+    const categoryId = categoryMap[q.category];
+    if (!categoryId) {
+      console.error(`  Unknown interpretative category: ${q.category}`);
+      continue;
+    }
+
+    const { data: question, error: qErr } = await supabase
+      .from('questions')
+      .insert({
+        category_id: categoryId,
+        text: q.text,
+        context: q.context ?? null,
+        type: q.type || 'multiple_choice',
+        kind: 'interpretative',
+        trait: null,
+        reverse_key: false,
+      })
+      .select()
+      .single();
+
+    if (qErr) {
+      console.error(`  Error inserting interpretative question: ${q.text.slice(0, 60)}…`, qErr);
+      continue;
+    }
+
+    inserted++;
+
+    if (Array.isArray(q.alternatives) && q.alternatives.length > 0) {
+      const alts = q.alternatives.map(a => ({
+        question_id: question.id,
+        text: a.text,
+        sort_order: a.sort_order,
+      }));
+
+      const { data: insertedAlts, error: aErr } = await supabase
+        .from('alternatives')
+        .insert(alts)
+        .select();
+
+      if (aErr) {
+        console.error(`  Error inserting alternatives for interpretative q#${question.id}:`, aErr);
+        continue;
+      }
+
+      altInserted += insertedAlts.length;
+    }
   }
 
-  console.log('\nSeed completed successfully!');
+  return { inserted, altInserted };
+}
+
+async function seed() {
+  console.log('Starting Dual-Core seed…\n');
+
+  const legacyRaw = await readFile(join(__dirname, 'questions.json'), 'utf-8');
+  const legacy = JSON.parse(legacyRaw);
+
+  console.log('1) Upserting categories…');
+  const categoryMap = await upsertCategories(legacy.categories);
+  console.log(`   ${Object.keys(categoryMap).length} categories ready.\n`);
+
+  console.log('2) Seeding objective layer (BFI-2-S)…');
+  const objective = await seedObjective(categoryMap[OBJECTIVE_CATEGORY.slug]);
+  console.log(`   ${objective.inserted} objective items, ${objective.altInserted} Likert alternatives.\n`);
+
+  console.log('3) Seeding interpretative layer…');
+  const interpretative = await seedInterpretative(categoryMap);
+  console.log(`   ${interpretative.inserted} interpretative items, ${interpretative.altInserted} alternatives.\n`);
+
+  console.log('Seed completed successfully.');
+  console.log(`Totals: questions=${objective.inserted + interpretative.inserted}, alternatives=${objective.altInserted + interpretative.altInserted}`);
 }
 
 seed().catch(err => {

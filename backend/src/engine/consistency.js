@@ -1,59 +1,53 @@
-import { DIMENSION_KEYS, IMPACT_RANGE } from '../config/constants.js';
-import { resolveImpacts } from './BigFiveEngine.js';
+import { DIMENSION_KEYS, QUESTION_KIND } from '../config/constants.js';
 
 /**
- * Threshold for flagging a dimension as having internal tension.
- * With IMPACT_RANGE = 3.0, stddev > 1.5 means answers span more than
- * half the scale — a clear sign of contradictory responses.
- */
-const TENSION_THRESHOLD = 1.5;
-
-/**
- * Mapping from dimension key to the impact column name in alternatives.
- */
-const IMPACT_COLUMNS = {
-  O: 'impact_o',
-  C: 'impact_c',
-  E: 'impact_e',
-  A: 'impact_a',
-  N: 'impact_n',
-};
-
-/**
- * Calculates per-dimension consistency (standard deviation) from answers.
- * Detects whether a moderate score is genuine balance or masked contradiction.
+ * Threshold for flagging a trait as "internal tension".
  *
- * @param {Array} answers - Answers with fully formed schema
- *
- * @returns {Object} Consistency per dimension:
- *   { O: { mean, stddev, tension, n }, C: { ... }, ... }
+ * With BFI-2-S Likert values in [-2, +2] and 6 items per trait, the maximum
+ * possible population stddev of the signed contributions is 2.0 (alternating
+ * +2 / -2 across all items). An stddev > 1.2 therefore means the respondent
+ * oscillated strongly between endpoints on this trait, which is the signal
+ * we want to surface as "internal contradiction" to the LLM.
+ */
+const TENSION_THRESHOLD = 1.2;
+
+/**
+ * Per-trait consistency (mean + population stddev of the signed Likert
+ * contributions) over the objective BFI-2-S answers only. Interpretative
+ * answers are skipped entirely.
  */
 export function calculateConsistency(answers) {
-  const validAnswers = answers.filter(a => a.questions?.type !== 'reflection');
-  const n = validAnswers.length;
-  if (n === 0) {
-    return Object.fromEntries(
-      DIMENSION_KEYS.map(key => [key, { mean: 0, stddev: 0, tension: false, n: 0 }])
-    );
+  const buckets = Object.fromEntries(DIMENSION_KEYS.map(k => [k, []]));
+
+  for (const answer of answers) {
+    if (answer?.questions?.kind !== QUESTION_KIND.OBJECTIVE) continue;
+
+    const trait = answer.questions.trait;
+    if (!trait || !DIMENSION_KEYS.includes(trait)) continue;
+
+    const col = `impact_${trait.toLowerCase()}`;
+    const likertValue = Number(answer.alternatives?.[col] ?? 0);
+    if (!Number.isFinite(likertValue)) continue;
+
+    const signed = answer.questions.reverse_key ? -likertValue : likertValue;
+    buckets[trait].push(signed);
   }
 
   const result = {};
-
   for (const key of DIMENSION_KEYS) {
-    const col = IMPACT_COLUMNS[key];
+    const values = buckets[key];
+    const n = values.length;
 
-    // Collect individual impact values for this dimension
-    const values = validAnswers.map(a => Number(resolveImpacts(a)[col]));
+    if (n === 0) {
+      result[key] = { mean: 0, stddev: 0, tension: false, n: 0 };
+      continue;
+    }
 
-    // Calculate mean
     const sum = values.reduce((acc, v) => acc + v, 0);
     const mean = sum / n;
-
-    // Calculate variance (population variance)
     const variance = values.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / n;
     const stddev = Math.sqrt(variance);
 
-    // Round for readability
     result[key] = {
       mean: Math.round(mean * 100) / 100,
       stddev: Math.round(stddev * 100) / 100,

@@ -1,5 +1,7 @@
 import { supabase } from '../config/supabase.js';
+import { MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS, QUESTION_KIND } from '../config/constants.js';
 import { analyzeSession } from '../services/analyze.service.js';
+import { AppError } from '../utils/AppError.js';
 import { success } from '../utils/apiResponse.js';
 import { logger } from '../utils/logger.js';
 
@@ -16,11 +18,44 @@ import { logger } from '../utils/logger.js';
  */
 export async function handleQuickAnalyze(req, res, next) {
   try {
-    const answerCount = Math.max(20, Number(req.body?.answer_count) || 25);
+    const requestedAnswerCount = Number(req.body?.answer_count);
+    const extraInterpretative =
+      Number.isFinite(requestedAnswerCount) && requestedAnswerCount > MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS
+        ? Math.floor(requestedAnswerCount) - MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS
+        : 5;
 
-    logger.info('[DEV] Quick-analyze started', { answerCount });
+    logger.info('[DEV] Quick-analyze started', {
+      min_objective: MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS,
+      extra_interpretative: extraInterpretative,
+    });
 
-    // 1. Create session
+    // 1. Fetch all active questions with their alternatives + kind
+    const { data: questions, error: qErr } = await supabase
+      .from('questions')
+      .select('id, kind, alternatives ( id )')
+      .eq('is_active', true);
+
+    if (qErr) throw qErr;
+
+    const eligible = (questions || []).filter(
+      q =>
+        q?.id &&
+        Array.isArray(q.alternatives) &&
+        q.alternatives.some(alt => Boolean(alt?.id))
+    );
+
+    const objective = eligible.filter(q => q.kind === QUESTION_KIND.OBJECTIVE);
+    const interpretative = eligible.filter(q => q.kind === QUESTION_KIND.INTERPRETATIVE);
+
+    if (objective.length < MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS) {
+      throw new AppError(
+        `Not enough objective (BFI-2-S) questions seeded. Current: ${objective.length}, minimum: ${MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS}.`,
+        422,
+        'INSUFFICIENT_QUESTION_DATA'
+      );
+    }
+
+    // 2. Create session
     const { data: session, error: sessErr } = await supabase
       .from('sessions')
       .insert({ nickname: '[TEST] Quick Session' })
@@ -31,21 +66,17 @@ export async function handleQuickAnalyze(req, res, next) {
 
     const sessionId = session.id;
 
-    // 2. Fetch all active questions with their alternatives
-    const { data: questions, error: qErr } = await supabase
-      .from('questions')
-      .select('id, alternatives ( id )')
-      .eq('is_active', true);
-
-    if (qErr) throw qErr;
-
-    // Shuffle and pick N questions
-    const shuffled = questions.sort(() => Math.random() - 0.5);
-    const selected = shuffled.slice(0, answerCount);
+    const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
+    const selectedObjective = shuffle(objective).slice(0, MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS);
+    const selectedInterpretative = shuffle(interpretative).slice(
+      0,
+      Math.min(extraInterpretative, interpretative.length)
+    );
+    const selected = [...selectedObjective, ...selectedInterpretative];
 
     // 3. Build random answers
     const answersToInsert = selected.map(q => {
-      const alts = q.alternatives || [];
+      const alts = q.alternatives.filter(alt => Boolean(alt?.id));
       const randomAlt = alts[Math.floor(Math.random() * alts.length)];
       return {
         session_id: sessionId,
@@ -61,7 +92,11 @@ export async function handleQuickAnalyze(req, res, next) {
 
     if (insertErr) throw insertErr;
 
-    logger.info('[DEV] Random answers inserted', { sessionId, count: answersToInsert.length });
+    logger.info('[DEV] Random answers inserted', {
+      sessionId,
+      requestedAnswerCount: answerCount,
+      insertedAnswerCount: answersToInsert.length,
+    });
 
     // 4. Run full analyze pipeline
     const result = await analyzeSession(sessionId);
