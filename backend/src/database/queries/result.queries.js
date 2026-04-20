@@ -22,6 +22,29 @@ export async function createResult(sessionId, profile, consistency = null, llmIn
   return data;
 }
 
+/**
+ * Atualiza APENAS o campo `llm_interpretation` de um resultado existente.
+ *
+ * Usado pelo endpoint de re-geração (`POST /interpret`) quando o usuário
+ * pede mais referências/obras. Persistir aqui garante que o link público
+ * e o PDF sempre reflitam o estado acumulado, e não apenas a última
+ * geração em memória.
+ */
+export async function updateResultInterpretation(sessionId, llmInterpretation) {
+  const { data, error } = await supabase
+    .from('results')
+    .update({ llm_interpretation: llmInterpretation })
+    .eq('session_id', sessionId)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
+  return data;
+}
+
 export async function getResultBySessionId(sessionId) {
   const { data, error } = await supabase
     .from('results')

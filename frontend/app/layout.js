@@ -14,7 +14,16 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR">
-      <body className={`${geistMono.variable} antialiased`}>
+      {/*
+        suppressHydrationWarning: browser extensions (ColorZilla, Grammarly, LastPass, etc.)
+        injetam atributos como `cz-shortcut-listen` no <body> antes do React hidratar,
+        gerando mismatches impossíveis de evitar pelo nosso código. Essa flag é aplicada
+        SÓ ao próprio <body> — filhos continuam sendo verificados normalmente.
+      */}
+      <body
+        className={`${geistMono.variable} antialiased`}
+        suppressHydrationWarning
+      >
         {children}
       </body>
     </html>

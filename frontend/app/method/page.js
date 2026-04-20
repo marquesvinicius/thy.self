@@ -3,13 +3,65 @@
 import Header from '@/components/Header';
 import MysticBackground from '@/components/MysticBackground';
 import Link from 'next/link';
+import { BlockMath, InlineMath } from 'react-katex';
+import 'katex/dist/katex.min.css';
 
 const OCEAN_DIMENSIONS = [
-  { key: 'O', name: 'abertura', english: 'openness', low: 'convencional / prático', high: 'inventivo / curioso' },
-  { key: 'C', name: 'conscienciosidade', english: 'conscientiousness', low: 'espontâneo / flexível', high: 'organizado / disciplinado' },
-  { key: 'E', name: 'extroversão', english: 'extraversion', low: 'reservado / introspectivo', high: 'sociável / enérgico' },
-  { key: 'A', name: 'amabilidade', english: 'agreeableness', low: 'crítico / direto', high: 'cooperativo / empático' },
-  { key: 'N', name: 'neuroticismo', english: 'neuroticism', low: 'estável / tranquilo', high: 'sensível / reativo' },
+  {
+    key: 'O',
+    name: 'abertura',
+    english: 'openness to experience',
+    low: 'convencional / prático',
+    high: 'inventivo / curioso',
+    definition:
+      'descreve a amplitude, profundidade, originalidade e complexidade da vida mental e experiencial do indivíduo. contrasta a preferência pelo familiar e concreto com a atração pelo novo, pelo abstrato e pelo esteticamente estimulante.',
+    source: 'John & Srivastava (1999)',
+    facets: ['sensibilidade estética', 'curiosidade intelectual', 'imaginação criativa'],
+  },
+  {
+    key: 'C',
+    name: 'conscienciosidade',
+    english: 'conscientiousness',
+    low: 'espontâneo / flexível',
+    high: 'organizado / disciplinado',
+    definition:
+      'descreve o controle de impulsos socialmente prescrito que facilita o comportamento orientado a tarefas e metas — pensar antes de agir, adiar gratificação, seguir normas, planejar, organizar e priorizar.',
+    source: 'John & Srivastava (1999)',
+    facets: ['organização', 'produtividade', 'responsabilidade'],
+  },
+  {
+    key: 'E',
+    name: 'extroversão',
+    english: 'extraversion',
+    low: 'reservado / introspectivo',
+    high: 'sociável / enérgico',
+    definition:
+      'implica uma abordagem enérgica dirigida ao mundo social e material, envolvendo traços como sociabilidade, atividade, assertividade e emocionalidade positiva.',
+    source: 'John & Srivastava (1999)',
+    facets: ['sociabilidade', 'assertividade', 'nível de energia'],
+  },
+  {
+    key: 'A',
+    name: 'amabilidade',
+    english: 'agreeableness',
+    low: 'crítico / direto',
+    high: 'cooperativo / empático',
+    definition:
+      'contrapõe uma orientação pró-social e comunitária à hostilidade — inclui traços como altruísmo, compaixão, confiança interpessoal e modéstia.',
+    source: 'John & Srivastava (1999)',
+    facets: ['compaixão', 'respeito', 'confiança'],
+  },
+  {
+    key: 'N',
+    name: 'neuroticismo',
+    english: 'neuroticism',
+    low: 'estável / tranquilo',
+    high: 'sensível / reativo',
+    definition:
+      'contrasta estabilidade emocional e equilíbrio com emocionalidade negativa — propensão a sentir ansiedade, tristeza, tensão e reatividade ao estresse. escores altos não indicam patologia, apenas maior sensibilidade emocional.',
+    source: 'John & Srivastava (1999); Soto & John (2017)',
+    facets: ['ansiedade', 'tristeza', 'volatilidade emocional'],
+  },
 ];
 
 const LEVELS = [
@@ -56,13 +108,21 @@ function SectionTitle({ eyebrow, title }) {
   );
 }
 
-function Formula({ children }) {
+function Formula({ tex }) {
   return (
-    <div className="border border-border/80 bg-surface/60 p-5 md:p-6 my-4 overflow-x-auto">
-      <pre className="text-[11px] md:text-xs leading-relaxed whitespace-pre text-foreground/90">
-{children}
-      </pre>
+    <div className="border border-border/80 bg-surface/60 p-5 md:p-8 my-4 overflow-x-auto flex items-center justify-center">
+      <div className="text-foreground/95">
+        <BlockMath math={tex} />
+      </div>
     </div>
+  );
+}
+
+function InlineEq({ tex }) {
+  return (
+    <span className="text-foreground/90">
+      <InlineMath math={tex} />
+    </span>
   );
 }
 
@@ -192,25 +252,27 @@ export default function MethodPage() {
             <p className="text-[11px] uppercase tracking-[0.2em] text-muted mt-8 mb-2">
               etapa 1 · acumulação do escore bruto
             </p>
-            <Formula>{`bruto(d) = Σᵢ₌₁⁶ signᵢ · likertᵢ
-
-onde  d ∈ {O, C, E, A, N}
-      likertᵢ ∈ {−2, −1, 0, +1, +2}
-      signᵢ  = +1 se item direto,  −1 se reverso
-
-limite teórico:  bruto(d) ∈ [−12, +12]`}</Formula>
+            <Formula tex={String.raw`\text{bruto}(d) = \sum_{i=1}^{6} \text{sign}_{i} \cdot \text{likert}_{i}`} />
+            <div className="text-[11px] md:text-xs text-muted leading-relaxed space-y-1 pl-2 border-l border-border/60 ml-2">
+              <p>
+                onde <InlineEq tex={String.raw`d \in \{O, C, E, A, N\}`} />,{' '}
+                <InlineEq tex={String.raw`\text{likert}_{i} \in \{-2, -1, 0, +1, +2\}`} />
+              </p>
+              <p>
+                <InlineEq tex={String.raw`\text{sign}_{i} = +1`} /> se item direto,{' '}
+                <InlineEq tex={String.raw`-1`} /> se reverso
+              </p>
+              <p>
+                limite teórico: <InlineEq tex={String.raw`\text{bruto}(d) \in [-12,\; +12]`} />
+              </p>
+            </div>
 
             <p className="text-[11px] uppercase tracking-[0.2em] text-muted mt-8 mb-2">
               etapa 2 · normalização para a escala 0–100
             </p>
-            <Formula>{`              bruto(d) − (−12)
-escore(d)  =  ─────────────────  ×  100
-              (+12) − (−12)
-
-
-             bruto(d) + 12
-          =  ─────────────  ×  100
-                  24`}</Formula>
+            <Formula
+              tex={String.raw`\text{escore}(d) \;=\; \frac{\text{bruto}(d) - (-12)}{(+12) - (-12)} \times 100 \;=\; \frac{\text{bruto}(d) + 12}{24} \times 100`}
+            />
 
             <p className="text-[11px] uppercase tracking-[0.2em] text-muted mt-8 mb-2">
               etapa 3 · classificação em cinco níveis
@@ -241,24 +303,80 @@ escore(d)  =  ─────────────────  ×  100
 
           {/* Dimensions */}
           <section>
-            <SectionTitle eyebrow="4. as cinco dimensões" title="OCEAN: polos e significado" />
-            <div className="space-y-3">
+            <SectionTitle eyebrow="4. as cinco dimensões" title="OCEAN: definições acadêmicas, facetas e polos" />
+            <p className="text-sm text-muted leading-relaxed mb-6">
+              as definições a seguir são paráfrases dos textos canônicos do
+              Big Five. as três facetas listadas por dimensão correspondem à
+              estrutura hierárquica do BFI-2 proposta por Soto & John (2017),
+              na qual cada uma das cinco dimensões é composta por três
+              subtraços específicos — cada faceta é medida por dois itens
+              no BFI-2-S.
+            </p>
+            <div className="space-y-4">
               {OCEAN_DIMENSIONS.map((dim) => (
-                <div key={dim.key} className="border border-border p-4 md:p-5">
-                  <div className="flex items-baseline gap-3 mb-2">
-                    <span className="text-3xl font-bold tracking-tighter">{dim.key}</span>
+                <div key={dim.key} className="border border-border p-5 md:p-6 space-y-5">
+                  {/* Header: letter + name */}
+                  <div className="flex items-baseline gap-4">
+                    <span className="text-4xl md:text-5xl font-bold tracking-tighter">
+                      {dim.key}
+                    </span>
                     <div>
-                      <div className="text-xs uppercase tracking-[0.2em]">{dim.name}</div>
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-muted/70">{dim.english}</div>
+                      <div className="text-sm uppercase tracking-[0.2em]">{dim.name}</div>
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-muted/70 mt-0.5">
+                        {dim.english}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.2em] text-muted pt-3 border-t border-border/50">
-                    <span>{dim.low}</span>
+
+                  {/* Academic definition */}
+                  <figure className="pl-4 border-l-2 border-foreground/30 space-y-2">
+                    <blockquote className="text-xs md:text-sm text-foreground/85 leading-relaxed italic">
+                      “{dim.definition}”
+                    </blockquote>
+                    <figcaption className="text-[10px] uppercase tracking-[0.25em] text-muted not-italic">
+                      — {dim.source}
+                    </figcaption>
+                  </figure>
+
+                  {/* BFI-2 facets */}
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase tracking-[0.25em] text-muted">
+                      facetas medidas no BFI-2-S
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {dim.facets.map((facet) => (
+                        <span
+                          key={facet}
+                          className="text-[11px] uppercase tracking-[0.15em] border border-border px-3 py-1.5 bg-surface/40"
+                        >
+                          {facet}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Poles */}
+                  <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.2em] text-muted pt-4 border-t border-border/50">
+                    <span>← {dim.low}</span>
                     <span className="flex-1 border-t border-dashed border-border" />
-                    <span>{dim.high}</span>
+                    <span>{dim.high} →</span>
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="border-l-2 border-foreground/40 pl-4 mt-6 space-y-2">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-foreground/70">
+                nota importante sobre os nomes
+              </p>
+              <p className="text-xs text-muted leading-relaxed">
+                os rótulos do modelo vêm do inglês técnico. <em>neuroticismo</em>{' '}
+                não é sinônimo de neurose clínica — é a descrição dimensional
+                da sensibilidade ao afeto negativo. <em>abertura</em> não
+                mede inteligência, mede disposição para o novo. nenhum polo é
+                melhor que o outro: ambos descrevem configurações adaptativas
+                em contextos diferentes (McCrae & Costa, 1997).
+              </p>
             </div>
           </section>
 
@@ -294,9 +412,9 @@ escore(d)  =  ─────────────────  ×  100
               a referência mais próxima é escolhida pela menor distância
               euclidiana no espaço pentadimensional.
             </p>
-            <Formula>{`                  ┌─────────────────────────────────
-d(u, a)  =  √  Σ  (escore_d^u − escore_d^a)²
-                  └─ d ∈ {O, C, E, A, N}`}</Formula>
+            <Formula
+              tex={String.raw`d(u,\, a) \;=\; \sqrt{\sum_{d \in \{O, C, E, A, N\}} \left(\text{escore}^{u}_{d} - \text{escore}^{a}_{d}\right)^{2}}`}
+            />
             <p className="text-xs text-muted leading-relaxed mt-4">
               empates são desfeitos deterministicamente pelo identificador do
               registro. a escolha do arquétipo é <strong className="text-foreground">puramente matemática</strong> —
@@ -354,47 +472,85 @@ d(u, a)  =  √  Σ  (escore_d^u − escore_d^a)²
             </div>
           </section>
 
-          {/* Objective vs adjusted */}
+          {/* Per-answer transparency */}
           <section>
-            <SectionTitle eyebrow="8. perfil objetivo vs ajustado" title="você pode discordar — sem reescrever o passado" />
+            <SectionTitle eyebrow="8. auditabilidade resposta a resposta" title="ver qual pergunta empurrou qual traço" />
             <p className="text-sm text-muted leading-relaxed mb-6">
-              após ver o resultado, você pode revisar cada resposta
-              qualitativamente e marcar as que julga não representarem você.
-              o sistema recalcula um <em>perfil ajustado</em> em tempo de
-              execução, excluindo as respostas discordantes — sem alterar o
-              perfil original.
+              o perfil é uma soma de trinta pequenas decisões. em uma tela
+              dedicada de revisão, você pode percorrer as suas respostas do
+              BFI-2-S uma a uma e ver, para cada item, o traço que ela alimenta
+              e o sentido da contribuição (positiva ou negativa, conforme a
+              chave direta ou reversa definida pelo instrumento).
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="border border-foreground/60 p-5 space-y-2">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-muted">registro 1</div>
-                <h3 className="text-sm font-bold uppercase tracking-[0.15em]">perfil objetivo</h3>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-muted">o que a tela mostra</div>
+                <h3 className="text-sm font-bold uppercase tracking-[0.15em]">influência por resposta</h3>
                 <p className="text-xs text-muted leading-relaxed">
-                  calculado a partir de todas as respostas, persistido no banco,
-                  imutável. é a fotografia do instante.
+                  o enunciado da pergunta, a sua escolha na escala Likert, o
+                  traço ligado àquele item e um marcador qualitativo do sentido
+                  da contribuição ao escore final.
                 </p>
               </div>
               <div className="border border-border p-5 space-y-2">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-muted">registro 2</div>
-                <h3 className="text-sm font-bold uppercase tracking-[0.15em]">perfil ajustado</h3>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-muted">o que a tela não faz</div>
+                <h3 className="text-sm font-bold uppercase tracking-[0.15em]">perfil imutável</h3>
                 <p className="text-xs text-muted leading-relaxed">
-                  derivado, calculado sob demanda, não persistido. é uma
-                  hipótese alternativa — exibida ao lado do original, nunca
-                  no lugar dele.
+                  revisar não recalcula nada. o perfil objetivo é calculado uma
+                  única vez a partir de todas as respostas, persistido e nunca
+                  reescrito — a tela de revisão é só uma lente de auditoria.
                 </p>
               </div>
+            </div>
+
+            <p className="text-[11px] text-muted/70 leading-relaxed mt-6 italic">
+              a intenção aqui é transparência, não editabilidade: você pode
+              concordar ou discordar da leitura, mas o retrato do instante em
+              que você respondeu permanece intacto.
+            </p>
+          </section>
+
+          {/* Sharing & export */}
+          <section>
+            <SectionTitle eyebrow="9. compartilhamento" title="publicação opt-in e exportação em PDF" />
+            <div className="space-y-4 text-sm text-muted leading-relaxed">
+              <p>
+                ao ver o resultado, o usuário pode — se quiser — publicá-lo em
+                uma URL pública no formato{' '}
+                <code className="text-foreground bg-surface/80 px-1.5 py-0.5 text-[11px] border border-border/60">
+                  /r/&lt;token&gt;
+                </code>. o token é um{' '}
+                <strong className="text-foreground">UUID distinto do identificador da sessão</strong> —
+                publicar nunca expõe o id interno de quem respondeu, e a página
+                pública é estritamente read-only (sem botões de regerar, nova
+                sessão ou exportar).
+              </p>
+              <p>
+                o estado default é <em>privado</em>. nada vaza sem uma ação
+                explícita. a qualquer momento o usuário pode tornar o link
+                privado novamente, invalidando a visualização pública.
+              </p>
+              <p>
+                a exportação em PDF acontece inteiramente{' '}
+                <strong className="text-foreground">no navegador</strong>, via{' '}
+                <em>pdfmake</em>. nenhum dado sai da máquina do usuário para
+                nenhum serviço de impressão: o documento é montado em memória e
+                baixado diretamente. quando há um link público ativo, um QR code
+                é embutido no rodapé do PDF para ponte entre papel e tela.
+              </p>
             </div>
           </section>
 
           {/* Boundaries */}
           <section>
-            <SectionTitle eyebrow="9. limites" title="o que o thy.self não é" />
+            <SectionTitle eyebrow="10. limites" title="o que o thy.self não é" />
             <div className="space-y-3">
               {[
                 { label: 'não é diagnóstico clínico', text: 'nenhum escore deste sistema sugere, aproxima-se ou substitui uma avaliação psicológica ou psiquiátrica profissional.' },
                 { label: 'não é um instrumento novo', text: 'o thy.self reutiliza o BFI-2-S; não propõe nem valida novos itens psicométricos.' },
                 { label: 'não é uma verdade sobre você', text: 'é um retrato comportamental de um instante — baseado em 30 afirmações que você respondeu em minutos.' },
-                { label: 'não coleta dados pessoais', text: 'a sessão é anônima por design. não há cadastro, e-mail, cookie de rastreamento ou identidade persistente.' },
+                { label: 'não coleta dados pessoais', text: 'a sessão é anônima por design. não há cadastro, e-mail, cookie de rastreamento ou identidade persistente. publicar o resultado é opt-in e usa um token distinto da sessão.' },
               ].map((item) => (
                 <div key={item.label} className="border border-border p-4 md:p-5">
                   <p className="text-xs font-bold uppercase tracking-[0.2em] mb-2">{item.label}</p>
@@ -406,12 +562,22 @@ d(u, a)  =  √  Σ  (escore_d^u − escore_d^a)²
 
           {/* References */}
           <section>
-            <SectionTitle eyebrow="10. referências" title="de onde vem cada decisão" />
+            <SectionTitle eyebrow="11. referências" title="de onde vem cada decisão" />
             <div className="space-y-2 text-[11px] md:text-xs text-muted leading-relaxed">
               <p>
                 <strong className="text-foreground">SOTO, C. J.; JOHN, O. P.</strong> The next Big Five Inventory (BFI-2):
-                developing and assessing a hierarchical model with 15 facets.
+                developing and assessing a hierarchical model with 15 facets to enhance bandwidth, fidelity, and predictive power.
                 <em> Journal of Personality and Social Psychology</em>, v. 113, n. 1, p. 117–143, 2017.
+              </p>
+              <p>
+                <strong className="text-foreground">JOHN, O. P.; SRIVASTAVA, S.</strong> The Big Five trait taxonomy:
+                history, measurement, and theoretical perspectives. In: PERVIN, L. A.; JOHN, O. P. (ed.).
+                <em> Handbook of Personality: theory and research</em>. 2. ed. New York: Guilford Press, 1999. p. 102–138.
+              </p>
+              <p>
+                <strong className="text-foreground">McCRAE, R. R.; COSTA, P. T.</strong> Conceptions and correlates of
+                openness to experience. In: HOGAN, R.; JOHNSON, J.; BRIGGS, S. (ed.).
+                <em> Handbook of Personality Psychology</em>. San Diego: Academic Press, 1997. p. 825–847.
               </p>
               <p>
                 <strong className="text-foreground">McCRAE, R. R.; JOHN, O. P.</strong> An introduction to the five-factor

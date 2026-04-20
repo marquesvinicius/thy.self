@@ -2,31 +2,31 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { createSession } from '@/services/api';
 import Logo from '@/components/Logo';
+import Header from '@/components/Header';
 import MysticBackground from '@/components/MysticBackground';
 
 const QUESTION_TYPE_GUIDE = [
   {
     key: 'objective',
     title: 'Camada objetiva (BFI-2-S)',
-    desc: '30 afirmacoes curtas respondidas em uma escala de 5 pontos (discordo totalmente -> concordo totalmente). Essas sao as unicas perguntas que alimentam o calculo dos cinco fatores.',
+    desc: '30 afirmações curtas respondidas em uma escala Likert de 5 pontos (discordo totalmente → concordo totalmente). São as únicas perguntas que alimentam o cálculo dos cinco fatores.',
   },
   {
     key: 'interpretative',
     title: 'Camada interpretativa',
-    desc: 'Dilemas morais, paradoxos e perguntas de preferencia. Nao influenciam os escores - servem apenas como contexto qualitativo para a leitura narrativa final.',
+    desc: 'Dilemas morais, paradoxos e perguntas de interesse. Não influenciam os escores numéricos — servem apenas como contexto qualitativo para a leitura narrativa gerada ao final.',
   },
   {
-    key: 'ranking',
-    title: 'Ordenacao de prioridades',
-    desc: 'Em algumas perguntas interpretativas, clique nas opcoes na ordem da sua preferencia. O primeiro clique vira sua maior prioridade.',
+    key: 'binary',
+    title: 'Escolha binária',
+    desc: 'Em alguns paradoxos, você escolhe entre dois polos (ex.: amado ou temido?). Clique no que mais te representa e depois em “confirmar”.',
   },
   {
     key: 'reflection',
-    title: 'Reflexao livre',
-    desc: 'Algumas perguntas interpretativas pedem um texto seu. Quanto mais autentico, mais rica fica a leitura final gerada pela IA.',
+    title: 'Reflexão livre',
+    desc: 'Algumas perguntas interpretativas pedem um texto seu. Quanto mais autêntico, mais rica fica a leitura final gerada pela IA.',
   },
 ];
 
@@ -55,6 +55,7 @@ export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-6">
       <MysticBackground mode="home" />
+      <Header />
 
       {showGuide && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-sm p-4">
@@ -63,8 +64,8 @@ export default function Home() {
               <h2 className="text-sm md:text-base uppercase tracking-[0.2em]">Como responder o quiz</h2>
               <p className="text-xs md:text-sm text-muted">
                 O thy.self funciona em duas camadas: uma objetiva (BFI-2-S) que
-                alimenta o calculo dos cinco fatores, e uma interpretativa que
-                apenas colore a leitura final. Leia rapido e siga pelo instinto.
+                alimenta o cálculo dos cinco fatores, e uma interpretativa que
+                apenas colore a leitura final. Leia rápido e siga pelo instinto.
               </p>
             </div>
 
@@ -90,7 +91,7 @@ export default function Home() {
                 disabled={loading}
                 className="border border-foreground px-6 py-2 text-[11px] uppercase tracking-[0.2em] hover:bg-foreground hover:text-background transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {loading ? 'iniciando...' : 'entendi, comecar'}
+                {loading ? 'iniciando...' : 'entendi, começar'}
               </button>
             </div>
           </div>
@@ -114,15 +115,6 @@ export default function Home() {
           </button>
         </div>
       </div>
-
-      <nav className="absolute top-6 right-6 md:top-8 md:right-10 flex gap-5 text-[10px] uppercase tracking-[0.3em] text-muted z-[1]">
-        <Link href="/about" className="hover:text-foreground transition-colors">
-          sobre
-        </Link>
-        <Link href="/method" className="hover:text-foreground transition-colors">
-          método
-        </Link>
-      </nav>
 
       <footer className="absolute bottom-6 text-[10px] uppercase tracking-widest text-muted z-[1]">
         thy.self &mdash; big five ocean

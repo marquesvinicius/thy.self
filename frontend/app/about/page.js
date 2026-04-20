@@ -7,19 +7,19 @@ import Link from 'next/link';
 const PRINCIPLES = [
   {
     title: 'rigor auditável',
-    desc: 'o cálculo é público, a fórmula está na página do método, o instrumento é de domínio público. nada é segredo comercial.',
+    desc: 'o cálculo é público, a fórmula está na página do método, o instrumento é de domínio público. qualquer pessoa pode reproduzir o resultado no papel.',
   },
   {
     title: 'separação cálculo–interpretação',
-    desc: 'o que é matemática fica na matemática. o que é narrativa admite-se como narrativa. nunca há contaminação.',
+    desc: 'o que é matemática fica na matemática. o que é narrativa admite-se como narrativa. nunca há contaminação entre as duas camadas.',
   },
   {
     title: 'anonimato por construção',
-    desc: 'a privacidade não é pedida por consentimento — é garantida pela ausência de qualquer campo de identificação.',
+    desc: 'a privacidade não é pedida por consentimento — é garantida pela ausência de qualquer campo de identificação na origem do sistema.',
   },
   {
     title: 'jornada linear, deliberada',
-    desc: 'sem menus ramificados, sem gamificação barata, sem urgência artificial. uma única direção: começar, responder, ler.',
+    desc: 'sem menus ramificados, sem gamificação, sem urgência artificial. uma única direção: começar, responder, ler.',
   },
   {
     title: 'não-clínico, por princípio',
@@ -29,18 +29,18 @@ const PRINCIPLES = [
 
 const GAPS = [
   {
-    label: 'clínica acadêmica',
+    label: 'contexto clínico e acadêmico',
     pros: ['instrumento validado', 'interpretação profissional'],
-    cons: ['inacessível ao público', 'sem experiência digital', 'aplicação lenta'],
+    cons: ['acesso restrito', 'sem experiência digital', 'aplicação presencial'],
   },
   {
     label: 'quizzes populares',
     pros: ['UX envolvente', 'acesso imediato'],
-    cons: ['metodologia opaca', 'sem auditabilidade', 'base teórica frágil'],
+    cons: ['metodologia não divulgada', 'sem auditabilidade pública'],
   },
   {
     label: 'thy.self',
-    pros: ['BFI-2-S íntegro', 'cálculo público', 'UX oracular', 'IA como narrativa, não como juiz'],
+    pros: ['BFI-2-S íntegro', 'cálculo público', 'UX contemplativa', 'IA como narrativa, não como juiz'],
     cons: ['não substitui avaliação clínica'],
     highlight: true,
   },
@@ -101,7 +101,7 @@ export default function AboutPage() {
                 transcultural — o modelo <strong className="text-foreground">Big Five</strong>.
                 pela primeira vez, foi possível posicionar uma pessoa num espaço
                 numérico reproduzível, sem rótulos discretos nem tipologias
-                místicas.
+                categóricas.
               </p>
               <p>
                 e então veio o modelo de linguagem. pela primeira vez, uma
@@ -112,22 +112,22 @@ export default function AboutPage() {
                 sobre de onde veio cada número.
               </p>
               <p>
-                o thy.self existe nessa junção: um <strong className="text-foreground">oráculo dimensional</strong>,
-                com motor de cálculo transparente e voz narrativa assumida.
+                o thy.self existe nessa junção: um motor de cálculo transparente
+                e uma voz narrativa assumida.
               </p>
             </div>
           </section>
 
           {/* The gap */}
           <section>
-            <SectionTitle eyebrow="o vão" title="entre o rigor inacessível e o entretenimento opaco" />
+            <SectionTitle eyebrow="o vão" title="entre o rigor acadêmico e o entretenimento digital" />
             <p className="text-sm text-muted leading-relaxed mb-6">
-              avaliações de personalidade hoje existem em dois extremos. num
-              lado, o rigor clínico trancado em consultórios e artigos
-              científicos. no outro, o espetáculo colorido dos quizzes de
-              internet, sem base teórica auditável. o thy.self ocupa
-              deliberadamente o espaço intermediário — o espaço que quase
-              ninguém ocupa com honestidade.
+              avaliações de personalidade hoje existem em dois contextos
+              bem distintos. de um lado, o rigor científico preservado em
+              instrumentos acadêmicos. do outro, a experiência envolvente
+              dos quizzes digitais. o thy.self ocupa o espaço intermediário
+              — tentando herdar o melhor de cada lado sem adotar as
+              limitações de nenhum.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -162,7 +162,7 @@ export default function AboutPage() {
 
           {/* Principles */}
           <section>
-            <SectionTitle eyebrow="princípios" title="o que este projeto recusa ser" />
+            <SectionTitle eyebrow="princípios" title="os compromissos do projeto" />
             <div className="space-y-3">
               {PRINCIPLES.map((p, i) => (
                 <div key={p.title} className="border border-border p-5 flex gap-5">
@@ -177,31 +177,6 @@ export default function AboutPage() {
                   </div>
                 </div>
               ))}
-            </div>
-          </section>
-
-          {/* The aesthetic */}
-          <section>
-            <SectionTitle eyebrow="estética" title="por que os olhos te observam" />
-            <div className="space-y-4 text-sm text-muted leading-relaxed">
-              <p>
-                o fundo do site não é enfeite. os olhos que piscam no limiar
-                da visão, o grão de película, os sigilos nos cantos, a aura
-                vinda do alto — compõem uma liturgia visual do ato de{' '}
-                <em>olhar para si</em>.
-              </p>
-              <p>
-                quando o quiz começa, os olhos se retiram tímidos, como se
-                percebessem que agora é sua vez de ser o observador. a
-                quietude é proposital. o ritmo das transições, as pausas
-                contemplativas entre perguntas, a paleta reduzida ao branco
-                e preto — tudo recusa a linguagem do engajamento viciante
-                em favor de um tempo mais lento, mais próprio da reflexão.
-              </p>
-              <p>
-                é um site sobre si mesmo feito para não ser interrompido
-                por ele mesmo.
-              </p>
             </div>
           </section>
 
@@ -234,44 +209,45 @@ export default function AboutPage() {
             </div>
           </section>
 
-          {/* Tech stack */}
+          {/* Disclaimer — destaque forte */}
           <section>
-            <SectionTitle eyebrow="construção" title="ferramentas sem mistério" />
-            <p className="text-sm text-muted leading-relaxed mb-6">
-              toda a pilha é de código aberto. nenhuma dependência proprietária
-              no motor de cálculo, nenhum serviço fechado no caminho crítico.
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {[
-                { t: 'interface', v: 'Next.js · React' },
-                { t: 'estilo', v: 'Tailwind · Geist Mono' },
-                { t: 'servidor', v: 'Node.js · Express' },
-                { t: 'banco', v: 'PostgreSQL · Supabase' },
-                { t: 'motor', v: 'módulo JS puro' },
-                { t: 'narrativa', v: 'Gemini API' },
-              ].map((tech) => (
-                <div key={tech.t} className="border border-border p-3 space-y-1">
-                  <div className="text-[9px] uppercase tracking-[0.2em] text-muted">{tech.t}</div>
-                  <div className="text-xs">{tech.v}</div>
-                </div>
-              ))}
-            </div>
-          </section>
+            <div className="relative border-2 border-foreground p-6 md:p-10 bg-surface/70">
+              <div className="absolute -top-3 left-6 px-3 bg-background">
+                <p className="text-[10px] uppercase tracking-[0.4em] text-foreground font-bold">
+                  aviso importante
+                </p>
+              </div>
 
-          {/* Disclaimer */}
-          <section>
-            <div className="border-l-2 border-foreground/40 pl-5 py-2 space-y-3">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-foreground/70">
-                aviso
-              </p>
-              <p className="text-xs md:text-sm text-muted leading-relaxed">
-                o thy.self é uma ferramenta <strong className="text-foreground">introdutória de reflexão</strong>.
-                seus resultados não constituem diagnóstico clínico, parecer psicológico
-                ou recomendação terapêutica. se algo aqui mobilizar você a ponto de
-                querer entender melhor — procure um profissional de saúde mental
-                qualificado. nenhum algoritmo, por mais refinado, substitui uma
-                escuta humana.
-              </p>
+              <div className="space-y-5 pt-2">
+                <h3 className="text-lg md:text-2xl font-bold tracking-tight leading-snug">
+                  este não é um diagnóstico.<br />
+                  <span className="text-muted">e nunca pretendeu ser.</span>
+                </h3>
+
+                <div className="space-y-3 text-sm md:text-base text-foreground/90 leading-relaxed">
+                  <p>
+                    o thy.self é uma <strong>ferramenta introdutória de reflexão</strong>.
+                    seus resultados <strong>não constituem diagnóstico clínico</strong>,
+                    parecer psicológico ou recomendação terapêutica — e não devem
+                    ser interpretados como tal em nenhum contexto.
+                  </p>
+                  <p>
+                    se algo aqui mobilizar você a ponto de querer entender melhor —{' '}
+                    <strong className="underline decoration-foreground/40 underline-offset-4">
+                      procure um profissional de saúde mental qualificado
+                    </strong>
+                    . nenhum algoritmo, por mais refinado, substitui uma escuta
+                    humana treinada.
+                  </p>
+                </div>
+
+                <div className="pt-4 border-t border-foreground/20 flex flex-wrap gap-x-6 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted">
+                  <span>— não é diagnóstico</span>
+                  <span>— não é prescrição</span>
+                  <span>— não coleta dados pessoais</span>
+                  <span>— resultado não persiste identidade</span>
+                </div>
+              </div>
             </div>
           </section>
 

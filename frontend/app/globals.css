@@ -57,11 +57,6 @@ body {
 
 /* ── Mystic Background ─── */
 
-@keyframes eyeLidBlink {
-  0%, 85%, 100% { transform: scaleY(0); }
-  92%           { transform: scaleY(1); }
-}
-
 @keyframes ambientGlow {
   0%, 100% { opacity: 0.03; transform: scale(1); }
   50%      { opacity: 0.08; transform: scale(1.06); }
@@ -152,5 +147,19 @@ body {
 
 .animate-spin-slow {
   animation: spinSlow 2s linear infinite;
+}
+
+/* ── KaTeX overrides: herdar cor do tema ─── */
+
+.katex, .katex * {
+  color: inherit !important;
+}
+
+.katex-display {
+  margin: 0 !important;
+}
+
+.katex-display > .katex {
+  white-space: normal;
 }
 

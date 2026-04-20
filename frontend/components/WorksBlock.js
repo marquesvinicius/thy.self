@@ -20,9 +20,14 @@ export default function WorksBlock({ works = [], delay = 1200 }) {
         transform: visible ? 'translateY(0)' : 'translateY(12px)',
       }}
       >
-      <p className="text-[10px] uppercase tracking-[0.4em] text-muted mb-4">
-        obras culturais em destaque
-      </p>
+      <div className="mb-4 space-y-1">
+        <p className="text-[10px] uppercase tracking-[0.4em] text-muted">
+          sugestões para você assistir
+        </p>
+        <p className="text-[11px] text-muted/70 leading-relaxed max-w-xl">
+          uma série, um filme e um anime em ressonância com o seu perfil — escolhidos para dialogar com as suas respostas.
+        </p>
+      </div>
       <div className="space-y-3">
         {works.map((work, index) => (
           <article

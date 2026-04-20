@@ -1,10 +1,14 @@
-import { getResultBySessionId } from '../database/queries/result.queries.js';
+import {
+  getResultBySessionId,
+  updateResultInterpretation,
+} from '../database/queries/result.queries.js';
 import { getInterpretativeSignals } from '../database/queries/answer.queries.js';
 import { generateInterpretation, generateReferenceDetail } from '../services/llm.service.js';
 import { findClosestArchetype } from '../services/archetype.service.js';
 import { checkRegenBudget, recordRegen } from '../services/llm-limiter.js';
 import { success } from '../utils/apiResponse.js';
 import { AppError } from '../utils/AppError.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * POST /api/v1/interpret

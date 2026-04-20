@@ -18,13 +18,30 @@ const OBJECTIVE_CATEGORY = {
   description: 'Itens do BFI-2-S (Soto & John, 2017). Alimentam o cálculo determinístico OCEAN.',
 };
 
+const INTERPRETATIVE_CATEGORIES = [
+  {
+    slug: 'moral_dilemma',
+    name: 'Dilema Moral',
+    description: 'Situações éticas que revelam traços de personalidade',
+  },
+  {
+    slug: 'paradoxical',
+    name: 'Paradoxal / Provocativa',
+    description: 'Perguntas que desafiam o pensamento convencional',
+  },
+  {
+    slug: 'interest',
+    name: 'Definidora de Interesses',
+    description: 'Perguntas sobre preferências para melhor alocação de resultado',
+  },
+];
+
 function impactColumnFor(trait) {
   return `impact_${trait.toLowerCase()}`;
 }
 
-async function upsertCategories(categoriesFromLegacy) {
-  const interpretativeCats = categoriesFromLegacy.filter(c => c.slug !== 'structural');
-  const allCategories = [OBJECTIVE_CATEGORY, ...interpretativeCats];
+async function upsertCategories() {
+  const allCategories = [OBJECTIVE_CATEGORY, ...INTERPRETATIVE_CATEGORIES];
 
   const { data, error } = await supabase
     .from('question_categories')
@@ -142,6 +159,7 @@ async function seedInterpretative(categoryMap) {
         question_id: question.id,
         text: a.text,
         sort_order: a.sort_order,
+        impact_o: 0, impact_c: 0, impact_e: 0, impact_a: 0, impact_n: 0,
       }));
 
       const { data: insertedAlts, error: aErr } = await supabase
@@ -164,11 +182,8 @@ async function seedInterpretative(categoryMap) {
 async function seed() {
   console.log('Starting Dual-Core seed…\n');
 
-  const legacyRaw = await readFile(join(__dirname, 'questions.json'), 'utf-8');
-  const legacy = JSON.parse(legacyRaw);
-
   console.log('1) Upserting categories…');
-  const categoryMap = await upsertCategories(legacy.categories);
+  const categoryMap = await upsertCategories();
   console.log(`   ${Object.keys(categoryMap).length} categories ready.\n`);
 
   console.log('2) Seeding objective layer (BFI-2-S)…');

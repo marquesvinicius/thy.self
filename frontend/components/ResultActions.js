@@ -52,8 +52,24 @@ export default function ResultActions({
     }
   }
 
+  function formatShareError(err) {
+    const raw = err?.message || '';
+    if (/column .* does not exist/i.test(raw) || /public_token|is_public/i.test(raw)) {
+      return 'Migração 005_public_share.sql ainda não foi aplicada no banco. Rode-a no Supabase (SQL Editor) e tente de novo.';
+    }
+    if (/fetch|Failed to fetch|NetworkError/i.test(raw)) {
+      return 'Backend não respondeu. Verifique se o servidor está rodando em ' + (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1') + '.';
+    }
+    return raw || 'Falha ao publicar o resultado.';
+  }
+
   async function handleShare() {
-    if (!sessionId || shareLoading) return;
+    if (!sessionId) {
+      setShareError('Sessão não identificada. Volte para a home e recomece.');
+      return;
+    }
+    if (shareLoading) return;
+
     setShareLoading(true);
     setShareError(null);
 
@@ -66,6 +82,10 @@ export default function ResultActions({
         token = data.share?.public_token || null;
         isPublic = !!data.share?.is_public;
         setShare({ token, isPublic });
+
+        if (!token) {
+          throw new Error('O backend não retornou um public_token — verifique se a migração 005 foi aplicada.');
+        }
       }
 
       if (token && typeof window !== 'undefined') {
@@ -79,7 +99,8 @@ export default function ResultActions({
         }
       }
     } catch (err) {
-      setShareError(err.message || 'Falha ao publicar o resultado.');
+      console.error('[share] falha ao publicar resultado:', err);
+      setShareError(formatShareError(err));
     } finally {
       setShareLoading(false);
     }
@@ -96,7 +117,8 @@ export default function ResultActions({
         isPublic: !!data.share?.is_public,
       });
     } catch (err) {
-      setShareError(err.message || 'Falha ao despublicar o resultado.');
+      console.error('[share] falha ao revogar resultado:', err);
+      setShareError(formatShareError(err));
     } finally {
       setShareLoading(false);
     }
@@ -207,7 +229,12 @@ export default function ResultActions({
       )}
 
       {shareError && (
-        <p className="text-center text-[11px] text-foreground/70">{shareError}</p>
+        <div className="border border-foreground/40 bg-surface/40 p-4 text-center space-y-1">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-foreground/70">
+            não foi possível publicar
+          </p>
+          <p className="text-[12px] text-foreground/90 leading-relaxed">{shareError}</p>
+        </div>
       )}
 
       <div className="text-center pt-2">

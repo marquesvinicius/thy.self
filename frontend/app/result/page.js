@@ -50,6 +50,11 @@ function ResultContent() {
   const [detailError, setDetailError] = useState(null);
   const [selectedReference, setSelectedReference] = useState(null);
   const [referenceDetail, setReferenceDetail] = useState(null);
+  // Cache dos detalhes por referência (chave normalizada) para evitar gerar
+  // duas vezes o mesmo detalhe — cada referência tem direito a UMA geração
+  // por sessão de visualização. Persiste em sessionStorage para sobreviver
+  // a reloads acidentais.
+  const [referenceDetailsCache, setReferenceDetailsCache] = useState({});
 
   const isTestMode = searchParams.get('test') === '1';
   const regenExhausted = regenCount >= MAX_REGENS;
@@ -100,6 +105,41 @@ function ResultContent() {
     return () => { cancelled = true; };
   }, [router, isTestMode]);
 
+  // Hidrata o cache de detalhes a partir do sessionStorage quando o
+  // session_id fica conhecido. Mantém o contrato "1 chamada por referência"
+  // mesmo após um reload acidental da página.
+  useEffect(() => {
+    if (!sessionId) return;
+    try {
+      const raw = sessionStorage.getItem(`reference_details_cache:${sessionId}`);
+      if (raw) setReferenceDetailsCache(JSON.parse(raw) || {});
+    } catch {}
+  }, [sessionId]);
+
+  function normalizeReferenceKey(name) {
+    return (name || '')
+      .toString()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+  }
+
+  function persistDetailToCache(cacheKey, detail) {
+    setReferenceDetailsCache(prev => {
+      const next = { ...prev, [cacheKey]: detail };
+      try {
+        if (sessionId) {
+          sessionStorage.setItem(
+            `reference_details_cache:${sessionId}`,
+            JSON.stringify(next),
+          );
+        }
+      } catch {}
+      return next;
+    });
+  }
+
   function handleNewSession() {
     sessionStorage.removeItem('session_id');
     router.push('/');
@@ -137,10 +177,20 @@ function ResultContent() {
   async function handleMoreDetails(reference) {
     if (!sessionId || !reference || detailLoading) return;
 
+    const cacheKey = normalizeReferenceKey(reference.nome);
     setSelectedReference(reference);
-    setReferenceDetail(null);
     setDetailError(null);
     setDetailOpen(true);
+
+    // Se já geramos detalhes para essa referência nesta sessão, só reabrimos
+    // o modal sem acionar a LLM de novo.
+    if (cacheKey && referenceDetailsCache[cacheKey]) {
+      setReferenceDetail(referenceDetailsCache[cacheKey]);
+      setDetailLoading(false);
+      return;
+    }
+
+    setReferenceDetail(null);
     setDetailLoading(true);
 
     try {
@@ -150,6 +200,9 @@ function ResultContent() {
         motivo: reference.motivo,
       });
       setReferenceDetail(data.reference_detail);
+      if (cacheKey) {
+        persistDetailToCache(cacheKey, data.reference_detail);
+      }
     } catch (err) {
       setDetailError(err.message || 'Não foi possível gerar o detalhamento.');
     } finally {

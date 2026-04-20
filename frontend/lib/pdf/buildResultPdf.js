@@ -3,23 +3,29 @@ import QRCode from 'qrcode';
 /**
  * Builds a pdfmake docDefinition for a single result and triggers download.
  *
+ * The whole document follows the dark aesthetic of the website:
+ *   - pure-black page background
+ *   - white (#F5F5F5) primary text
+ *   - muted gray (#8A8A8A / #6B6B6B) for secondary / section labels
+ *   - thin hair-line separators in #2A2A2A
+ *
  * Everything here runs client-side. pdfmake and its VFS font bundle are
  * dynamic-imported so they never land in the initial JS payload — the
  * export button only pays for them when the user actually clicks.
  *
- * Layout (A4 portrait, 40pt margins):
- *   1. Header — brand + generation date
- *   2. PERFIL BIG FIVE — table with 5 traits, scores and textual level
- *   3. INTERPRETAÇÃO — vibe line in quotes + full narrative
- *   4. TUA ESSÊNCIA — cultural references (name · category · reason) and
- *                     works (type · title · artist · reason)
- *   5. Footer on every page — share URL + QR code
+ * Layout (A4 portrait, generous side margins):
+ *   1. Header      — brand + generation date (muted)
+ *   2. Title       — "perfil big five" + soft subtitle
+ *   3. INTERPRETAÇÃO — vibe line (quote) + full narrative (if available)
+ *   4. TUA ESSÊNCIA  — cultural refs + works (if available)
+ *   5. PERFIL BIG FIVE — traits + levels + scores (always last, matches site)
+ *   6. Footer on every page — share URL + QR (if any) + page counter
  *
  * @param {Object} args
  * @param {Object} args.profile - Full profile payload (same shape as /result).
  * @param {Object|null} args.llmInterpretation
  * @param {string|null} args.shareUrl - Optional public URL to print on the footer.
- * @param {string} args.nickname - Optional label for the title page; falls back to "Perfil Big Five".
+ * @param {string} args.nickname - Optional label for the title page.
  */
 export async function exportResultPdf({ profile, llmInterpretation, shareUrl = null, nickname = '' } = {}) {
   if (!profile) return;
@@ -36,10 +42,6 @@ export async function exportResultPdf({ profile, llmInterpretation, shareUrl = n
 
   const vfsModule = await import('pdfmake/build/vfs_fonts');
 
-  // vfs_fonts has shipped three different shapes across releases / bundlers:
-  //   1. module.exports = vfs              → vfsModule.default === vfs (flat map of *.ttf strings)
-  //   2. module.exports = { pdfMake: { vfs } }  → older API
-  //   3. module.exports = { vfs }          → intermediate
   let vfs = vfsModule.default ?? vfsModule;
   if (vfs && !vfs['Roboto-Regular.ttf']) {
     if (vfs.pdfMake?.vfs) vfs = vfs.pdfMake.vfs;
@@ -52,8 +54,23 @@ export async function exportResultPdf({ profile, llmInterpretation, shareUrl = n
     pdfMake.vfs = vfs;
   }
 
+  // Dark palette (mirrors the Tailwind theme used on the website).
+  const palette = {
+    bg: '#0A0A0A',
+    textPrimary: '#F5F5F5',
+    textSecondary: '#C4C4C4',
+    textMuted: '#8A8A8A',
+    textFaint: '#6B6B6B',
+    line: '#2A2A2A',
+  };
+
+  // Force the QR code to render light-on-dark so it blends with the page.
   const qrDataUrl = shareUrl
-    ? await QRCode.toDataURL(shareUrl, { margin: 0, width: 120, color: { dark: '#111111', light: '#FFFFFF' } }).catch(() => null)
+    ? await QRCode.toDataURL(shareUrl, {
+      margin: 0,
+      width: 140,
+      color: { dark: '#F5F5F5', light: '#0A0A0A' },
+    }).catch(() => null)
     : null;
 
   const generatedAt = new Date().toLocaleDateString('pt-BR', {
@@ -62,108 +79,142 @@ export async function exportResultPdf({ profile, llmInterpretation, shareUrl = n
     year: 'numeric',
   });
 
+  const pageWidth = 595.28;  // A4 in points
+  const pageHeight = 841.89;
+
   const docDefinition = {
     pageSize: 'A4',
-    pageMargins: [48, 72, 48, 80],
-    defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 1.35, color: '#1a1a1a' },
+    pageMargins: [56, 80, 56, 96],
     info: {
       title: 'thy.self — perfil Big Five',
       author: 'thy.self',
       subject: 'Resultado Big Five (BFI-2-S)',
     },
+    defaultStyle: {
+      font: 'Roboto',
+      fontSize: 10,
+      lineHeight: 1.45,
+      color: palette.textPrimary,
+    },
+
+    // Full-bleed black background on every page.
+    background: () => ({
+      canvas: [
+        {
+          type: 'rect',
+          x: 0,
+          y: 0,
+          w: pageWidth,
+          h: pageHeight,
+          color: palette.bg,
+        },
+      ],
+    }),
+
     header: {
-      margin: [48, 28, 48, 0],
+      margin: [56, 32, 56, 0],
       columns: [
         {
           text: 'thy.self',
-          fontSize: 12,
+          fontSize: 11,
           bold: true,
-          characterSpacing: 2,
+          characterSpacing: 3,
+          color: palette.textPrimary,
         },
         {
           text: `gerado em ${generatedAt}`,
           alignment: 'right',
           fontSize: 8,
-          color: '#6b6b6b',
-          characterSpacing: 1.2,
+          color: palette.textMuted,
+          characterSpacing: 1.5,
         },
       ],
     },
+
     footer(currentPage, pageCount) {
       const left = shareUrl
         ? {
           stack: [
-            { text: 'link deste resultado', fontSize: 7, color: '#8a8a8a', characterSpacing: 1.5 },
-            { text: shareUrl, fontSize: 8, color: '#1a1a1a', margin: [0, 2, 0, 0] },
+            { text: 'LINK DESTE RESULTADO', fontSize: 7, color: palette.textFaint, characterSpacing: 2 },
+            { text: shareUrl, fontSize: 8, color: palette.textSecondary, margin: [0, 3, 0, 0] },
           ],
         }
         : { text: '', width: '*' };
 
       const center = {
-        text: `página ${currentPage} de ${pageCount}`,
+        text: `pagina ${currentPage} de ${pageCount}`,
         alignment: 'center',
-        fontSize: 8,
-        color: '#8a8a8a',
+        fontSize: 7.5,
+        color: palette.textFaint,
+        characterSpacing: 2,
+        margin: [12, 16, 12, 0],
       };
 
       const right = qrDataUrl
-        ? { image: qrDataUrl, width: 44, alignment: 'right' }
-        : { text: '', width: 44 };
+        ? { image: qrDataUrl, width: 50, alignment: 'right' }
+        : { text: '', width: 50 };
 
       return {
-        margin: [48, 16, 48, 0],
-        columns: [{ width: '*', ...left }, { width: 'auto', ...center, margin: [12, 14, 12, 0] }, { width: 44, ...right }],
+        margin: [56, 24, 56, 0],
+        columns: [
+          { width: '*', ...left },
+          { width: 'auto', ...center },
+          { width: 50, ...right },
+        ],
       };
     },
+
     content: [
-      buildTitleBlock(profile, nickname),
-      { text: '', margin: [0, 8, 0, 0] },
-      buildBigFiveBlock(profile),
-      buildInterpretationBlock(llmInterpretation),
-      buildEssenceBlock(llmInterpretation),
-      buildDisclaimer(),
+      buildTitleBlock(profile, nickname, palette),
+      buildInterpretationBlock(llmInterpretation, palette),
+      buildEssenceBlock(llmInterpretation, palette),
+      buildBigFiveBlock(profile, palette),
+      buildDisclaimer(palette),
     ],
+
     styles: {
       sectionLabel: {
-        fontSize: 9,
+        fontSize: 8,
         characterSpacing: 3,
-        color: '#6b6b6b',
-        margin: [0, 24, 0, 4],
+        color: palette.textFaint,
+        margin: [0, 28, 0, 6],
       },
       sectionTitle: {
-        fontSize: 16,
+        fontSize: 18,
         bold: true,
+        color: palette.textPrimary,
         margin: [0, 0, 0, 4],
       },
       sectionSub: {
         fontSize: 9,
         italics: true,
-        color: '#7a7a7a',
-        margin: [0, 0, 0, 14],
+        color: palette.textMuted,
+        margin: [0, 0, 0, 16],
       },
-      traitName: { fontSize: 10, bold: true },
-      traitScore: { fontSize: 10, alignment: 'right' },
+      traitName: { fontSize: 10.5, bold: true, color: palette.textPrimary },
+      traitLevel: { fontSize: 9, color: palette.textMuted, alignment: 'center' },
+      traitScore: { fontSize: 10.5, alignment: 'right', color: palette.textPrimary, bold: true },
       quote: {
-        fontSize: 14,
+        fontSize: 15,
         italics: true,
         alignment: 'center',
-        margin: [24, 10, 24, 14],
-        color: '#1a1a1a',
+        margin: [24, 10, 24, 18],
+        color: palette.textPrimary,
       },
       narrativeBody: {
         fontSize: 10.5,
         alignment: 'justify',
-        color: '#1a1a1a',
+        color: palette.textSecondary,
       },
-      refName: { fontSize: 11, bold: true },
-      refCategory: { fontSize: 8, characterSpacing: 1.5, color: '#7a7a7a' },
-      refReason: { fontSize: 9.5, color: '#2a2a2a', margin: [0, 3, 0, 0] },
+      refName: { fontSize: 11.5, bold: true, color: palette.textPrimary },
+      refCategory: { fontSize: 7.5, characterSpacing: 2, color: palette.textFaint },
+      refReason: { fontSize: 9.5, color: palette.textSecondary, margin: [0, 4, 0, 0] },
       disclaimer: {
         fontSize: 8,
         italics: true,
         alignment: 'center',
-        color: '#8a8a8a',
-        margin: [0, 32, 0, 0],
+        color: palette.textFaint,
+        margin: [0, 36, 0, 0],
       },
     },
   };
@@ -172,60 +223,43 @@ export async function exportResultPdf({ profile, llmInterpretation, shareUrl = n
   pdfMake.createPdf(docDefinition).download(filename);
 }
 
-function buildTitleBlock(profile, nickname) {
+function buildTitleBlock(profile, nickname, palette) {
   const label = nickname?.trim() ? `perfil de ${nickname.trim()}` : 'perfil big five';
   const sub = `${profile.answer_count} respostas · BFI-2-S (Soto & John, 2017)`;
 
   return {
     stack: [
-      { text: 'resultado', style: 'sectionLabel', margin: [0, 16, 0, 4] },
-      { text: label, fontSize: 22, bold: true, margin: [0, 0, 0, 4] },
-      { text: sub, fontSize: 9, color: '#7a7a7a', italics: true },
-    ],
-  };
-}
-
-function buildBigFiveBlock(profile) {
-  const rows = (profile.dimensions || []).map(dim => [
-    { text: dim.name, style: 'traitName' },
-    { text: dim.level || '—', fontSize: 9, color: '#7a7a7a', alignment: 'center' },
-    { text: formatScore(dim.score), style: 'traitScore' },
-  ]);
-
-  return {
-    stack: [
-      { text: '1 · perfil big five', style: 'sectionLabel' },
-      { text: 'Leitura quantitativa', style: 'sectionTitle' },
-      { text: 'Calculado a partir de 30 itens BFI-2-S (escala Likert 1–5).', style: 'sectionSub' },
+      { text: 'RESULTADO', fontSize: 8, characterSpacing: 3, color: palette.textFaint, margin: [0, 20, 0, 6] },
       {
-        table: {
-          widths: ['*', 'auto', 60],
-          body: [
-            [
-              { text: 'Traço', fontSize: 8, color: '#8a8a8a', characterSpacing: 1.5, border: [false, false, false, true] },
-              { text: 'Nível', fontSize: 8, color: '#8a8a8a', characterSpacing: 1.5, alignment: 'center', border: [false, false, false, true] },
-              { text: 'Escore', fontSize: 8, color: '#8a8a8a', characterSpacing: 1.5, alignment: 'right', border: [false, false, false, true] },
-            ],
-            ...rows.map(row => row.map(cell => ({ ...cell, border: [false, false, false, true], margin: [0, 8, 0, 8] }))),
-          ],
-        },
-        layout: {
-          hLineColor: () => '#e5e5e5',
-          hLineWidth: () => 0.5,
-          vLineWidth: () => 0,
-        },
+        text: label,
+        fontSize: 26,
+        bold: true,
+        color: palette.textPrimary,
+        margin: [0, 0, 0, 6],
+      },
+      {
+        text: sub,
+        fontSize: 9,
+        color: palette.textMuted,
+        italics: true,
+      },
+      {
+        canvas: [
+          { type: 'line', x1: 0, y1: 18, x2: 80, y2: 18, lineWidth: 0.8, lineColor: palette.textPrimary },
+        ],
+        margin: [0, 0, 0, 0],
       },
     ],
   };
 }
 
-function buildInterpretationBlock(llm) {
+function buildInterpretationBlock(llm, palette) {
   if (!llm) return { text: '' };
 
   const children = [
-    { text: '2 · interpretação', style: 'sectionLabel' },
-    { text: 'Leitura cruzada', style: 'sectionTitle' },
-    { text: 'Como seus escores dialogam com suas respostas narrativas.', style: 'sectionSub' },
+    { text: '1 · INTERPRETAÇÃO', style: 'sectionLabel' },
+    { text: 'a sua síntese', style: 'sectionTitle' },
+    { text: 'Leitura narrativa cruzando seus escores e respostas.', style: 'sectionSub' },
   ];
 
   if (llm.vibe_resumo) {
@@ -238,43 +272,45 @@ function buildInterpretationBlock(llm) {
   return { stack: children };
 }
 
-function buildEssenceBlock(llm) {
+function buildEssenceBlock(llm, palette) {
   if (!llm) return { text: '' };
 
   const refs = Array.isArray(llm.referencias) ? llm.referencias : [];
   const works = Array.isArray(llm.obras_culturais) ? llm.obras_culturais : [];
 
+  if (refs.length === 0 && works.length === 0) return { text: '' };
+
   const children = [
-    { text: '3 · tua essência', style: 'sectionLabel' },
-    { text: 'Ressonâncias culturais', style: 'sectionTitle' },
-    { text: 'Referências e obras em diálogo com o seu perfil.', style: 'sectionSub' },
+    { text: '2 · TUA ESSÊNCIA', style: 'sectionLabel' },
+    { text: 'ressonâncias culturais', style: 'sectionTitle' },
+    { text: 'Figuras e obras em diálogo com o seu perfil.', style: 'sectionSub' },
   ];
 
   if (refs.length > 0) {
-    children.push({ text: 'REFERÊNCIAS', fontSize: 8, characterSpacing: 2, color: '#6b6b6b', margin: [0, 4, 0, 6] });
-    refs.forEach(ref => {
+    children.push({ text: 'REFERÊNCIAS', fontSize: 8, characterSpacing: 2.5, color: palette.textFaint, margin: [0, 4, 0, 10] });
+    refs.forEach((ref, idx) => {
       children.push({
         stack: [
           { text: (ref.categoria || '').toUpperCase(), style: 'refCategory' },
-          { text: ref.nome || '', style: 'refName' },
+          { text: ref.nome || '', style: 'refName', margin: [0, 2, 0, 0] },
           { text: ref.motivo || '', style: 'refReason' },
         ],
-        margin: [0, 0, 0, 10],
+        margin: [0, 0, 0, idx === refs.length - 1 ? 4 : 14],
       });
     });
   }
 
   if (works.length > 0) {
-    children.push({ text: 'OBRAS', fontSize: 8, characterSpacing: 2, color: '#6b6b6b', margin: [0, 10, 0, 6] });
-    works.forEach(work => {
+    children.push({ text: 'OBRAS', fontSize: 8, characterSpacing: 2.5, color: palette.textFaint, margin: [0, 14, 0, 10] });
+    works.forEach((work, idx) => {
       const meta = [work.tipo, work.autor_ou_artista].filter(Boolean).join(' · ').toUpperCase();
       children.push({
         stack: [
           { text: meta, style: 'refCategory' },
-          { text: work.titulo || '', style: 'refName' },
+          { text: work.titulo || '', style: 'refName', margin: [0, 2, 0, 0] },
           { text: work.motivo || '', style: 'refReason' },
         ],
-        margin: [0, 0, 0, 10],
+        margin: [0, 0, 0, idx === works.length - 1 ? 4 : 14],
       });
     });
   }
@@ -282,7 +318,47 @@ function buildEssenceBlock(llm) {
   return { stack: children };
 }
 
-function buildDisclaimer() {
+function buildBigFiveBlock(profile, palette) {
+  const rows = (profile.dimensions || []).map(dim => [
+    { text: dim.name, style: 'traitName' },
+    { text: dim.level || '—', style: 'traitLevel' },
+    { text: formatScore(dim.score), style: 'traitScore' },
+  ]);
+
+  return {
+    stack: [
+      { text: '3 · PERFIL BIG FIVE', style: 'sectionLabel' },
+      { text: 'leitura quantitativa', style: 'sectionTitle' },
+      { text: 'Escores calculados a partir de 30 itens BFI-2-S (escala Likert 1–5).', style: 'sectionSub' },
+      {
+        table: {
+          widths: ['*', 'auto', 60],
+          body: [
+            [
+              { text: 'TRAÇO', fontSize: 7.5, color: palette.textFaint, characterSpacing: 2.5, border: [false, false, false, true] },
+              { text: 'NÍVEL', fontSize: 7.5, color: palette.textFaint, characterSpacing: 2.5, alignment: 'center', border: [false, false, false, true] },
+              { text: 'ESCORE', fontSize: 7.5, color: palette.textFaint, characterSpacing: 2.5, alignment: 'right', border: [false, false, false, true] },
+            ],
+            ...rows.map(row => row.map(cell => ({
+              ...cell,
+              border: [false, false, false, true],
+              margin: [0, 10, 0, 10],
+            }))),
+          ],
+        },
+        layout: {
+          hLineColor: () => palette.line,
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0,
+          paddingLeft: () => 0,
+          paddingRight: () => 0,
+        },
+      },
+    ],
+  };
+}
+
+function buildDisclaimer(palette) {
   return {
     text: 'Este resultado reflete tendências a partir das suas respostas. Não é um laudo clínico.',
     style: 'disclaimer',
@@ -292,5 +368,5 @@ function buildDisclaimer() {
 function formatScore(score) {
   if (score == null || Number.isNaN(Number(score))) return '—';
   const rounded = Math.round(Number(score) * 10) / 10;
-  return `${rounded}%`;
+  return `${rounded}`;
 }
