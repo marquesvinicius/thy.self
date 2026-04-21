@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 const SCALE_LABELS = [
   'discordo totalmente',
@@ -10,119 +10,83 @@ const SCALE_LABELS = [
   'concordo totalmente',
 ];
 
-function getIndexFromValue(value) {
-  return Math.round(value / 25);
-}
+const VALUES = [0, 25, 50, 75, 100];
 
+/**
+ * SliderInput — escala de concordância 5-pontos (0/25/50/75/100).
+ *
+ * Pós teste de usabilidade, o controle foi trocado por 5 ancores discretas:
+ * cada toque commita imediatamente o valor correspondente. Sem botão
+ * "confirmar" — se o usuário errar, ele usa "voltar" na página do quiz.
+ */
 export default function SliderInput(props) {
   const {
     onSelect,
-    onSubmit,
-    onConfirm,
     disabled = false,
     isSubmitting = false,
     submitting = false,
-    initialValue = 50,
   } = props;
 
-  const [value, setValue] = useState(initialValue);
-  const activeIndex = useMemo(() => getIndexFromValue(value), [value]);
+  const [activeIndex, setActiveIndex] = useState(null);
   const busy = disabled || isSubmitting || submitting;
 
-  async function handleConfirm() {
+  function commit(index) {
+    if (busy) return;
+    setActiveIndex(index);
     const payload = {
       alternative_id: null,
-      slider_value: value,
+      slider_value: VALUES[index],
       text_value: null,
     };
-
-    if (typeof onSubmit === 'function') {
-      await onSubmit(payload);
-      return;
-    }
-
-    if (typeof onConfirm === 'function') {
-      await onConfirm(payload);
-      return;
-    }
-
-    if (typeof onSelect === 'function') {
-      await onSelect(payload);
-    }
+    if (typeof onSelect === 'function') onSelect(payload);
   }
 
+  const sizeMap = ['lg', 'md', 'sm', 'md', 'lg'];
+  const sizeClasses = {
+    lg: 'h-14 w-14 md:h-16 md:w-16',
+    md: 'h-11 w-11 md:h-12 md:w-12',
+    sm: 'h-8 w-8 md:h-10 md:w-10',
+  };
+
   return (
-    <div className="w-full max-w-[620px] mx-auto space-y-8">
-      <div className="px-2">
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={25}
-          value={value}
-          onChange={(e) => setValue(Number(e.target.value))}
-          disabled={busy}
-          className="thy-slider w-full"
-          aria-label="Escala de concordância"
-        />
+    <div className="w-full max-w-[620px] mx-auto space-y-6">
+      <div className="flex justify-between text-[10px] uppercase tracking-[0.25em] text-muted px-1">
+        <span>Discordo</span>
+        <span>Concordo</span>
       </div>
 
-      <div className="grid grid-cols-5 gap-2 text-[10px] uppercase tracking-[0.18em] text-muted">
-        {SCALE_LABELS.map((label, index) => (
-          <span
-            key={label}
-            className={`text-center leading-tight transition-colors ${
-              activeIndex === index ? 'text-foreground font-semibold' : ''
-            }`}
-          >
-            {label}
-          </span>
-        ))}
+      <div className="flex items-start justify-between gap-2 md:gap-4">
+        {VALUES.map((_, index) => {
+          const isSelected = activeIndex === index;
+          return (
+            <div key={index} className="flex flex-col items-center gap-2 flex-1 min-w-0">
+              <button
+                type="button"
+                onClick={() => commit(index)}
+                disabled={busy}
+                aria-label={SCALE_LABELS[index]}
+                title={SCALE_LABELS[index]}
+                className={`rounded-full border transition-all duration-200 flex items-center justify-center ${sizeClasses[sizeMap[index]]} ${
+                  isSelected
+                    ? 'bg-foreground border-foreground shadow-[0_0_18px_rgba(255,255,255,0.25)]'
+                    : 'border-border hover:border-foreground/60'
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
+              />
+              <span
+                className={`text-[9px] md:text-[10px] uppercase tracking-[0.12em] text-center leading-tight max-w-[72px] md:max-w-[84px] transition-colors ${
+                  isSelected ? 'text-foreground font-semibold' : 'text-muted'
+                }`}
+              >
+                {SCALE_LABELS[index]}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="pt-2 text-center">
-        <button
-          type="button"
-          onClick={handleConfirm}
-          disabled={busy}
-          className="min-w-[240px] border border-border px-8 py-3 text-xs uppercase tracking-[0.35em] hover:border-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {busy ? 'confirmando...' : 'confirmar'}
-        </button>
-      </div>
-
-      <style jsx>{`
-        .thy-slider {
-          -webkit-appearance: none;
-          appearance: none;
-          height: 4px;
-          border-radius: 999px;
-          background: linear-gradient(to right, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.45));
-          outline: none;
-        }
-
-        .thy-slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 28px;
-          height: 28px;
-          border-radius: 999px;
-          border: 2px solid rgba(255, 255, 255, 0.95);
-          background: #050505;
-          cursor: pointer;
-          box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
-        }
-
-        .thy-slider::-moz-range-thumb {
-          width: 28px;
-          height: 28px;
-          border-radius: 999px;
-          border: 2px solid rgba(255, 255, 255, 0.95);
-          background: #050505;
-          cursor: pointer;
-          box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
-        }
-      `}</style>
+      <p className="text-center text-[10px] uppercase tracking-[0.22em] text-muted/70">
+        toque em um círculo para confirmar
+      </p>
     </div>
   );
 }

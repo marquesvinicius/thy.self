@@ -40,6 +40,18 @@ export async function submitAnswer(sessionId, questionId, payload) {
   });
 }
 
+/**
+ * Desfaz a última resposta da sessão. Usado pelo botão "voltar" do quiz
+ * após o teste de usabilidade ter pedido a possibilidade de corrigir
+ * respostas marcadas por engano.
+ */
+export async function undoLastAnswer(sessionId) {
+  return request('/answer/undo', {
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+}
+
 export async function analyzeSession(sessionId) {
   return request('/analyze', {
     method: 'POST',
@@ -53,6 +65,15 @@ export async function analyzeSession(sessionId) {
  */
 export async function getResult(sessionId) {
   return request(`/result/${sessionId}`);
+}
+
+/**
+ * Busca todas as respostas da sessão anotadas com contexto de revisão
+ * (traço influenciado, contribuição Likert assinada, observações).
+ * Usado pelo modal "revisar respostas" na tela de resultados.
+ */
+export async function getAnswerReview(sessionId) {
+  return request(`/result/${sessionId}/review`);
 }
 
 /**

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 function normalizeAlternatives(question, alternatives) {
   if (Array.isArray(alternatives) && alternatives.length > 0) return alternatives;
@@ -8,52 +8,44 @@ function normalizeAlternatives(question, alternatives) {
   return [];
 }
 
+/**
+ * BinaryInput — escolha entre opções discretas (dois ou mais blocos).
+ *
+ * Pós teste de usabilidade, o clique commita imediatamente: não há mais um
+ * botão "confirmar" intermediário. Para desfazer uma escolha errada, o
+ * usuário usa o botão "voltar" na página do quiz.
+ */
 export default function BinaryInput(props) {
   const {
     question,
     alternatives,
+    currentValue,
     onSelect,
-    onSubmit,
-    onConfirm,
     disabled = false,
     isSubmitting = false,
     submitting = false,
   } = props;
 
-  const [selectedId, setSelectedId] = useState(null);
   const items = useMemo(
     () => normalizeAlternatives(question, alternatives),
     [question, alternatives]
   );
   const busy = disabled || isSubmitting || submitting;
+  const selectedId = currentValue?.alternative_id ?? currentValue ?? null;
 
-  async function handleSubmit() {
-    if ((selectedId === null || selectedId === undefined) || busy) return;
-
+  function commit(id) {
+    if (busy || id === null || id === undefined) return;
     const payload = {
-      alternative_id: selectedId,
+      alternative_id: id,
       answer_type: 'alternative_id',
       slider_value: null,
       text_value: null,
     };
-
-    if (typeof onSubmit === 'function') {
-      await onSubmit(payload);
-      return;
-    }
-
-    if (typeof onConfirm === 'function') {
-      await onConfirm(payload);
-      return;
-    }
-
-    if (typeof onSelect === 'function') {
-      await onSelect(payload);
-    }
+    if (typeof onSelect === 'function') onSelect(payload);
   }
 
   return (
-    <div className="w-full max-w-[680px] mx-auto space-y-6">
+    <div className="w-full max-w-[680px] mx-auto">
       <div className="border border-border divide-y divide-border/80">
         {items.map((alt) => {
           const id = alt.id ?? alt.alternative_id ?? alt.value;
@@ -64,7 +56,7 @@ export default function BinaryInput(props) {
             <button
               key={id}
               type="button"
-              onClick={() => setSelectedId(id)}
+              onClick={() => commit(id)}
               disabled={busy}
               className={`w-full text-left px-5 py-5 text-sm md:text-base transition-colors ${
                 selected
@@ -76,17 +68,6 @@ export default function BinaryInput(props) {
             </button>
           );
         })}
-      </div>
-
-      <div className="text-center">
-        <button
-          type="button"
-          disabled={(selectedId === null || selectedId === undefined) || busy}
-          onClick={handleSubmit}
-          className="min-w-[240px] border border-border px-8 py-3 text-xs uppercase tracking-[0.35em] hover:border-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {busy ? 'confirmando...' : 'confirmar'}
-        </button>
       </div>
     </div>
   );

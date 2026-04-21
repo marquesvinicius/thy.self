@@ -29,6 +29,7 @@ export default function ResultActions({
   sessionId,
   initialShare = null,
   onNewSession,
+  onReviewAnswers = null,
 }) {
   const [share, setShare] = useState(() => ({
     isPublic: !!initialShare?.is_public,
@@ -237,7 +238,16 @@ export default function ResultActions({
         </div>
       )}
 
-      <div className="text-center pt-2">
+      <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
+        {typeof onReviewAnswers === 'function' && (
+          <button
+            onClick={onReviewAnswers}
+            className="text-[11px] uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors underline underline-offset-4"
+            title="Veja o que você respondeu e quais traços cada resposta influenciou"
+          >
+            revisar respostas
+          </button>
+        )}
         <button
           onClick={onNewSession}
           className="text-[11px] uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors underline underline-offset-4"

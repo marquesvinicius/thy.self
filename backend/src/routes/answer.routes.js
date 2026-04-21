@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { handleAnswer } from '../controllers/answer.controller.js';
+import { handleAnswer, handleUndoAnswer } from '../controllers/answer.controller.js';
 import { sessionGuard } from '../middleware/sessionGuard.js';
 import { validateRequest } from '../middleware/validateRequest.js';
 
@@ -14,6 +14,15 @@ router.post(
   }),
   sessionGuard,
   handleAnswer
+);
+
+router.post(
+  '/undo',
+  validateRequest({
+    session_id: { required: true, type: 'string' },
+  }),
+  sessionGuard,
+  handleUndoAnswer
 );
 
 export default router;

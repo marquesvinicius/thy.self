@@ -3,6 +3,7 @@ import {
   setResultPublic,
   getPublicResultByToken,
 } from '../database/queries/result.queries.js';
+import { getAnswerReviewBySessionId } from '../database/queries/answer.queries.js';
 import { DIMENSIONS } from '../engine/dimensions.js';
 import { classifyScore } from '../engine/normalization.js';
 import { success } from '../utils/apiResponse.js';
@@ -114,6 +115,47 @@ export async function handleShareResult(req, res, next) {
         public_token: updated.public_token || null,
         published_at: updated.published_at || null,
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/v1/result/:session_id/review
+ * Retorna todas as respostas da sessão anotadas com contexto de revisão
+ * (traço influenciado, contribuição Likert assinada, observações do
+ * usuário). Usado pela tela "revisar respostas" introduzida após o teste
+ * de usabilidade — permite ao usuário conferir o que respondeu e ver
+ * quais traços foram afetados por cada item BFI-2-S.
+ */
+export async function handleGetAnswerReview(req, res, next) {
+  try {
+    const { session_id } = req.params;
+    if (!session_id) {
+      throw new AppError('session_id is required', 400, 'MISSING_SESSION_ID');
+    }
+
+    const answers = await getAnswerReviewBySessionId(session_id);
+    const objective = answers.filter(a => a.kind === 'objective');
+    const interpretative = answers.filter(a => a.kind === 'interpretative');
+
+    const byTrait = {};
+    for (const key of ['O', 'C', 'E', 'A', 'N']) byTrait[key] = [];
+    for (const row of objective) {
+      if (row.trait && byTrait[row.trait]) byTrait[row.trait].push(row);
+    }
+
+    return success(res, {
+      session_id,
+      totals: {
+        answered: answers.length,
+        objective: objective.length,
+        interpretative: interpretative.length,
+      },
+      objective,
+      interpretative,
+      by_trait: byTrait,
     });
   } catch (err) {
     next(err);

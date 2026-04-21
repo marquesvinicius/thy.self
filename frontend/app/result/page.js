@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   analyzeSession,
@@ -15,6 +15,7 @@ import ImmersiveLoader from '@/components/ImmersiveLoader';
 import ResultView from '@/components/ResultView';
 import ResultActions from '@/components/ResultActions';
 import ReferenceDetailModal from '@/components/ReferenceDetailModal';
+import AnswerReviewModal from '@/components/AnswerReviewModal';
 
 const MAX_REGENS = 3;
 
@@ -55,11 +56,25 @@ function ResultContent() {
   // por sessão de visualização. Persiste em sessionStorage para sobreviver
   // a reloads acidentais.
   const [referenceDetailsCache, setReferenceDetailsCache] = useState({});
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const isTestMode = searchParams.get('test') === '1';
   const regenExhausted = regenCount >= MAX_REGENS;
 
+  // React.StrictMode (dev) dispara este useEffect duas vezes, e o caminho
+  // de analyze é caro (LLM) + não-idempotente (UPSERT sobrescreve). Sem
+  // este lock, a primeira montagem podia exibir um conjunto de referências
+  // e a segunda sobrescrever o banco com outro conjunto — então o link
+  // público terminava divergindo do que a tela mostrava. Ver issue 7
+  // (rev 2): "os resultados gerados inicialmente não estão sendo
+  // persistidos". O backend também foi tornado idempotente, mas este lock
+  // evita mesmo a chamada HTTP duplicada.
+  const loadStartedRef = useRef(false);
+
   useEffect(() => {
+    if (loadStartedRef.current) return;
+    loadStartedRef.current = true;
+
     let cancelled = false;
 
     async function load() {
@@ -97,6 +112,11 @@ function ResultContent() {
         if (!cancelled) {
           setError(err.message);
           setLoading(false);
+          // Libera o lock apenas em caso de erro, para permitir que o
+          // usuário acione uma nova tentativa recarregando a página
+          // manualmente. Em caso de sucesso, mantemos o lock armado
+          // pela vida do componente.
+          loadStartedRef.current = false;
         }
       }
     }
@@ -271,6 +291,7 @@ function ResultContent() {
                 sessionId={sessionId}
                 initialShare={shareMeta}
                 onNewSession={handleNewSession}
+                onReviewAnswers={() => setReviewOpen(true)}
               />
             </div>
           </div>
@@ -284,6 +305,12 @@ function ResultContent() {
         loading={detailLoading}
         error={detailError}
         onClose={handleCloseDetailModal}
+      />
+
+      <AnswerReviewModal
+        open={reviewOpen}
+        sessionId={sessionId}
+        onClose={() => setReviewOpen(false)}
       />
     </div>
   );

@@ -48,7 +48,11 @@ export async function handleInterpret(req, res, next) {
       normalizeStringList((persistedInterpretation.obras_culturais || []).map(work => work?.titulo))
     );
 
-    // Generate new interpretation with higher temperature for variety
+    // Generate new interpretation with higher temperature for variety.
+    // We only care about the new `referencias` / `obras_culturais` here —
+    // `interpretacao` e `vibe_resumo` permanecem fixos (teste de usabilidade:
+    // o usuário espera que "gerar mais referências" mude APENAS as
+    // referências/obras, não o texto interpretativo).
     const llmInterpretation = await generateInterpretation(
       context.profile,
       context.consistency,
@@ -69,12 +73,49 @@ export async function handleInterpret(req, res, next) {
       );
     }
 
+    // Acumula referências e obras: mantém TODAS as gerações anteriores e
+    // adiciona somente os itens novos. Isso resolve três queixas do teste
+    // de usabilidade de uma vez:
+    //   - issue 6: PDF agora exporta todas as referências geradas
+    //   - issue 7: o link público preserva as gerações anteriores
+    //   - issue 8: o texto interpretativo não é reescrito
+    const mergedReferencias = mergeReferenceList(
+      persistedInterpretation.referencias,
+      llmInterpretation.referencias,
+    );
+    const mergedObras = mergeWorkList(
+      persistedInterpretation.obras_culturais,
+      llmInterpretation.obras_culturais,
+    );
+
+    const mergedInterpretation = {
+      ...persistedInterpretation,
+      ...llmInterpretation,
+      // Texto interpretativo e vibe_resumo: preservamos o original quando
+      // já existe, garantindo consistência visual entre as gerações.
+      interpretacao: persistedInterpretation.interpretacao || llmInterpretation.interpretacao,
+      vibe_resumo: persistedInterpretation.vibe_resumo || llmInterpretation.vibe_resumo,
+      referencias: mergedReferencias,
+      obras_culturais: mergedObras,
+    };
+
+    // Persiste o estado acumulado no banco para que o link público, o PDF
+    // e qualquer /result/:session_id subsequente enxerguem a mesma coisa.
+    try {
+      await updateResultInterpretation(session_id, mergedInterpretation);
+    } catch (persistErr) {
+      logger.error('Failed to persist merged interpretation on regen', {
+        error: persistErr.message,
+        session_id,
+      });
+    }
+
     // Record successful re-generation
     recordRegen(session_id);
 
     return success(res, {
       session_id,
-      llm_interpretation: llmInterpretation,
+      llm_interpretation: mergedInterpretation,
       _regen: {
         remaining: regenBudget.remaining - 1,
         limit: regenBudget.limit,
@@ -105,6 +146,11 @@ export async function handleReferenceDetail(req, res, next) {
     }
 
     const context = await loadInterpretationContext(session_id);
+    const persistedInterpretation = context.result.llm_interpretation || {};
+    const otherReferences = (persistedInterpretation.referencias || [])
+      .filter(ref => ref && ref.nome && ref.nome !== reference.nome)
+      .map(ref => ({ nome: ref.nome, motivo: ref.motivo }));
+
     const detail = await generateReferenceDetail(
       context.profile,
       context.consistency,
@@ -114,6 +160,10 @@ export async function handleReferenceDetail(req, res, next) {
         nome: reference.nome,
         categoria: reference.categoria,
         motivo: reference.motivo,
+      },
+      {
+        priorInterpretation: persistedInterpretation.interpretacao || '',
+        otherReferences,
       }
     );
 
@@ -198,6 +248,36 @@ function normalizeToken(value) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
+}
+
+/**
+ * Concatena a lista antiga com a nova, preservando a ordem cronológica
+ * (antigos primeiro) e deduplicando pelo campo indicado.
+ */
+function mergeByKey(previous, incoming, keyFn) {
+  const merged = [];
+  const seen = new Set();
+
+  for (const list of [previous, incoming]) {
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      if (!item || typeof item !== 'object') continue;
+      const key = normalizeToken(keyFn(item));
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      merged.push(item);
+    }
+  }
+
+  return merged;
+}
+
+function mergeReferenceList(previous, incoming) {
+  return mergeByKey(previous, incoming, ref => ref?.nome);
+}
+
+function mergeWorkList(previous, incoming) {
+  return mergeByKey(previous, incoming, work => work?.titulo);
 }
 
 /**

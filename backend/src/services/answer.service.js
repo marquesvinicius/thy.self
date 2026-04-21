@@ -2,6 +2,7 @@ import {
   createAnswer as createAnswerQuery,
   countAnswersBySessionId,
   countObjectiveAnswersBySessionId,
+  deleteLastAnswer,
 } from '../database/queries/answer.queries.js';
 import { getAlternativeWithImpacts } from '../database/queries/question.queries.js';
 import { AppError } from '../utils/AppError.js';
@@ -52,6 +53,33 @@ export async function recordAnswer(sessionId, questionId, alternativeId, answerT
     alternative_id: alternativeId,
     answer_type: answerType,
     answered_at: answer.answered_at,
+    progress: {
+      answered: totalAnswered,
+      objective_answered: objectiveAnswered,
+      minimum_for_analysis: MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS,
+      can_analyze: objectiveAnswered >= MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS,
+    },
+  };
+}
+
+/**
+ * Serviço do botão "voltar": apaga a última resposta da sessão e retorna
+ * o novo progresso (útil para o frontend atualizar o contador e recarregar
+ * a pergunta que voltou a ficar pendente).
+ */
+export async function undoLastAnswer(sessionId) {
+  const undone = await deleteLastAnswer(sessionId);
+  if (!undone) {
+    throw new AppError('Não há respostas para desfazer.', 404, 'NOT_FOUND');
+  }
+
+  const [totalAnswered, objectiveAnswered] = await Promise.all([
+    countAnswersBySessionId(sessionId),
+    countObjectiveAnswersBySessionId(sessionId),
+  ]);
+
+  return {
+    undone_question_id: undone.question_id,
     progress: {
       answered: totalAnswered,
       objective_answered: objectiveAnswered,

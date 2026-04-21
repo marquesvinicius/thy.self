@@ -258,7 +258,23 @@ Regras obrigatórias (respeite sempre):
 - O campo "vibe_resumo" NUNCA pode exceder 10 palavras — conte antes de responder.
 - Evite repetir pessoas/títulos dentro da mesma resposta e evite sugestões obscuras.
 - Varie a categoria das referências (ex.: não três atores seguidos).
-- As obras devem ser EXATAMENTE destes tipos: 1 série, 1 filme e 1 anime (uma de cada).`;
+- As obras devem ser EXATAMENTE destes tipos: 1 série, 1 filme e 1 anime (uma de cada).
+
+FUJA DE CLICHÊS (REGRA CRÍTICA):
+Os seguintes nomes são os "default" que qualquer LLM escolhe quando o perfil
+é vago — USE-OS APENAS se houver uma conexão muito específica com uma
+resposta narrativa do usuário, e NUNCA mais de UM deles na mesma resposta:
+  Immanuel Kant, Marie Curie, Albert Einstein, Friedrich Nietzsche,
+  Leonardo da Vinci, Sigmund Freud, Carl Sagan, Stephen Hawking,
+  William Shakespeare, Frida Kahlo, Vincent van Gogh, Steve Jobs,
+  Elon Musk, Keanu Reeves, Hermione Granger, Sherlock Holmes.
+Prefira sempre figuras um pouco menos óbvias mas ainda reconhecíveis
+(ex.: em vez de Einstein, considere Richard Feynman, Lise Meitner,
+Alan Turing, Barbara McClintock; em vez de Nietzsche, Hannah Arendt,
+Simone de Beauvoir, Byung-Chul Han, Gaston Bachelard). Duas pessoas com
+perfis BFI-2-S diferentes JAMAIS devem acabar com a mesma lista de
+referências — se você sentir que o "óbvio" para aquele traço é Kant,
+escolha outro filósofo.`;
 }
 
 const INTERPRETATIVE_CATEGORY_LABELS = {
@@ -421,6 +437,17 @@ Gere EXATAMENTE 3 referências culturais com CATEGORIAS DIFERENTES entre si.
 Gere EXATAMENTE 3 obras (1 série, 1 filme, 1 anime), todas reconhecíveis no
 zeitgeist contemporâneo. Não repita pessoas nem títulos dentro da mesma resposta.
 
+Diversificação obrigatória — MUITO IMPORTANTE:
+- Cada referência deve iluminar um ÂNGULO DIFERENTE do perfil (ex.: uma foca
+  em um traço específico do Big Five, outra em um dilema moral citado, outra
+  em um interesse ou paradoxo). NÃO descreva as três sob o mesmo prisma.
+- Cada "motivo" deve usar um léxico distinto — evite repetir as mesmas
+  palavras-chave (ex.: "intensidade", "visão", "ambição") em mais de uma
+  referência. Se usar uma, troque nas outras.
+- Varie também o foco das obras: cada obra deve ressoar com uma faceta
+  distinta (uma pode refletir traço dominante, outra uma tensão interna,
+  outra um interesse revelado nas respostas narrativas).
+
 Retorne JSON com esta estrutura exata:
 {
   "schema_version": "${INTERPRETATION_SCHEMA_VERSION}",
@@ -448,10 +475,20 @@ Responda EXCLUSIVAMENTE com JSON válido em português brasileiro.
 O texto deve ser claro, específico e ancorado nas respostas reais do usuário.`;
 }
 
-function buildReferenceDetailPrompt(profile, consistency, interpretativeSignals, archetype, reference) {
+function buildReferenceDetailPrompt(profile, consistency, interpretativeSignals, archetype, reference, options = {}) {
   const referenceName = sanitizeString(reference?.nome);
   const referenceCategory = sanitizeString(reference?.categoria) || 'Personalidade cultural';
   const referenceMotivo = sanitizeString(reference?.motivo);
+
+  const priorInterpretation = sanitizeString(options.priorInterpretation);
+  const otherReferences = Array.isArray(options.otherReferences)
+    ? options.otherReferences
+        .map(ref => ({
+          nome: sanitizeString(ref?.nome),
+          motivo: sanitizeString(ref?.motivo),
+        }))
+        .filter(ref => ref.nome && ref.nome !== referenceName)
+    : [];
 
   const dimensionLines = DIMENSIONS.map(dim => {
     const score = profile.scores[dim.key];
@@ -481,6 +518,16 @@ function buildReferenceDetailPrompt(profile, consistency, interpretativeSignals,
       }.`
     : 'Nenhum arquétipo identificado — calibre o tom livremente.';
 
+  const priorInterpretationBlock = priorInterpretation
+    ? `\n========================================\n[4] TEXTO INTERPRETATIVO JÁ ENTREGUE AO USUÁRIO\n(Você não deve REPETIR os argumentos abaixo nem parafraseá-los.)\n========================================\n${priorInterpretation}\n`
+    : '';
+
+  const otherReferencesBlock = otherReferences.length > 0
+    ? `\n========================================\n[5] OUTRAS REFERÊNCIAS JÁ APRESENTADAS\n(Evite repetir os mesmos ângulos usados nos motivos destas referências.)\n========================================\n${otherReferences
+        .map(ref => `- ${ref.nome}${ref.motivo ? ` — motivo anterior: "${ref.motivo}"` : ''}`)
+        .join('\n')}\n`
+    : '';
+
   return `Você vai comparar o perfil de um usuário com uma personalidade escolhida por ele.
 
 ========================================
@@ -508,7 +555,7 @@ ${interpretativeContext}
 [3] ARQUÉTIPO ESTATÍSTICO MAIS PRÓXIMO
 ========================================
 ${archetypeBlock}
-
+${priorInterpretationBlock}${otherReferencesBlock}
 ========================================
 TAREFA
 ========================================
@@ -517,6 +564,15 @@ tanto CONVERGÊNCIAS (onde perfil + respostas se alinham com a referência)
 quanto DIVERGÊNCIAS / pontos de tensão (quando houver — não force semelhança
 artificial). Cite ao menos uma resposta específica do usuário entre aspas
 (máx 20 palavras) para ancorar a análise.
+
+Diversificação obrigatória (teste de usabilidade exigiu):
+- NÃO repita argumentos, exemplos ou frases do bloco [4] acima.
+- NÃO reaproveite os ângulos usados no "motivo anterior" de outras
+  referências em [5] — escolha um prisma NOVO (pode ser um traço Big Five
+  ainda pouco explorado, um dilema específico do usuário, um paradoxo ou
+  um interesse manifestado).
+- Cada seção deve trazer uma observação ORIGINAL, específica a esta
+  referência — nada de repetir a mesma ideia só trocando o sujeito.
 
 Formato: 2 a 3 seções, cada uma com título curto e conteúdo de 2 a 4 frases.
 A última seção pode ser reservada para uma nuance ou ponto de tensão quando
@@ -840,7 +896,11 @@ export async function generateReferenceDetail(profile, consistency, interpretati
     consistency,
     interpretativeSignals,
     archetype,
-    reference
+    reference,
+    {
+      priorInterpretation: options.priorInterpretation,
+      otherReferences: options.otherReferences,
+    }
   );
 
   return generateStructuredOutput({

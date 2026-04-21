@@ -1,16 +1,24 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getQuestions, submitAnswer } from '@/services/api';
+import { getQuestions, submitAnswer, undoLastAnswer } from '@/services/api';
 import Header from '@/components/Header';
 import MysticBackground, { MysticEyesOverlay } from '@/components/MysticBackground';
 import ProgressBar from '@/components/ProgressBar';
 import MicroFeedback from '@/components/MicroFeedback';
 import TutorialPopup from '@/components/TutorialPopup';
+import StageTransition from '@/components/StageTransition';
 import QuestionRenderer from '@/components/QuestionRenderer';
 
 const BLOCK_SIZE = 1;
+
+// Chave de sessionStorage que marca que o usuário já viu o ritual de passagem
+// entre BFI-2-S (objetiva) e a parte narrativa. Indexada por session_id para
+// que uma nova sessão comece o fluxo do zero.
+function stageTransitionKey(sessionId) {
+  return `stage_transition_seen:${sessionId}`;
+}
 
 export default function Quiz() {
   const router = useRouter();
@@ -22,9 +30,19 @@ export default function Quiz() {
   const [progress, setProgress] = useState({ answered: 0, total: 0, canAnalyze: false });
 
   const [submitting, setSubmitting] = useState(false);
+  const [undoing, setUndoing] = useState(false);
+  const [undoError, setUndoError] = useState(null);
   const [flashing, setFlashing] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [pendingTutorials, setPendingTutorials] = useState([]);
+  // Ritual de passagem BFI-2-S → narrativa. Acionado na primeira vez que o
+  // backend serve uma pergunta de kind=interpretative (o picker prioriza
+  // objetivas, então isso só acontece quando TODAS as 30 BFI-2-S foram
+  // respondidas). Persistimos a flag em sessionStorage por session_id.
+  const [showStageTransition, setShowStageTransition] = useState(false);
+  // Etapa atual, usada no indicador discreto da barra de status.
+  // 'objective' enquanto houver BFI-2-S pendente, 'interpretative' depois.
+  const [stage, setStage] = useState('objective');
 
   // 3-phase transition: 'visible' | 'exiting' | 'entering'
   const [phase, setPhase] = useState('entering');
@@ -41,6 +59,25 @@ export default function Quiz() {
       if (data.questions.length > 0) {
         setQuestions(data.questions);
         setAnswers({}); // reset block answers
+
+        // Detecta transição objetiva → interpretativa. Como o picker do
+        // backend sempre esgota as BFI-2-S antes de servir uma interpretativa,
+        // a primeira pergunta de kind=interpretative neste bloco é garantida
+        // de ser a passagem entre etapas. Mostramos o card uma única vez
+        // por sessão; se o usuário recarregar, a flag em sessionStorage
+        // evita reexibição.
+        const firstKind = data.questions[0]?.kind || 'interpretative';
+        setStage(firstKind === 'objective' ? 'objective' : 'interpretative');
+
+        if (firstKind === 'interpretative') {
+          let alreadySeen = false;
+          try {
+            alreadySeen = !!sessionStorage.getItem(stageTransitionKey(sid));
+          } catch {}
+          if (!alreadySeen) {
+            setShowStageTransition(true);
+          }
+        }
 
         // Calculate if we need to show a tutorial for any new types in this block
         const storedSeen = JSON.parse(localStorage.getItem('thySelf_seenTutorials') || '[]');
@@ -80,22 +117,18 @@ export default function Quiz() {
     setAnswers(prev => ({ ...prev, [questionId]: alternativeId }));
 
     const q = questions.find((x) => x.id === questionId);
-    // Auto-submit when the widget returns a final payload on click:
-    //   - Objective items (Likert) always return a final answer immediately.
-    //   - Interpretative multiple_choice / slider / binary also fire immediately,
-    //     because their inputs either commit on click (MC/slider) or expose
-    //     their own in-widget "confirmar" button (BinaryInput).
-    //   - Ranking / reflection still use the external "Confirmar" button below.
-    const isAutoSubmit =
-      q &&
-      (q.kind === 'objective' ||
-        !q.type ||
-        q.type === 'multiple_choice' ||
-        q.type === 'slider' ||
-        q.type === 'binary');
+    // Pós teste de usabilidade (abril/2026): removemos os botões "Confirmar"
+    // de TODOS os widgets onde a resposta não é digitável. Cada clique
+    // commita imediatamente e avança. A única exceção é `reflection`, onde
+    // o texto precisa ser redigido antes de ser submetido; para esta, o
+    // botão "Confirmar" (externo) continua existindo e há também um botão
+    // "Pular" para quem não consegue se lembrar de uma situação específica.
+    const isAutoSubmit = q && q.type !== 'reflection';
 
     if (isAutoSubmit) {
       const immediateAnswers = { ...answers, [questionId]: alternativeId };
+      // Ignora estados parciais de ranking (ainda montando a ordenação).
+      if (alternativeId?.answer_type === 'ranking_incomplete') return;
       if (Object.keys(immediateAnswers).length === questions.length) {
         handleSubmitBlock(immediateAnswers);
       }
@@ -152,6 +185,48 @@ export default function Quiz() {
     }
   }
 
+  async function handleUndo() {
+    if (undoing || submitting || !sessionId) return;
+    setUndoError(null);
+    setUndoing(true);
+    try {
+      await undoLastAnswer(sessionId);
+      // Recarrega o bloco de perguntas — a pergunta desfeita voltará a
+      // aparecer, pois o backend a reabre ao deletar a resposta.
+      setAnswers({});
+      await loadQuestions(sessionId);
+    } catch (err) {
+      console.error('Falha ao desfazer resposta:', err);
+      const message = err?.message || '';
+      if (message.includes('Não há respostas') || message.includes('não há respostas')) {
+        setUndoError('Nada a desfazer — você ainda não respondeu nenhuma pergunta.');
+      } else {
+        setUndoError('Não consegui desfazer. Tente novamente.');
+      }
+    } finally {
+      setUndoing(false);
+    }
+  }
+
+  async function handleSkipReflection(questionId) {
+    if (submitting) return;
+    // Usuário optou por pular a pergunta dissertativa. Submete resposta
+    // com user_observation vazio e alternative_id null — a migração 002
+    // tornou `alternative_id` opcional, e `getInterpretativeSignals`
+    // descarta linhas sem conteúdo útil (nem alternativa nem observação),
+    // então a pergunta conta como respondida mas NÃO polui o contexto
+    // narrativo enviado à LLM.
+    const skipPayload = {
+      alternative_id: null,
+      answer_type: 'reflection',
+      user_observation: '',
+      slider_value: null,
+    };
+    const immediateAnswers = { ...answers, [questionId]: skipPayload };
+    setAnswers(immediateAnswers);
+    await handleSubmitBlock(immediateAnswers);
+  }
+
   const handleFeedbackComplete = async () => {
     setShowFeedback(false);
     await loadQuestions(sessionId);
@@ -162,6 +237,15 @@ export default function Quiz() {
     const updatedSeen = Array.from(new Set([...storedSeen, ...pendingTutorials]));
     localStorage.setItem('thySelf_seenTutorials', JSON.stringify(updatedSeen));
     setPendingTutorials([]);
+  };
+
+  const handleStageTransitionContinue = () => {
+    setShowStageTransition(false);
+    if (sessionId) {
+      try {
+        sessionStorage.setItem(stageTransitionKey(sessionId), '1');
+      } catch {}
+    }
   };
 
   function handleAnalyze() {
@@ -187,7 +271,15 @@ export default function Quiz() {
       <MysticBackground showEyes={false} />
       <MicroFeedback trigger={showFeedback} onComplete={handleFeedbackComplete} />
 
-      {pendingTutorials.length > 0 && (
+      {/* Ritual de passagem entre BFI-2-S e parte narrativa. Tem prioridade
+          sobre o TutorialPopup de widget: se o usuário estiver vendo o card
+          de transição, adiamos o tutorial de reflection/etc. até ele clicar
+          em "continuar" — assim as duas camadas não aparecem empilhadas. */}
+      {showStageTransition && (
+        <StageTransition onContinue={handleStageTransitionContinue} />
+      )}
+
+      {pendingTutorials.length > 0 && !showStageTransition && (
         <TutorialPopup types={pendingTutorials} onComplete={handleTutorialComplete} />
       )}
 
@@ -205,8 +297,28 @@ export default function Quiz() {
         {/* Status bar */}
         <div className="flex flex-col gap-4 px-6 md:px-10 py-4 border-b border-border">
           <ProgressBar current={progress.answered} total={progress.total} />
-          <div className="flex justify-between text-[10px] uppercase tracking-widest text-muted">
-            <span>respostas: {progress.answered}</span>
+          <div className="flex flex-wrap justify-between gap-3 text-[10px] uppercase tracking-widest text-muted">
+            <div className="flex items-center gap-5">
+              <span>respostas: {progress.answered}</span>
+              {/* Indicador discreto da etapa atual. Referencia o mesmo texto
+                  usado no card de transição (StageTransition) para reforçar
+                  a separação entre camadas quantitativa e narrativa. */}
+              <span className="hidden sm:inline text-muted/60">
+                <span className="text-muted/40">·</span>{' '}
+                {stage === 'objective'
+                  ? 'etapa 1/2 — BFI-2-S'
+                  : 'etapa 2/2 — narrativa'}
+              </span>
+              <button
+                onClick={handleUndo}
+                disabled={undoing || submitting || progress.answered === 0}
+                className="inline-flex items-center gap-2 hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Desfazer a última resposta"
+              >
+                <span aria-hidden="true">←</span>
+                {undoing ? 'voltando...' : 'voltar'}
+              </button>
+            </div>
             <div className="flex items-center gap-6">
               {progress.canAnalyze && (
                 <button onClick={handleAnalyze} className="text-foreground border border-foreground px-4 py-1 hover:bg-foreground hover:text-background transition-all">
@@ -218,6 +330,11 @@ export default function Quiz() {
               </button>
             </div>
           </div>
+          {undoError && (
+            <p className="text-[10px] text-foreground/80 tracking-wider">
+              {undoError}
+            </p>
+          )}
         </div>
 
         {/* Question Area */}
@@ -257,15 +374,25 @@ export default function Quiz() {
                       />
                     </div>
 
-                    {q.kind === 'interpretative' &&
-                      q.type && q.type !== 'multiple_choice' && q.type !== 'slider' && q.type !== 'binary' && (
-                      <div className="flex justify-center w-full">
+                    {/* Botão "Confirmar" só aparece para respostas digitáveis
+                        (reflection). Pós teste de usabilidade de abril/2026,
+                        todos os outros widgets commitam diretamente no clique. */}
+                    {q.type === 'reflection' && (
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full">
                         <button
                           onClick={() => handleSubmitBlock()}
                           disabled={!isBlockComplete || submitting}
-                          className="border border-foreground px-12 py-4 text-xs uppercase tracking-[0.3em] transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-foreground hover:text-background"
+                          className="border border-foreground px-10 py-4 text-xs uppercase tracking-[0.3em] transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-foreground hover:text-background"
                         >
                           {submitting ? 'Enviando...' : 'Confirmar'}
+                        </button>
+                        <button
+                          onClick={() => handleSkipReflection(q.id)}
+                          disabled={submitting}
+                          className="text-[11px] uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors underline underline-offset-4 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Pule quando não se lembrar de uma situação específica"
+                        >
+                          pular pergunta
                         </button>
                       </div>
                     )}
