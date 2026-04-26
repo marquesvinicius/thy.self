@@ -1,18 +1,55 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
+// Em desenvolvimento o backend pode reiniciar (nodemon/tsx watch) bem no
+// meio de um clique do usuário e o navegador reporta `Failed to fetch`
+// (a conexão sequer chegou a ser estabelecida). Nessa classe de erro é
+// seguro repetir até POSTs não-idempotentes, porque o servidor ainda não
+// recebeu nada. Fazemos 2 retries exponenciais antes de propagar o erro.
+const NETWORK_RETRY_DELAYS_MS = [400, 1200];
+
+function isNetworkError(err) {
+  const msg = err?.message || '';
+  return (
+    err?.name === 'TypeError' &&
+    /failed to fetch|networkerror|load failed/i.test(msg)
+  );
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function request(path, options = {}) {
-  const res = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+  let lastErr;
 
-  const data = await res.json();
+  // Primeira tentativa + retries programados para erros puramente de rede.
+  for (let attempt = 0; attempt <= NETWORK_RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      const res = await fetch(`${API_URL}${path}`, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+      });
 
-  if (!data.success) {
-    throw new Error(data.error?.message || 'Request failed');
+      const data = await res.json();
+
+      if (!data.success) {
+        throw new Error(data.error?.message || 'Request failed');
+      }
+
+      return data.data;
+    } catch (err) {
+      lastErr = err;
+      // Só retentamos em erros de rede pre-flight (sem resposta do servidor).
+      // Qualquer outra exceção (erro da API, JSON inválido, 5xx decodificado)
+      // passa direto para o chamador, preservando a semântica original.
+      if (!isNetworkError(err) || attempt === NETWORK_RETRY_DELAYS_MS.length) {
+        throw err;
+      }
+      await sleep(NETWORK_RETRY_DELAYS_MS[attempt]);
+    }
   }
 
-  return data.data;
+  throw lastErr;
 }
 
 export async function createSession(nickname) {
