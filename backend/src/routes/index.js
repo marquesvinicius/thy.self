@@ -6,7 +6,6 @@ import answerRoutes from './answer.routes.js';
 import analyzeRoutes from './analyze.routes.js';
 import interpretRoutes from './interpret.routes.js';
 import resultRoutes from './result.routes.js';
-import publicRoutes from './public.routes.js';
 import devRoutes from './dev.routes.js';
 
 const router = Router();
@@ -17,7 +16,6 @@ router.use('/answer', answerRoutes);
 router.use('/analyze', analyzeRoutes);
 router.use('/interpret', interpretRoutes);
 router.use('/result', resultRoutes);
-router.use('/public', publicRoutes);
 
 // Development-only routes (quick-analyze, test tools)
 if (env.nodeEnv === 'development') {

@@ -24,7 +24,7 @@ import {
  * Reconstrói o payload canônico de resposta do /analyze a partir de uma
  * linha já persistida em `results`. Mantém o shape idêntico ao que o
  * frontend receberia na análise original — scores, dimensões com level,
- * consistency, llm_interpretation e share metadata.
+ * consistency e llm_interpretation.
  */
 function buildProfilePayloadFromRow(row) {
   const scores = {
@@ -52,11 +52,6 @@ function buildProfilePayloadFromRow(row) {
     calculated_at: row.calculated_at,
     consistency: row.consistency || null,
     llm_interpretation: row.llm_interpretation || null,
-    share: {
-      is_public: !!row.is_public,
-      public_token: row.public_token || null,
-      published_at: row.published_at || null,
-    },
   };
 }
 
@@ -65,9 +60,7 @@ export async function analyzeSession(sessionId) {
   // interpretação gerada, reutilizamos o que está no banco em vez de
   // disparar nova chamada ao LLM. Isso previne condições de corrida em que
   // React.StrictMode (dev) ou cliques duplicados disparam /analyze duas
-  // vezes concorrentemente — a segunda chamada sobrescrevia a primeira no
-  // UPSERT, e o link público ficava com referências diferentes das que o
-  // usuário viu na tela. Ver feedback de usabilidade (issue 7, rev 2).
+  // vezes concorrentemente.
   const existing = await getResultBySessionId(sessionId);
   if (existing && existing.llm_interpretation) {
     return {
@@ -119,16 +112,11 @@ export async function analyzeSession(sessionId) {
   // 8. Mark session as completed
   await updateSessionStatus(sessionId, SESSION_STATUS.COMPLETED);
 
-  // 9. Return expanded response usando a linha persistida — isso garante
-  // que o frontend receba immediately o public_token gerado pelo banco,
-  // sem precisar de um fetch extra em /result/:session_id só pra hidratar
-  // os metadados de share.
+  // 9. Return expanded response
   return {
     session_id: sessionId,
     profile: buildProfilePayloadFromRow({
       ...savedRow,
-      // Campos que já temos em memória e podem não estar no row retornado
-      // se o UPSERT não devolver tudo (defensivo).
       score_o: profile.scores.O,
       score_c: profile.scores.C,
       score_e: profile.scores.E,

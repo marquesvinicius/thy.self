@@ -511,33 +511,20 @@ export default function MethodPage() {
             </p>
           </section>
 
-          {/* Sharing & export */}
+          {/* Export */}
           <section>
-            <SectionTitle eyebrow="9. compartilhamento" title="publicação opt-in e exportação em PDF" />
+            <SectionTitle eyebrow="9. exportação" title="exportação em PDF" />
             <div className="space-y-4 text-sm text-muted leading-relaxed">
               <p>
-                ao ver o resultado, o usuário pode — se quiser — publicá-lo em
-                uma URL pública no formato{' '}
-                <code className="text-foreground bg-surface/80 px-1.5 py-0.5 text-[11px] border border-border/60">
-                  /r/&lt;token&gt;
-                </code>. o token é um{' '}
-                <strong className="text-foreground">UUID distinto do identificador da sessão</strong> —
-                publicar nunca expõe o id interno de quem respondeu, e a página
-                pública é estritamente read-only (sem botões de regerar, nova
-                sessão ou exportar).
+                ao concluir o questionário, o usuário pode exportar o resultado
+                em PDF diretamente pela tela de resultado.
               </p>
               <p>
-                o estado default é <em>privado</em>. nada vaza sem uma ação
-                explícita. a qualquer momento o usuário pode tornar o link
-                privado novamente, invalidando a visualização pública.
-              </p>
-              <p>
-                a exportação em PDF acontece inteiramente{' '}
+                a exportação acontece inteiramente{' '}
                 <strong className="text-foreground">no navegador</strong>, via{' '}
                 <em>pdfmake</em>. nenhum dado sai da máquina do usuário para
-                nenhum serviço de impressão: o documento é montado em memória e
-                baixado diretamente. quando há um link público ativo, um QR code
-                é embutido no rodapé do PDF para ponte entre papel e tela.
+                nenhum serviço externo: o documento é montado em memória e
+                baixado diretamente como arquivo local.
               </p>
             </div>
           </section>
@@ -550,7 +537,7 @@ export default function MethodPage() {
                 { label: 'não é diagnóstico clínico', text: 'nenhum escore deste sistema sugere, aproxima-se ou substitui uma avaliação psicológica ou psiquiátrica profissional.' },
                 { label: 'não é um instrumento novo', text: 'o thy.self reutiliza o BFI-2-S; não propõe nem valida novos itens psicométricos.' },
                 { label: 'não é uma verdade sobre você', text: 'é um retrato comportamental de um instante — baseado em 30 afirmações que você respondeu em minutos.' },
-                { label: 'não coleta dados pessoais', text: 'a sessão é anônima por design. não há cadastro, e-mail, cookie de rastreamento ou identidade persistente. publicar o resultado é opt-in e usa um token distinto da sessão.' },
+                { label: 'não coleta dados pessoais', text: 'a sessão é anônima por design. não há cadastro, e-mail, cookie de rastreamento ou identidade persistente.' },
               ].map((item) => (
                 <div key={item.label} className="border border-border p-4 md:p-5">
                   <p className="text-xs font-bold uppercase tracking-[0.2em] mb-2">{item.label}</p>

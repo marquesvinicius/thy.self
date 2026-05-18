@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   analyzeSession,
@@ -18,6 +18,46 @@ import ReferenceDetailModal from '@/components/ReferenceDetailModal';
 import AnswerReviewModal from '@/components/AnswerReviewModal';
 
 const MAX_REGENS = 3;
+
+// React.StrictMode (dev) monta → desmonta → remonta. Um lock por ref que
+// sobrevive ao desmontar impedia a segunda montagem de carregar dados, enquanto
+// a primeira era cancelada antes de setLoading(false) — loading infinito.
+// Deduplicamos requisições em voo pela chave da sessão (ou modo teste).
+const inflightLoad = new Map();
+
+function loadResultPayload({ isTestMode, getSessionId, setSessionIdStorage }) {
+  const sessionKey = isTestMode ? '__test__' : getSessionId();
+  if (!sessionKey) {
+    return Promise.reject(new Error('NO_SESSION'));
+  }
+
+  if (inflightLoad.has(sessionKey)) {
+    return inflightLoad.get(sessionKey);
+  }
+
+  const promise = (async () => {
+    if (isTestMode) {
+      const data = await quickAnalyze(25);
+      const activeSessionId = data.session_id;
+      setSessionIdStorage(activeSessionId);
+      return { data, activeSessionId };
+    }
+
+    const activeSessionId = sessionKey;
+    let data;
+    try {
+      data = await getResult(activeSessionId);
+    } catch {
+      data = await analyzeSession(activeSessionId);
+    }
+    return { data, activeSessionId };
+  })().finally(() => {
+    inflightLoad.delete(sessionKey);
+  });
+
+  inflightLoad.set(sessionKey, promise);
+  return promise;
+}
 
 export default function Result() {
   return (
@@ -45,7 +85,6 @@ function ResultContent() {
   const [regenCount, setRegenCount] = useState(0);
   const [llmInterpretation, setLlmInterpretation] = useState(null);
   const [sessionId, setSessionId] = useState(null);
-  const [shareMeta, setShareMeta] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
@@ -61,67 +100,40 @@ function ResultContent() {
   const isTestMode = searchParams.get('test') === '1';
   const regenExhausted = regenCount >= MAX_REGENS;
 
-  // React.StrictMode (dev) dispara este useEffect duas vezes, e o caminho
-  // de analyze é caro (LLM) + não-idempotente (UPSERT sobrescreve). Sem
-  // este lock, a primeira montagem podia exibir um conjunto de referências
-  // e a segunda sobrescrever o banco com outro conjunto — então o link
-  // público terminava divergindo do que a tela mostrava. Ver issue 7
-  // (rev 2): "os resultados gerados inicialmente não estão sendo
-  // persistidos". O backend também foi tornado idempotente, mas este lock
-  // evita mesmo a chamada HTTP duplicada.
-  const loadStartedRef = useRef(false);
-
   useEffect(() => {
-    if (loadStartedRef.current) return;
-    loadStartedRef.current = true;
-
     let cancelled = false;
 
-    async function load() {
+    (async () => {
       try {
-        let data;
-
-        let activeSessionId;
-
-        if (isTestMode) {
-          data = await quickAnalyze(25);
-          activeSessionId = data.session_id;
-          sessionStorage.setItem('session_id', activeSessionId);
-        } else {
-          activeSessionId = sessionStorage.getItem('session_id');
-          if (!activeSessionId) {
-            router.push('/');
-            return;
-          }
-
-          try {
-            data = await getResult(activeSessionId);
-          } catch {
-            data = await analyzeSession(activeSessionId);
-          }
+        const sessionIdFromStorage = sessionStorage.getItem('session_id');
+        if (!isTestMode && !sessionIdFromStorage) {
+          router.push('/');
+          return;
         }
+
+        const { data, activeSessionId } = await loadResultPayload({
+          isTestMode,
+          getSessionId: () => sessionStorage.getItem('session_id'),
+          setSessionIdStorage: (id) => sessionStorage.setItem('session_id', id),
+        });
 
         if (!cancelled) {
           setSessionId(activeSessionId);
           setProfile(data.profile);
           setLlmInterpretation(data.profile.llm_interpretation || null);
-          setShareMeta(data.profile.share || null);
           setLoading(false);
         }
       } catch (err) {
-        if (!cancelled) {
-          setError(err.message);
-          setLoading(false);
-          // Libera o lock apenas em caso de erro, para permitir que o
-          // usuário acione uma nova tentativa recarregando a página
-          // manualmente. Em caso de sucesso, mantemos o lock armado
-          // pela vida do componente.
-          loadStartedRef.current = false;
+        if (cancelled) return;
+        if (err.message === 'NO_SESSION') {
+          router.push('/');
+          return;
         }
+        setError(err.message);
+        setLoading(false);
       }
-    }
+    })();
 
-    load();
     return () => { cancelled = true; };
   }, [router, isTestMode]);
 
@@ -288,8 +300,6 @@ function ResultContent() {
               <ResultActions
                 profile={profile}
                 llmInterpretation={llmInterpretation}
-                sessionId={sessionId}
-                initialShare={shareMeta}
                 onNewSession={handleNewSession}
                 onReviewAnswers={() => setReviewOpen(true)}
               />

@@ -159,24 +159,3 @@ export async function quickAnalyze(answerCount = 25) {
   });
 }
 
-/**
- * Flips the saved result's publication flag. When enabled, the result
- * becomes readable via the public-token endpoint (and thus via /r/[token]
- * on the frontend). Pass `{ isPublic: false }` to revoke.
- *
- * Returns { session_id, share: { is_public, public_token, published_at } }.
- */
-export async function shareResult(sessionId, { isPublic = true } = {}) {
-  return request(`/result/${sessionId}/share`, {
-    method: 'POST',
-    body: JSON.stringify({ is_public: isPublic }),
-  });
-}
-
-/**
- * Fetches a public (opt-in) result by its share token. Used by the
- * read-only /r/[token] page — does NOT require a session_id in storage.
- */
-export async function getPublicResult(token) {
-  return request(`/public/result/${token}`);
-}
