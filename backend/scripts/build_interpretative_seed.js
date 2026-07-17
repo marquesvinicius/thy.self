@@ -15,22 +15,37 @@ const root = join(__dirname, '..');
 
 const INTERPRETATIVE_CATEGORIES = new Set(['moral_dilemma', 'paradoxical', 'interest']);
 
+// Prefixo do external_id por categoria. O external_id é a chave natural do
+// upsert idempotente no seed — gerado de forma determinística pela ordem de
+// aparição dentro de cada categoria (INT_MD_01, INT_PX_03, INT_IN_08, …).
+const CATEGORY_CODE = {
+  moral_dilemma: 'MD',
+  paradoxical: 'PX',
+  interest: 'IN',
+};
+
 async function main() {
   const legacyRaw = await readFile(join(root, 'seed', 'questions.json'), 'utf-8');
   const legacy = JSON.parse(legacyRaw);
 
+  const counters = {};
   const items = legacy.questions
     .filter(q => INTERPRETATIVE_CATEGORIES.has(q.category))
-    .map(q => ({
-      category: q.category,
-      text: q.text,
-      context: q.context ?? null,
-      type: q.type || 'multiple_choice',
-      alternatives: (q.alternatives || []).map(a => ({
-        text: a.text,
-        sort_order: a.sort_order,
-      })),
-    }));
+    .map(q => {
+      const code = CATEGORY_CODE[q.category];
+      counters[code] = (counters[code] || 0) + 1;
+      return {
+        external_id: `INT_${code}_${String(counters[code]).padStart(2, '0')}`,
+        category: q.category,
+        text: q.text,
+        context: q.context ?? null,
+        type: q.type || 'multiple_choice',
+        alternatives: (q.alternatives || []).map(a => ({
+          text: a.text,
+          sort_order: a.sort_order,
+        })),
+      };
+    });
 
   const byCategory = items.reduce((acc, q) => {
     acc[q.category] = (acc[q.category] || 0) + 1;

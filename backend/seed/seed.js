@@ -91,9 +91,6 @@ async function seedObjective(categoryId) {
 
     inserted++;
 
-    // Clear any pre-existing alternatives for this question (idempotent reseed)
-    await supabase.from('alternatives').delete().eq('question_id', question.id);
-
     const impactCol = impactColumnFor(item.trait);
     const alts = likertScale.map(step => ({
       question_id: question.id,
@@ -103,9 +100,12 @@ async function seedObjective(categoryId) {
       [impactCol]: step.value,
     }));
 
+    // Upsert pela chave natural (question_id, sort_order) — migration_007.
+    // DELETE + INSERT falhava silenciosamente quando a pergunta já tinha
+    // respostas (FK de answers sem cascade) e duplicava as alternativas.
     const { data: insertedAlts, error: aErr } = await supabase
       .from('alternatives')
-      .insert(alts)
+      .upsert(alts, { onConflict: 'question_id,sort_order' })
       .select();
 
     if (aErr) {
@@ -133,22 +133,33 @@ async function seedInterpretative(categoryMap) {
       continue;
     }
 
+    if (!q.external_id) {
+      console.error(`  Interpretative item without external_id (skipped): ${q.text.slice(0, 60)}…`);
+      continue;
+    }
+
+    // Upsert por external_id (mesmo padrão da camada objetiva) — reseed
+    // idempotente: rodar o seed N vezes não duplica perguntas.
     const { data: question, error: qErr } = await supabase
       .from('questions')
-      .insert({
-        category_id: categoryId,
-        text: q.text,
-        context: q.context ?? null,
-        type: q.type || 'multiple_choice',
-        kind: 'interpretative',
-        trait: null,
-        reverse_key: false,
-      })
+      .upsert(
+        {
+          category_id: categoryId,
+          text: q.text,
+          context: q.context ?? null,
+          type: q.type || 'multiple_choice',
+          kind: 'interpretative',
+          trait: null,
+          reverse_key: false,
+          external_id: q.external_id,
+        },
+        { onConflict: 'external_id' }
+      )
       .select()
       .single();
 
     if (qErr) {
-      console.error(`  Error inserting interpretative question: ${q.text.slice(0, 60)}…`, qErr);
+      console.error(`  Error upserting interpretative question ${q.external_id}:`, qErr);
       continue;
     }
 
@@ -162,9 +173,10 @@ async function seedInterpretative(categoryMap) {
         impact_o: 0, impact_c: 0, impact_e: 0, impact_a: 0, impact_n: 0,
       }));
 
+      // Upsert pela chave natural (question_id, sort_order) — migration_007.
       const { data: insertedAlts, error: aErr } = await supabase
         .from('alternatives')
-        .insert(alts)
+        .upsert(alts, { onConflict: 'question_id,sort_order' })
         .select();
 
       if (aErr) {
@@ -177,6 +189,45 @@ async function seedInterpretative(categoryMap) {
   }
 
   return { inserted, altInserted };
+}
+
+const ARCHETYPE_BATCH_SIZE = 500;
+
+async function seedArchetypes() {
+  const raw = await readFile(
+    join(__dirname, '..', 'scripts', 'etl', 'thy_self_characters.json'),
+    'utf-8',
+  );
+  const characters = JSON.parse(raw);
+
+  if (!Array.isArray(characters) || characters.length === 0) {
+    throw new Error('thy_self_characters.json is empty or invalid');
+  }
+
+  const rows = characters.map((c) => ({
+    id: String(c.id),
+    name: c.name,
+    universe: c.universe,
+    o_score: Number(c.o_score),
+    c_score: Number(c.c_score),
+    e_score: Number(c.e_score),
+    a_score: Number(c.a_score),
+    n_score: Number(c.n_score),
+  }));
+
+  let upserted = 0;
+  for (let i = 0; i < rows.length; i += ARCHETYPE_BATCH_SIZE) {
+    const batch = rows.slice(i, i + ARCHETYPE_BATCH_SIZE);
+    const { error } = await supabase
+      .from('archetypes')
+      .upsert(batch, { onConflict: 'id' });
+
+    if (error) throw error;
+    upserted += batch.length;
+    console.log(`   … ${upserted}/${rows.length} archetypes`);
+  }
+
+  return upserted;
 }
 
 async function seed() {
@@ -194,8 +245,12 @@ async function seed() {
   const interpretative = await seedInterpretative(categoryMap);
   console.log(`   ${interpretative.inserted} interpretative items, ${interpretative.altInserted} alternatives.\n`);
 
+  console.log('4) Seeding cultural archetypes (OSPP)…');
+  const archetypeCount = await seedArchetypes();
+  console.log(`   ${archetypeCount} archetypes upserted.\n`);
+
   console.log('Seed completed successfully.');
-  console.log(`Totals: questions=${objective.inserted + interpretative.inserted}, alternatives=${objective.altInserted + interpretative.altInserted}`);
+  console.log(`Totals: questions=${objective.inserted + interpretative.inserted}, alternatives=${objective.altInserted + interpretative.altInserted}, archetypes=${archetypeCount}`);
 }
 
 seed().catch(err => {

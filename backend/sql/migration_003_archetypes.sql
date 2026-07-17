@@ -24,6 +24,6 @@ AS $$
     -- Calculation of Euclidean Distance natively in Postgres
     SQRT(POWER(o_score - user_o, 2) + POWER(c_score - user_c, 2) + POWER(e_score - user_e, 2) + POWER(a_score - user_a, 2) + POWER(n_score - user_n, 2)) as distance
   FROM archetypes
-  ORDER BY distance ASC
+  ORDER BY distance ASC, id ASC
   LIMIT 1;
 $$;

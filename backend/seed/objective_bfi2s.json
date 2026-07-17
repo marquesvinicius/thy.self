@@ -1,6 +1,9 @@
 {
   "instrument": "BFI-2-S",
-  "source": "Soto, C. J. & John, O. P. (2017). The next Big Five Inventory (BFI-2): Developing and assessing a hierarchical model with 15 facets to enhance bandwidth, fidelity, and predictive power. Journal of Personality and Social Psychology, 113(1), 117–143.",
+  "source": "Soto, C. J. & John, O. P. (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68, 69–81.",
+  "source_full": "Soto, C. J. & John, O. P. (2017). The next Big Five Inventory (BFI-2): Developing and assessing a hierarchical model with 15 facets to enhance bandwidth, fidelity, and predictive power. Journal of Personality and Social Psychology, 113(1), 117–143.",
+  "translation_note": "Tradução dos itens realizada a partir do instrumento original em inglês (Soto & John, 2017). Não existe versão PT-BR oficialmente publicada do BFI-2-S — o laboratório do próprio Soto não lista o português brasileiro entre as traduções oficiais. A versão em uso na pesquisa brasileira referencia Santos & Primi (2014), relatório interno não acessível publicamente. As traduções foram verificadas semanticamente contra as descrições de itens disponíveis em Oliveira et al. (2022), com correspondência confirmada nos 9 itens descritos no artigo. A formalização da tradução (contato com LabAPE/UFSC ou adaptação da versão validada do BFI-2 completo por Pires et al., 2023) é prevista para o TFC II.",
+  "validation_reference_pt_br": "Oliveira, S. E. S., Faiad, C., Castro, L. P., Esteves, G. G. L., Barbosa, L. L. P., & Mansur-Alves, M. (2022). Big Five Inventory-2-Short: Evidências de Validade e Confiabilidade na Segurança Pública. Revista Brasileira de Psicoterapia, 24(2), 3–17. DOI 10.5935/2318-0404.20220020",
   "stem": "Eu sou alguém que…",
   "category_slug": "objective_bfi2s",
   "likert_scale": [
