@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSession } from '@/services/api';
 import Logo from '@/components/Logo';
 import Header from '@/components/Header';
 import MysticBackground from '@/components/MysticBackground';
+import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/activeSession';
 
 const QUESTION_TYPE_GUIDE = [
   {
@@ -34,17 +35,34 @@ export default function Home() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [resumableSession, setResumableSession] = useState(null);
+
+  useEffect(() => {
+    setResumableSession(getActiveSession());
+  }, []);
 
   async function handleStartQuiz() {
     setLoading(true);
     try {
       const session = await createSession();
       sessionStorage.setItem('session_id', session.session_id);
+      setActiveSession(session.session_id);
       router.push('/quiz');
     } catch (err) {
       console.error('Failed to create session:', err);
       setLoading(false);
     }
+  }
+
+  function handleResumeSession() {
+    if (!resumableSession) return;
+    sessionStorage.setItem('session_id', resumableSession);
+    router.push('/quiz');
+  }
+
+  function handleDiscardSession() {
+    clearActiveSession();
+    setResumableSession(null);
   }
 
   function handleStartClick() {
@@ -114,6 +132,30 @@ export default function Home() {
             {loading ? '...' : 'começar'}
           </button>
         </div>
+
+        {resumableSession && (
+          <div className="pt-2 space-y-3 animate-fade-in">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-muted/80">
+              você tem uma avaliação em andamento
+            </p>
+            <div className="flex items-center justify-center gap-6">
+              <button
+                onClick={handleResumeSession}
+                disabled={loading}
+                className="text-[11px] uppercase tracking-[0.25em] text-foreground underline underline-offset-4 hover:text-foreground/70 transition-colors disabled:opacity-40"
+              >
+                continuar de onde parei
+              </button>
+              <button
+                onClick={handleDiscardSession}
+                disabled={loading}
+                className="text-[11px] uppercase tracking-[0.25em] text-muted hover:text-foreground transition-colors disabled:opacity-40"
+              >
+                descartar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <footer className="absolute bottom-6 text-[10px] uppercase tracking-widest text-muted z-[1]">
