@@ -16,10 +16,10 @@ Project-level artifacts at the repo root: raw question CSVs (`questions.csv`, `q
 ### Backend (`cd backend`)
 - `npm run dev` — start API with `node --watch` on `env.port` (default 3000).
 - `npm start` — production start.
-- `npm run seed` — reseed categories, BFI-2-S objective items, and interpretative items from `seed/objective_bfi2s.json` + `seed/interpretative.json` into Supabase. Idempotent via `external_id`.
-- `npm test` — run all Node built-in test-runner suites in `test/**/*.test.js`.
-- Run a single test file: `node --test test/bigfive-engine.test.js`.
-- SQL migrations in `sql/migration_00*.sql` are applied manually against the Supabase project in order (see `migration_004_dual_core.sql` for the current canonical layering).
+- `npm run seed` — reseed categories, BFI-2-S objective items, interpretative items, and cultural archetypes (`scripts/etl/thy_self_characters.json`) into Supabase. Fully idempotent: objective items upsert on `external_id` (`E1`…`O30`), interpretative items upsert on `external_id` (`INT_MD_01`…`INT_IN_08`), archetypes upsert on `id`.
+- `npm test` — run all Node built-in test-runner suites in `test/**/*.test.js` (includes `--experimental-test-module-mocks`, required by `question.service.test.js`).
+- Run a single test file: `node --experimental-test-module-mocks --test test/bigfive-engine.test.js`.
+- SQL migrations in `sql/migration_00*.sql` are applied manually against the Supabase project in order (`migration_001` → `007_alternatives_unique`). `sql/schema.sql` is the canonical snapshot for a clean setup; `sql/maintenance_dedup_interpretative.sql` is a one-shot cleanup for databases seeded before the interpretative upsert existed.
 
 ### Frontend (`cd frontend`)
 - `npm run dev` — Next dev server on **port 3001** (not 3000).
@@ -56,25 +56,26 @@ Dev-only routes mount under `/api/v1/dev` when `NODE_ENV === 'development'` (cur
 - `GET  /questions?session_id=…` → fetch next batch
 - `POST /answer` → submit one answer (objective requires `alternative_id`; reflection text uses a separate field path)
 - `POST /analyze` → finalize: computes profile, finds closest archetype, triggers LLM interpretation
-- `GET  /result/:session_id`, `POST /result/:session_id/share` → fetch/share saved result
+- `GET  /result/:session_id` → fetch saved result (no recompute)
 - `POST /interpret` (re-generate) and `POST /interpret/reference-detail` (deep-dive on one cultural reference)
-- `GET  /public/result/:token` → read-only public share
+
+Public share endpoints were removed (aligned with current DERS RF001–RF007; see `migration_005_drop_public_share.sql`).
 
 ### LLM layer
 `src/services/llm.service.js` calls Gemini (`gemini-2.5-flash-lite`) with retries + timeout, guarded by `llm-limiter.js` (in-memory daily budget via `LLM_DAILY_LIMIT`, max 3 regenerations per session). Reference images are fetched by `image.service.js`. Fallback work/reference lists in `llm.service.js` are used when the API key is absent or the call fails — keep these fallbacks when editing, because dev environments frequently run without `GEMINI_API_KEY`. Interpretation output carries schema versions (`INTERPRETATION_SCHEMA_VERSION`, `DETAIL_SCHEMA_VERSION`) — bump these when changing the response shape.
 
 ### Archetype matching
-`archetype.service.js` delegates to the Postgres function `find_closest_archetype(user_o, user_c, user_e, user_a, user_n)` (defined in `migration_003_archetypes.sql`). The math lives in the DB, not in Node.
+`archetype.service.js` delegates to the Postgres function `find_closest_archetype(user_o, user_c, user_e, user_a, user_n)` (defined in `migration_003_archetypes.sql`). The math lives in the DB, not in Node. Catalog rows are loaded by `npm run seed` from `scripts/etl/thy_self_characters.json`.
 
 ### Frontend structure (App Router)
 - `app/page.js` — landing + start-quiz entry (shows `QUESTION_TYPE_GUIDE` before session creation).
-- `app/quiz/`, `app/result/`, `app/r/` (public share), `app/about/`, `app/method/` — main flows.
-- `components/` — `QuestionRenderer` dispatches on item `type` (`slider`, `binary`, `ranking`, `reflection`, `multiple_choice`); `ResultView`, `DimensionBar`, `NarrativeBlock`, `WorksBlock`, `CulturalCard`, `ReferenceDetailModal` render the analysis UI; `MysticBackground` + `VibeHero` carry the visual identity.
+- `app/quiz/`, `app/result/`, `app/about/`, `app/method/` — main flows.
+- `components/` — `QuestionRenderer` dispatches on item `type` (`binary`, `reflection`, `multiple_choice`); `DisclaimerGate` enforces RN010 before result reveal; `ResultView`, `DimensionBar`, `NarrativeBlock`, `WorksBlock`, `CulturalCard`, `ReferenceDetailModal` render the analysis UI; `MysticBackground` + `VibeHero` carry the visual identity.
 - `lib/pdf/buildResultPdf.js` — client-side PDF export via `pdfmake`.
 - `jsconfig.json` aliases `@/*` to the frontend root (use `@/services/api`, `@/components/...`).
 
 ### Key DB tables (see `backend/sql/schema.sql` + migrations)
-`question_categories`, `questions` (+ `kind`, `trait`, `reverse_key`, `external_id`), `alternatives` (carry per-trait `impact_o|c|e|a|n` for objective items), `sessions` (status: `active|completed|abandoned`), `answers`, `results`. Migration 005 adds public-share columns on `results`.
+`question_categories`, `questions` (+ `kind`, `trait`, `reverse_key`, `external_id`), `alternatives` (carry per-trait `impact_o|c|e|a|n` for objective items), `sessions` (status: `active|completed`), `answers` (+ `answer_type`, `user_observation`; `alternative_id` nullable for reflections), `results`, `archetypes`. `schema.sql` is the consolidated snapshot of migrations `001`–`006` — use it for a clean setup; use the numbered migrations for existing databases.
 
 ## Conventions worth knowing
 
