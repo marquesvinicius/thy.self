@@ -21,8 +21,18 @@ import { shuffle } from '../utils/shuffle.js';
  * randomly sub-sample it. Within the requested batch, objective items take
  * priority; any leftover slots are filled from the interpretative pool using
  * proportional category weights.
+ *
+ * @param {string} sessionId
+ * @param {number} count
+ * @param {{ preferQuestionId?: string|number|null }} [options]
+ *   When set (e.g. after undo), that question is forced to the front of the
+ *   batch if it is still unanswered — avoids reshuffling into a never-seen item.
  */
-export async function getQuestions(sessionId, count = 10) {
+export async function getQuestions(sessionId, count = 10, options = {}) {
+  const preferQuestionId = options.preferQuestionId != null
+    ? String(options.preferQuestionId)
+    : null;
+
   const [allQuestions, answeredIds, objectiveAnswered] = await Promise.all([
     getAllActiveQuestions(),
     getAnsweredQuestionIds(sessionId),
@@ -34,26 +44,51 @@ export async function getQuestions(sessionId, count = 10) {
 
   const canAnalyze = objectiveAnswered >= MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS;
 
+  // Progresso por etapa (camada objetiva × interpretativa) — permite ao
+  // frontend mostrar "12/30 · BFI-2-S" em vez de só o total agregado.
+  const objectiveTotal = allQuestions.filter(q => q.kind === QUESTION_KIND.OBJECTIVE).length;
+  const stageProgress = {
+    objective_answered: objectiveAnswered,
+    objective_total: objectiveTotal,
+    interpretative_answered: Math.max(0, answeredIds.length - objectiveAnswered),
+    interpretative_total: allQuestions.length - objectiveTotal,
+  };
+
   if (available.length === 0) {
     return {
       questions: [],
       total_answered: answeredIds.length,
       total_available: 0,
       can_analyze: canAnalyze,
+      stage_progress: stageProgress,
     };
   }
 
-  const objectiveAvailable = available.filter(q => q.kind === QUESTION_KIND.OBJECTIVE);
-  const interpretativeAvailable = available.filter(q => q.kind === QUESTION_KIND.INTERPRETATIVE);
+  const preferred = preferQuestionId
+    ? available.find(q => String(q.id) === preferQuestionId) || null
+    : null;
+
+  const pool = preferred
+    ? available.filter(q => String(q.id) !== preferQuestionId)
+    : available;
+
+  const objectiveAvailable = pool.filter(q => q.kind === QUESTION_KIND.OBJECTIVE);
+  const interpretativeAvailable = pool.filter(q => q.kind === QUESTION_KIND.INTERPRETATIVE);
 
   const selected = [];
+  if (preferred) {
+    selected.push(preferred);
+  }
 
   // 1) Always prefer objective (BFI-2-S) items first, shuffled.
-  const shuffledObjective = shuffle(objectiveAvailable);
-  selected.push(...shuffledObjective.slice(0, count));
+  let remaining = count - selected.length;
+  if (remaining > 0) {
+    const shuffledObjective = shuffle(objectiveAvailable);
+    selected.push(...shuffledObjective.slice(0, remaining));
+  }
 
   // 2) Fill remaining slots from the interpretative pool, balanced by category.
-  let remaining = count - selected.length;
+  remaining = count - selected.length;
   if (remaining > 0 && interpretativeAvailable.length > 0) {
     const byCategory = {};
     for (const q of interpretativeAvailable) {
@@ -62,9 +97,9 @@ export async function getQuestions(sessionId, count = 10) {
     }
 
     for (const [category, weight] of Object.entries(INTERPRETATIVE_CATEGORY_WEIGHTS)) {
-      const pool = byCategory[category] || [];
+      const catPool = byCategory[category] || [];
       const target = Math.max(1, Math.round(remaining * weight));
-      selected.push(...shuffle(pool).slice(0, target));
+      selected.push(...shuffle(catPool).slice(0, target));
     }
 
     if (selected.length < count) {
@@ -74,16 +109,27 @@ export async function getQuestions(sessionId, count = 10) {
     }
   }
 
-  const batch = shuffle(selected.slice(0, count));
+  // Keep preferred at index 0; shuffle only the rest of the batch.
+  const head = preferred ? [preferred] : [];
+  const tail = shuffle(
+    selected
+      .filter(q => !preferred || String(q.id) !== preferQuestionId)
+      .slice(0, count - head.length),
+  );
+  const batch = [...head, ...tail].slice(0, count);
   const batchIds = batch.map(q => q.id);
 
   const questionsWithAlts = await getQuestionsWithAlternatives(batchIds);
 
-  const formatted = questionsWithAlts.map(q => {
+  // Preserve batch order (preferred first) after the alternatives join.
+  const byId = new Map(questionsWithAlts.map(q => [String(q.id), q]));
+  const ordered = batchIds.map(id => byId.get(String(id))).filter(Boolean);
+
+  const formatted = ordered.map(q => {
     const widgetType = q.type || 'multiple_choice';
     let alternatives = [];
 
-    if (widgetType !== 'slider' && widgetType !== 'reflection') {
+    if (widgetType !== 'reflection') {
       // Objective items must preserve Likert order; interpretative items
       // are shuffled to keep answers less anchored on position.
       const sortedAlts = [...(q.alternatives || [])].sort(
@@ -104,16 +150,15 @@ export async function getQuestions(sessionId, count = 10) {
       kind: q.kind || QUESTION_KIND.INTERPRETATIVE,
       trait: q.trait || null,
       type: widgetType,
-      lowLabel: widgetType === 'slider' ? 'Discordo Totalmente' : undefined,
-      highLabel: widgetType === 'slider' ? 'Concordo Totalmente' : undefined,
       alternatives,
     };
   });
 
   return {
-    questions: shuffle(formatted),
+    questions: formatted,
     total_answered: answeredIds.length,
     total_available: available.length,
     can_analyze: canAnalyze,
+    stage_progress: stageProgress,
   };
 }

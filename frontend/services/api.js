@@ -59,8 +59,15 @@ export async function createSession(nickname) {
   });
 }
 
-export async function getQuestions(sessionId, count = 1) {
-  return request(`/questions?session_id=${sessionId}&count=${count}`);
+export async function getQuestions(sessionId, count = 1, preferQuestionId = null) {
+  const params = new URLSearchParams({
+    session_id: sessionId,
+    count: String(count),
+  });
+  if (preferQuestionId != null) {
+    params.set('prefer_question_id', String(preferQuestionId));
+  }
+  return request(`/questions?${params}`);
 }
 
 export async function submitAnswer(sessionId, questionId, payload) {
