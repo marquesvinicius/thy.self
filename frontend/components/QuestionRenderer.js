@@ -1,10 +1,8 @@
 'use client';
 
 import LikertInput from '@/components/inputs/LikertInput';
-import SliderInput from '@/components/inputs/SliderInput';
 import BinaryInput from '@/components/inputs/BinaryInput';
 import ReflectionInput from '@/components/inputs/ReflectionInput';
-import DragRankInput from '@/components/inputs/DragRankInput';
 import InterpretativeFrame from '@/components/InterpretativeFrame';
 
 /**
@@ -13,12 +11,7 @@ import InterpretativeFrame from '@/components/InterpretativeFrame';
  * Routing:
  *   1. `kind === 'objective'`  → always LikertInput (5-point scale).
  *   2. `kind === 'interpretative'` → wrapped in InterpretativeFrame, then
- *      routed by the legacy widget `type` (binary / ranking / reflection /
- *      multiple_choice).
- *
- * The multiple-choice branch is rendered inline because its layout (grid of
- * alternative buttons) was previously defined directly in quiz/page.js. We
- * reproduce it here verbatim so the extraction is behavior-preserving.
+ *      routed by widget `type` (binary / reflection / multiple_choice).
  */
 export default function QuestionRenderer({ question, value, onSelect, disabled = false }) {
   const kind = question?.kind || 'interpretative';
@@ -38,19 +31,13 @@ export default function QuestionRenderer({ question, value, onSelect, disabled =
 
   return (
     <InterpretativeFrame question={question}>
-      {type === 'slider' && (
-        <SliderInput question={question} currentValue={value} onSelect={onSelect} disabled={disabled} />
-      )}
       {type === 'binary' && (
         <BinaryInput question={question} currentValue={value} onSelect={onSelect} disabled={disabled} />
-      )}
-      {type === 'ranking' && (
-        <DragRankInput question={question} currentValue={value} onSelect={onSelect} disabled={disabled} />
       )}
       {type === 'reflection' && (
         <ReflectionInput question={question} currentValue={value} onSelect={onSelect} disabled={disabled} />
       )}
-      {(!type || type === 'multiple_choice') && (
+      {(type === 'multiple_choice' || (type !== 'binary' && type !== 'reflection')) && (
         <MultipleChoiceGrid question={question} value={value} onSelect={onSelect} disabled={disabled} />
       )}
     </InterpretativeFrame>

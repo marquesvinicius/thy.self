@@ -21,10 +21,11 @@ export const LIKERT_MAX = 2;
 // Number of objective items per trait in the BFI-2-S short form (6 each).
 export const ITEMS_PER_TRAIT = 6;
 
+// DERS RN013: uma sessão é 'active' ou 'completed' — não há estado de
+// abandono; sessões não concluídas simplesmente permanecem ativas.
 export const SESSION_STATUS = {
   ACTIVE: 'active',
   COMPLETED: 'completed',
-  ABANDONED: 'abandoned',
 };
 
 export const DIMENSION_KEYS = ['O', 'C', 'E', 'A', 'N'];

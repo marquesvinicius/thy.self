@@ -38,8 +38,6 @@ export default function BinaryInput(props) {
     const payload = {
       alternative_id: id,
       answer_type: 'alternative_id',
-      slider_value: null,
-      text_value: null,
     };
     if (typeof onSelect === 'function') onSelect(payload);
   }

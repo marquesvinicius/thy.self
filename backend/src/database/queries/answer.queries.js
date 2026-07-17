@@ -1,6 +1,6 @@
 import { supabase } from '../../config/supabase.js';
 
-export async function createAnswer(sessionId, questionId, alternativeId, answerType = 'alternative_id', rankPosition = null, sliderValue = null, userObservation = null) {
+export async function createAnswer(sessionId, questionId, alternativeId, answerType = 'alternative_id', userObservation = null) {
   const { data, error } = await supabase
     .from('answers')
     .insert({
@@ -8,8 +8,6 @@ export async function createAnswer(sessionId, questionId, alternativeId, answerT
       question_id: questionId,
       alternative_id: alternativeId,
       answer_type: answerType,
-      rank_position: rankPosition,
-      slider_value: sliderValue,
       user_observation: userObservation,
     })
     .select()
@@ -27,8 +25,6 @@ export async function getAnswersBySessionId(sessionId) {
       question_id,
       alternative_id,
       answer_type,
-      rank_position,
-      slider_value,
       user_observation,
       answered_at,
       alternatives ( impact_o, impact_c, impact_e, impact_a, impact_n, text ),
@@ -79,8 +75,6 @@ export async function getAnswerReviewBySessionId(sessionId) {
       answered_at: row.answered_at,
       answer_text: alt?.text ?? null,
       user_observation: row.user_observation ?? null,
-      slider_value: row.slider_value ?? null,
-      rank_position: row.rank_position ?? null,
       answer_type: row.answer_type,
       likert_value: likertValue,
       contribution,
@@ -194,15 +188,3 @@ export async function getInterpretativeSignals(sessionId) {
     .filter(sig => sig.alternative_text || sig.user_observation);
 }
 
-/**
- * @deprecated Kept as a thin compatibility wrapper around
- * getInterpretativeSignals(), filtered to the legacy "interest" slug.
- * New code should consume getInterpretativeSignals() directly.
- */
-export async function getInterestAnswers(sessionId) {
-  const signals = await getInterpretativeSignals(sessionId);
-  return signals
-    .filter(s => s.category_slug === 'interest')
-    .map(s => s.alternative_text)
-    .filter(Boolean);
-}

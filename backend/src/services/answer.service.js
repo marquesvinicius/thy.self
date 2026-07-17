@@ -8,7 +8,7 @@ import { getAlternativeWithImpacts } from '../database/queries/question.queries.
 import { AppError } from '../utils/AppError.js';
 import { MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS } from '../config/constants.js';
 
-export async function recordAnswer(sessionId, questionId, alternativeId, answerType = 'alternative_id', rankPosition = null, sliderValue = null, userObservation = null) {
+export async function recordAnswer(sessionId, questionId, alternativeId, answerType = 'alternative_id', userObservation = null) {
   // Validate that the alternative belongs to the question only if using standard alternatives
   if (answerType === 'alternative_id' && alternativeId) {
     const alternative = await getAlternativeWithImpacts(alternativeId);
@@ -29,7 +29,7 @@ export async function recordAnswer(sessionId, questionId, alternativeId, answerT
   // Try to insert the answer (UNIQUE constraint handles duplicates)
   let answer;
   try {
-    answer = await createAnswerQuery(sessionId, questionId, alternativeId, answerType, rankPosition, sliderValue, userObservation);
+    answer = await createAnswerQuery(sessionId, questionId, alternativeId, answerType, userObservation);
   } catch (err) {
     if (err.code === '23505') {
       throw new AppError(

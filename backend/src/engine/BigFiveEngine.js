@@ -12,7 +12,7 @@ import { normalizeByTrait, classifyScore } from './normalization.js';
  * @property {'objective'|'interpretative'} kind
  * @property {'O'|'C'|'E'|'A'|'N'|null} trait      non-null only if kind === 'objective'
  * @property {boolean} reverse_key                  always false if kind === 'interpretative'
- * @property {'slider'|'binary'|'ranking'|'reflection'|'multiple_choice'} type
+ * @property {'binary'|'reflection'|'multiple_choice'} type
  * @property {string} text
  * @property {string|null} context
  */

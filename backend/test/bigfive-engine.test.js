@@ -48,7 +48,7 @@ test('calculateProfile only reads objective (BFI-2-S) answers', () => {
     ...sixItems('N', 2),
     // Interpretative noise that must be ignored:
     makeInterpretative({ type: 'binary' }),
-    makeInterpretative({ type: 'ranking' }),
+    makeInterpretative({ type: 'multiple_choice' }),
     makeInterpretative({ type: 'reflection' }),
   ];
 
