@@ -94,7 +94,7 @@ export async function handleQuickAnalyze(req, res, next) {
 
     logger.info('[DEV] Random answers inserted', {
       sessionId,
-      requestedAnswerCount: answerCount,
+      requestedAnswerCount,
       insertedAnswerCount: answersToInsert.length,
     });
 
