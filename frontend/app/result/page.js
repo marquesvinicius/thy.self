@@ -16,8 +16,14 @@ import ResultView from '@/components/ResultView';
 import ResultActions from '@/components/ResultActions';
 import ReferenceDetailModal from '@/components/ReferenceDetailModal';
 import AnswerReviewModal from '@/components/AnswerReviewModal';
+import DisclaimerGate from '@/components/DisclaimerGate';
+import { clearActiveSession } from '@/lib/activeSession';
 
 const MAX_REGENS = 3;
+
+function disclaimerKey(sessionId) {
+  return `rn010_disclaimer_accepted:${sessionId}`;
+}
 
 // React.StrictMode (dev) monta → desmonta → remonta. Um lock por ref que
 // sobrevive ao desmontar impedia a segunda montagem de carregar dados, enquanto
@@ -83,6 +89,10 @@ function ResultContent() {
   const [loading, setLoading] = useState(true);
   const [regenLoading, setRegenLoading] = useState(false);
   const [regenCount, setRegenCount] = useState(0);
+  // Retry da narrativa quando a geração falhou no /analyze (LLM fora do ar
+  // ou orçamento diário estourado). Reusa o endpoint de re-geração.
+  const [retryLoading, setRetryLoading] = useState(false);
+  const [retryError, setRetryError] = useState(null);
   const [llmInterpretation, setLlmInterpretation] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -96,6 +106,8 @@ function ResultContent() {
   // a reloads acidentais.
   const [referenceDetailsCache, setReferenceDetailsCache] = useState({});
   const [reviewOpen, setReviewOpen] = useState(false);
+  // RN010: isenção deve aparecer na UI antes da revelação do perfil.
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
 
   const isTestMode = searchParams.get('test') === '1';
   const regenExhausted = regenCount >= MAX_REGENS;
@@ -121,6 +133,18 @@ function ResultContent() {
           setSessionId(activeSessionId);
           setProfile(data.profile);
           setLlmInterpretation(data.profile.llm_interpretation || null);
+          // Sincroniza o contador de re-geração com o servidor — o estado
+          // local zera num reload, mas o orçamento por sessão continua valendo.
+          if (Number.isFinite(data._regen?.used)) {
+            setRegenCount(Math.min(data._regen.used, MAX_REGENS));
+          }
+          try {
+            setDisclaimerAccepted(
+              !!sessionStorage.getItem(disclaimerKey(activeSessionId)),
+            );
+          } catch {
+            setDisclaimerAccepted(false);
+          }
           setLoading(false);
         }
       } catch (err) {
@@ -172,8 +196,39 @@ function ResultContent() {
     });
   }
 
+  function handleAcceptDisclaimer() {
+    if (sessionId) {
+      try {
+        sessionStorage.setItem(disclaimerKey(sessionId), '1');
+      } catch {}
+    }
+    setDisclaimerAccepted(true);
+  }
+
+  async function handleRetryNarrative() {
+    if (!sessionId || retryLoading) return;
+    setRetryLoading(true);
+    setRetryError(null);
+    try {
+      const data = await reinterpret(sessionId, {});
+      setLlmInterpretation(data.llm_interpretation);
+      if (Number.isFinite(data._regen?.remaining)) {
+        setRegenCount(Math.max(0, MAX_REGENS - data._regen.remaining));
+      }
+    } catch (err) {
+      setRetryError(
+        err.message?.includes('Limite')
+          ? 'Limite de tentativas atingido para esta sessão.'
+          : 'Ainda indisponível. Tente novamente em instantes.',
+      );
+    } finally {
+      setRetryLoading(false);
+    }
+  }
+
   function handleNewSession() {
     sessionStorage.removeItem('session_id');
+    clearActiveSession();
     router.push('/');
   }
 
@@ -195,7 +250,12 @@ function ResultContent() {
       });
 
       setLlmInterpretation(data.llm_interpretation);
-      setRegenCount(prev => prev + 1);
+      // Preferimos o valor do servidor; fallback para o incremento local.
+      if (Number.isFinite(data._regen?.remaining)) {
+        setRegenCount(Math.max(0, MAX_REGENS - data._regen.remaining));
+      } else {
+        setRegenCount(prev => prev + 1);
+      }
     } catch (err) {
       if (err.message?.includes('Limite')) {
         setRegenCount(MAX_REGENS);
@@ -270,7 +330,11 @@ function ResultContent() {
           </div>
         )}
 
-        {profile && (
+        {profile && !disclaimerAccepted && (
+          <DisclaimerGate onAccept={handleAcceptDisclaimer} />
+        )}
+
+        {profile && disclaimerAccepted && (
           <div className="w-full flex flex-col items-center space-y-12">
             <ResultView
               profile={profile}
@@ -288,14 +352,35 @@ function ResultContent() {
             />
 
             {!hasNarrative && (
-              <p className="text-[10px] uppercase tracking-[0.3em] text-muted/60 text-center">
-                interpretação narrativa indisponível no momento
-              </p>
+              <div className="text-center space-y-4">
+                <p className="text-[10px] uppercase tracking-[0.3em] text-muted/60">
+                  interpretação narrativa indisponível no momento
+                </p>
+                <button
+                  onClick={handleRetryNarrative}
+                  disabled={retryLoading}
+                  className="border border-border px-8 py-3 text-[11px] uppercase tracking-[0.25em] text-muted hover:text-foreground hover:border-foreground transition-all disabled:opacity-30 disabled:cursor-not-allowed inline-flex items-center gap-3"
+                >
+                  {retryLoading ? (
+                    <>
+                      <span className="w-3 h-3 border border-muted border-t-transparent rounded-full animate-spin-slow" />
+                      gerando...
+                    </>
+                  ) : (
+                    <>tentar gerar novamente</>
+                  )}
+                </button>
+                {retryError && (
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted/70">
+                    {retryError}
+                  </p>
+                )}
+              </div>
             )}
 
             <div className="w-full max-w-3xl pt-4 space-y-6 text-center">
               <p className="text-[10px] uppercase tracking-widest text-muted">
-                este resultado reflete tendências com base nas suas respostas
+                este resultado reflete tendências com base nas suas respostas. não é um laudo clínico.
               </p>
               <ResultActions
                 profile={profile}
@@ -308,20 +393,24 @@ function ResultContent() {
         )}
       </main>
 
-      <ReferenceDetailModal
-        open={detailOpen}
-        reference={selectedReference}
-        detail={referenceDetail}
-        loading={detailLoading}
-        error={detailError}
-        onClose={handleCloseDetailModal}
-      />
+      {disclaimerAccepted && (
+        <>
+          <ReferenceDetailModal
+            open={detailOpen}
+            reference={selectedReference}
+            detail={referenceDetail}
+            loading={detailLoading}
+            error={detailError}
+            onClose={handleCloseDetailModal}
+          />
 
-      <AnswerReviewModal
-        open={reviewOpen}
-        sessionId={sessionId}
-        onClose={() => setReviewOpen(false)}
-      />
+          <AnswerReviewModal
+            open={reviewOpen}
+            sessionId={sessionId}
+            onClose={() => setReviewOpen(false)}
+          />
+        </>
+      )}
     </div>
   );
 }
