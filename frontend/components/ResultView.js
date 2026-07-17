@@ -14,9 +14,8 @@ import WorksBlock from '@/components/WorksBlock';
  *   2. Tua essência (referências + obras culturais) — cultural mirror of the profile.
  *   3. Perfil Big Five (BFI-2-S)                  — quantitative foundation at the end.
  *
- * The component is pure: it receives data + optional callbacks. When running
- * in read-only mode (public share link), the caller simply omits the
- * callbacks and no owner-only controls are rendered.
+ * The component is pure: it receives data + optional callbacks. Omit
+ * callbacks to hide owner-only controls (regen / detalhe de referência).
  *
  * Props:
  *   profile            — { scores, dimensions, answer_count, ... } (required)
@@ -107,6 +106,38 @@ export default function ResultView({
         </section>
       )}
 
+      {/* ── 2.5 Arquétipo estatístico (RF005 — distância euclidiana) ── */}
+      {profile.archetype?.name && (
+        <section className="space-y-6">
+          <SectionHeader
+            label="arquétipo estatístico"
+            sub="o personagem mais próximo do seu perfil no espaço pentadimensional OCEAN"
+          />
+          <div className="border border-border p-6 md:p-8 text-center space-y-4">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-muted">
+              {profile.archetype.universe}
+            </p>
+            <p className="text-2xl md:text-4xl font-bold tracking-tight">
+              {profile.archetype.name}
+            </p>
+            {Number.isFinite(Number(profile.archetype.distance)) && (
+              <p className="text-[11px] text-muted/80 leading-relaxed max-w-md mx-auto">
+                distância euclidiana de{' '}
+                <span className="text-foreground/80 tabular-nums">
+                  {Number(profile.archetype.distance).toFixed(1)}
+                </span>{' '}
+                entre o seu perfil e {profile.archetype.name} nos cinco eixos
+                OCEAN — o mais próximo dentre 2.125 personagens do catálogo
+                Open-Source Psychometrics Project.
+              </p>
+            )}
+            <p className="text-[10px] uppercase tracking-[0.2em] text-muted/60 pt-2 border-t border-border/50">
+              usado como calibrador de tom da narrativa — não é um rótulo
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* ── 3. Perfil Big Five (base técnica, fundamentação) ── */}
       <section className="space-y-6">
         <SectionHeader
@@ -118,6 +149,7 @@ export default function ResultView({
             <DimensionBar
               key={dim.key}
               dimension={dim}
+              consistency={profile.consistency?.[dim.key] || null}
               animate={true}
               delay={200 + index * 160}
             />

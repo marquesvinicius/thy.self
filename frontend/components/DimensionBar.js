@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-export default function DimensionBar({ dimension, animate = false, delay = 0 }) {
+export default function DimensionBar({ dimension, consistency = null, animate = false, delay = 0 }) {
   const [visible, setVisible] = useState(!animate);
   const [displayScore, setDisplayScore] = useState(animate ? 0 : dimension.score);
 
@@ -74,6 +74,21 @@ export default function DimensionBar({ dimension, animate = false, delay = 0 }) 
           <p className="text-[11px] leading-relaxed text-muted/70 mt-3 pt-3 border-t border-border/50">
             {dimension.description}
           </p>
+        )}
+
+        {/* RF006 — tensão interna: as respostas deste eixo oscilaram entre
+            extremos (desvio-padrão > 1.2 na escala Likert do BFI-2-S). */}
+        {consistency?.tension && (
+          <div className="mt-3 pt-3 border-t border-border/50 flex items-start gap-2">
+            <span className="text-foreground/80 text-xs leading-none mt-[2px]">◆</span>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-foreground/70 leading-relaxed">
+              tensão interna detectada
+              <span className="normal-case tracking-normal text-muted/80 block mt-1 text-[11px]">
+                suas respostas oscilaram entre extremos neste eixo
+                (desvio {consistency.stddev}) — o escore médio esconde uma ambivalência real.
+              </span>
+            </p>
+          </div>
         )}
       </div>
     </div>

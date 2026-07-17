@@ -146,7 +146,7 @@ function buildReferenceReason(profile, archetype) {
   return `Reflete ${traitHook}${archetypeHook}, com uma combinação de visão, intensidade e execução.`;
 }
 
-function normalizeReferences(referencias, context = {}) {
+export function normalizeReferences(referencias, context = {}) {
   const excludedReferenceNames = normalizeStringList(context.excludedReferenceNames);
   const excludedSet = new Set(excludedReferenceNames.map(name => normalizeToken(name)));
 
@@ -188,7 +188,7 @@ function normalizeReferences(referencias, context = {}) {
   return unique.slice(0, 3);
 }
 
-function normalizeWorks(works, context = {}) {
+export function normalizeWorks(works, context = {}) {
   const excludedWorkTitles = normalizeStringList(context.excludedWorkTitles);
   const excludedSet = new Set(excludedWorkTitles.map(title => normalizeToken(title)));
 
@@ -605,7 +605,7 @@ function extractJsonCandidate(text) {
     .replace(/,\s*([}\]])/g, '$1');
 }
 
-function parseStructuredJson(text) {
+export function parseStructuredJson(text) {
   const directCandidate = text.trim();
 
   try {
@@ -616,7 +616,7 @@ function parseStructuredJson(text) {
   }
 }
 
-function parseResponse(text, context = {}) {
+export function parseResponse(text, context = {}) {
   const parsed = parseStructuredJson(text);
 
   if (!parsed.schema_version || typeof parsed.schema_version !== 'string') {

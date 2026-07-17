@@ -52,6 +52,7 @@ function buildProfilePayloadFromRow(row) {
     calculated_at: row.calculated_at,
     consistency: row.consistency || null,
     llm_interpretation: row.llm_interpretation || null,
+    archetype: row.archetype || null,
   };
 }
 
@@ -63,9 +64,14 @@ export async function analyzeSession(sessionId) {
   // vezes concorrentemente.
   const existing = await getResultBySessionId(sessionId);
   if (existing && existing.llm_interpretation) {
+    const profile = buildProfilePayloadFromRow(existing);
+    // Arquétipo não é persistido — a função no Postgres é determinística
+    // (desempate por id), então recomputar do escore salvo dá sempre o
+    // mesmo resultado. RF005 visível também em resultados reidratados.
+    profile.archetype = await findClosestArchetype(profile.scores);
     return {
       session_id: sessionId,
-      profile: buildProfilePayloadFromRow(existing),
+      profile,
     };
   }
 
@@ -125,6 +131,7 @@ export async function analyzeSession(sessionId) {
       answer_count: profile.answerCount,
       consistency,
       llm_interpretation: llmInterpretation,
+      archetype,
       calculated_at: savedRow?.calculated_at || new Date().toISOString(),
     }),
   };

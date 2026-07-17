@@ -168,6 +168,7 @@ export async function exportResultPdf({ profile, llmInterpretation, shareUrl = n
       buildTitleBlock(profile, nickname, palette),
       buildInterpretationBlock(llmInterpretation, palette),
       buildEssenceBlock(llmInterpretation, palette),
+      buildArchetypeBlock(profile, palette),
       buildBigFiveBlock(profile, palette),
       buildDisclaimer(palette),
     ],
@@ -318,16 +319,69 @@ function buildEssenceBlock(llm, palette) {
   return { stack: children };
 }
 
-function buildBigFiveBlock(profile, palette) {
-  const rows = (profile.dimensions || []).map(dim => [
-    { text: dim.name, style: 'traitName' },
-    { text: dim.level || '—', style: 'traitLevel' },
-    { text: formatScore(dim.score), style: 'traitScore' },
-  ]);
+function buildArchetypeBlock(profile, palette) {
+  const archetype = profile.archetype;
+  if (!archetype?.name) return { text: '' };
+
+  const distance = Number(archetype.distance);
+  const distanceLine = Number.isFinite(distance)
+    ? `Distância euclidiana de ${distance.toFixed(1)} entre o seu perfil e ${archetype.name} nos cinco eixos OCEAN — o mais próximo dentre 2.125 personagens do catálogo Open-Source Psychometrics Project.`
+    : null;
 
   return {
     stack: [
-      { text: '3 · PERFIL BIG FIVE', style: 'sectionLabel' },
+      { text: '3 · ARQUÉTIPO ESTATÍSTICO', style: 'sectionLabel' },
+      { text: archetype.name, style: 'sectionTitle' },
+      {
+        text: (archetype.universe || '').toUpperCase(),
+        fontSize: 8,
+        characterSpacing: 2.5,
+        color: palette.textFaint,
+        margin: [0, 0, 0, 10],
+      },
+      ...(distanceLine
+        ? [{ text: distanceLine, fontSize: 9.5, color: palette.textSecondary, alignment: 'justify' }]
+        : []),
+      {
+        text: 'Usado como calibrador de tom da leitura narrativa — não é um rótulo de personalidade.',
+        fontSize: 8,
+        italics: true,
+        color: palette.textFaint,
+        margin: [0, 8, 0, 0],
+      },
+    ],
+  };
+}
+
+function buildBigFiveBlock(profile, palette) {
+  const consistency = profile.consistency || {};
+
+  const rows = (profile.dimensions || []).map(dim => {
+    const tension = consistency[dim.key]?.tension;
+    const stddev = consistency[dim.key]?.stddev;
+    return [
+      {
+        stack: [
+          { text: dim.name, style: 'traitName' },
+          ...(tension
+            ? [{
+                text: `tensão interna detectada — respostas oscilaram entre extremos (desvio ${stddev})`,
+                fontSize: 7.5,
+                italics: true,
+                color: palette.textMuted,
+                margin: [0, 3, 0, 0],
+              }]
+            : []),
+        ],
+      },
+      { text: dim.level || '—', style: 'traitLevel' },
+      { text: formatScore(dim.score), style: 'traitScore' },
+    ];
+  });
+
+  return {
+    stack: [
+      { text: '4 · PERFIL BIG FIVE', style: 'sectionLabel' },
       { text: 'leitura quantitativa', style: 'sectionTitle' },
       { text: 'Escores calculados a partir de 30 itens BFI-2-S (escala Likert 1–5).', style: 'sectionSub' },
       {

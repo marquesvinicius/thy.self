@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 
 /**
  * LikertInput — 5-point Likert scale for BFI-2-S objective items.
@@ -29,6 +29,31 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
     if (disabled || altId == null) return;
     onSelect({ alternative_id: altId, answer_type: 'alternative_id' });
   }
+
+  // Atalhos de teclado 1–5 (discordo totalmente → concordo totalmente).
+  // Acelera as 30 respostas BFI-2-S para quem prefere teclado. Ignorado
+  // quando o foco está num campo de texto (ex.: widget reflection).
+  useEffect(() => {
+    if (disabled || alternatives.length !== 5) return;
+
+    function handleKeyDown(event) {
+      const tag = event.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target?.isContentEditable) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      const index = ['1', '2', '3', '4', '5'].indexOf(event.key);
+      if (index === -1) return;
+
+      event.preventDefault();
+      const alt = alternatives[index];
+      if (alt?.id != null) {
+        onSelect({ alternative_id: alt.id, answer_type: 'alternative_id' });
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [disabled, alternatives, onSelect]);
 
   if (alternatives.length !== 5) {
     return (
@@ -110,6 +135,7 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
 
       <p className="text-center text-[10px] uppercase tracking-[0.22em] text-muted/70 pt-1">
         toque em um círculo para confirmar
+        <span className="hidden md:inline text-muted/50"> · ou use as teclas 1–5</span>
       </p>
     </div>
   );

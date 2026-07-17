@@ -2,6 +2,8 @@ import {
   getResultBySessionId,
 } from '../database/queries/result.queries.js';
 import { getAnswerReviewBySessionId } from '../database/queries/answer.queries.js';
+import { checkRegenBudget } from '../services/llm-limiter.js';
+import { findClosestArchetype } from '../services/archetype.service.js';
 import { DIMENSIONS } from '../engine/dimensions.js';
 import { classifyScore } from '../engine/normalization.js';
 import { success } from '../utils/apiResponse.js';
@@ -59,9 +61,24 @@ export async function handleGetResult(req, res, next) {
       throw new AppError('Result not found', 404, 'RESULT_NOT_FOUND');
     }
 
+    // Orçamento de re-geração vem junto para o frontend sincronizar o
+    // contador do botão "gerar novas referências" com a verdade do servidor
+    // (o estado local se perdia num reload da página).
+    const regenBudget = checkRegenBudget(session_id);
+
+    const profile = toProfilePayload(result);
+    // RF005: arquétipo recomputado do escore salvo (função determinística
+    // no Postgres, desempate por id) — não é persistido em `results`.
+    profile.archetype = await findClosestArchetype(profile.scores);
+
     return success(res, {
       session_id,
-      profile: toProfilePayload(result),
+      profile,
+      _regen: {
+        used: regenBudget.used,
+        remaining: regenBudget.remaining,
+        limit: regenBudget.limit,
+      },
     });
   } catch (err) {
     next(err);
