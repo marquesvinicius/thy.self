@@ -10,6 +10,7 @@ import MicroFeedback from '@/components/MicroFeedback';
 import TutorialPopup from '@/components/TutorialPopup';
 import StageTransition from '@/components/StageTransition';
 import QuestionRenderer from '@/components/QuestionRenderer';
+import { clearActiveSession } from '@/lib/activeSession';
 
 const BLOCK_SIZE = 1;
 
@@ -43,18 +44,21 @@ export default function Quiz() {
   // Etapa atual, usada no indicador discreto da barra de status.
   // 'objective' enquanto houver BFI-2-S pendente, 'interpretative' depois.
   const [stage, setStage] = useState('objective');
+  // Contagem por etapa (12/30 objetiva · 3/8 narrativa), vinda do backend.
+  const [stageProgress, setStageProgress] = useState(null);
 
   // 3-phase transition: 'visible' | 'exiting' | 'entering'
   const [phase, setPhase] = useState('entering');
 
-  const loadQuestions = useCallback(async (sid) => {
+  const loadQuestions = useCallback(async (sid, preferQuestionId = null) => {
     try {
-      const data = await getQuestions(sid, BLOCK_SIZE);
+      const data = await getQuestions(sid, BLOCK_SIZE, preferQuestionId);
       setProgress({
         answered: data.total_answered,
         total: data.total_answered + data.total_available,
         canAnalyze: data.can_analyze,
       });
+      setStageProgress(data.stage_progress || null);
 
       if (data.questions.length > 0) {
         setQuestions(data.questions);
@@ -127,8 +131,6 @@ export default function Quiz() {
 
     if (isAutoSubmit) {
       const immediateAnswers = { ...answers, [questionId]: alternativeId };
-      // Ignora estados parciais de ranking (ainda montando a ordenação).
-      if (alternativeId?.answer_type === 'ranking_incomplete') return;
       if (Object.keys(immediateAnswers).length === questions.length) {
         handleSubmitBlock(immediateAnswers);
       }
@@ -137,8 +139,7 @@ export default function Quiz() {
 
   async function handleSubmitBlock(immediateAnswers = null) {
     const submitData = (immediateAnswers && !immediateAnswers.nativeEvent) ? immediateAnswers : answers;
-    const validAnswersKeys = Object.keys(submitData).filter(key => submitData[key]?.answer_type !== 'ranking_incomplete');
-    const readyToSubmit = questions.length > 0 && validAnswersKeys.length === questions.length;
+    const readyToSubmit = questions.length > 0 && Object.keys(submitData).length === questions.length;
 
     if (submitting || !readyToSubmit) return;
     setSubmitting(true);
@@ -159,8 +160,7 @@ export default function Quiz() {
       let currentProgress = progress;
       for (const q of questions) {
         const payload = submitData[q.id];
-        // Skip submission if payload is missing or incomplete
-        if (!payload || payload.answer_type === 'ranking_incomplete') continue;
+        if (!payload) continue;
 
         const res = await submitAnswer(sessionId, q.id, payload);
         currentProgress = {
@@ -190,11 +190,11 @@ export default function Quiz() {
     setUndoError(null);
     setUndoing(true);
     try {
-      await undoLastAnswer(sessionId);
-      // Recarrega o bloco de perguntas — a pergunta desfeita voltará a
-      // aparecer, pois o backend a reabre ao deletar a resposta.
+      const data = await undoLastAnswer(sessionId);
+      // Recarrega priorizando a pergunta desfeita — sem isso o picker
+      // embaralha de novo e pode servir um item que o usuário nunca viu.
       setAnswers({});
-      await loadQuestions(sessionId);
+      await loadQuestions(sessionId, data.undone_question_id);
     } catch (err) {
       console.error('Falha ao desfazer resposta:', err);
       const message = err?.message || '';
@@ -220,7 +220,6 @@ export default function Quiz() {
       alternative_id: null,
       answer_type: 'reflection',
       user_observation: '',
-      slider_value: null,
     };
     const immediateAnswers = { ...answers, [questionId]: skipPayload };
     setAnswers(immediateAnswers);
@@ -250,11 +249,14 @@ export default function Quiz() {
 
   function handleAnalyze() {
     sessionStorage.setItem('session_id', sessionId);
+    // Avaliação concluída — não há mais o que retomar.
+    clearActiveSession();
     router.push('/result');
   }
 
   function handleEndSession() {
     sessionStorage.removeItem('session_id');
+    clearActiveSession();
     router.push('/');
   }
 
@@ -295,46 +297,56 @@ export default function Quiz() {
 
       <main className="flex-1 flex flex-col pt-20 relative z-[1]">
         {/* Status bar */}
-        <div className="flex flex-col gap-4 px-6 md:px-10 py-4 border-b border-border">
+        <div className="flex flex-col gap-3 px-6 md:px-10 py-4 border-b border-border">
           <ProgressBar current={progress.answered} total={progress.total} />
-          <div className="flex flex-wrap justify-between gap-3 text-[10px] uppercase tracking-widest text-muted">
-            <div className="flex items-center gap-5">
-              <span>respostas: {progress.answered}</span>
-              {/* Indicador discreto da etapa atual. Referencia o mesmo texto
-                  usado no card de transição (StageTransition) para reforçar
-                  a separação entre camadas quantitativa e narrativa. */}
-              <span className="hidden sm:inline text-muted/60">
-                <span className="text-muted/40">·</span>{' '}
-                {stage === 'objective'
-                  ? 'etapa 1/2 — BFI-2-S'
-                  : 'etapa 2/2 — narrativa'}
-              </span>
-              <button
-                onClick={handleUndo}
-                disabled={undoing || submitting || progress.answered === 0}
-                className="inline-flex items-center gap-2 hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Desfazer a última resposta"
-              >
-                <span aria-hidden="true">←</span>
-                {undoing ? 'voltando...' : 'voltar'}
-              </button>
-            </div>
-            <div className="flex items-center gap-6">
-              {progress.canAnalyze && (
-                <button onClick={handleAnalyze} className="text-foreground border border-foreground px-4 py-1 hover:bg-foreground hover:text-background transition-all">
-                  analisar
-                </button>
-              )}
-              <button onClick={handleEndSession} className="hover:text-foreground transition-colors">
-                terminar sessão
-              </button>
-            </div>
+          <div className="flex flex-wrap items-center gap-5 text-[10px] uppercase tracking-widest text-muted">
+            <span>respostas: {progress.answered}</span>
+            {/* Indicador discreto da etapa atual. Referencia o mesmo texto
+                usado no card de transição (StageTransition) para reforçar
+                a separação entre camadas quantitativa e narrativa. */}
+            <span className="hidden sm:inline text-muted/60">
+              <span className="text-muted/40">·</span>{' '}
+              {stage === 'objective'
+                ? `etapa 1/2 — BFI-2-S${
+                    stageProgress
+                      ? ` · ${stageProgress.objective_answered}/${stageProgress.objective_total}`
+                      : ''
+                  }`
+                : `etapa 2/2 — narrativa${
+                    stageProgress
+                      ? ` · ${stageProgress.interpretative_answered}/${stageProgress.interpretative_total}`
+                      : ''
+                  }`}
+            </span>
           </div>
           {undoError && (
             <p className="text-[10px] text-foreground/80 tracking-wider">
               {undoError}
             </p>
           )}
+        </div>
+
+        {/* Ações abaixo da linha divisória */}
+        <div className="flex justify-between items-center gap-4 px-6 md:px-10 py-3 text-[10px] uppercase tracking-widest text-muted">
+          <button
+            onClick={handleUndo}
+            disabled={undoing || submitting || progress.answered === 0}
+            className="inline-flex items-center gap-2 hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Desfazer a última resposta"
+          >
+            <span aria-hidden="true">←</span>
+            {undoing ? 'voltando...' : 'voltar'}
+          </button>
+          <div className="flex items-center gap-6">
+            {progress.canAnalyze && (
+              <button onClick={handleAnalyze} className="text-foreground border border-foreground px-4 py-1 hover:bg-foreground hover:text-background transition-all">
+                analisar
+              </button>
+            )}
+            <button onClick={handleEndSession} className="hover:text-foreground transition-colors">
+              terminar sessão
+            </button>
+          </div>
         </div>
 
         {/* Question Area */}
