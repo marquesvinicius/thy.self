@@ -1,9 +1,9 @@
 import { supabase } from '../config/supabase.js';
 
-export const findClosestArchetype = async (profileScores) => {
+async function callArchetypeRpc(fnName, profileScores) {
     try {
         // Chama a função matemática que vive dentro do banco de dados PostgreSQL
-        const { data, error } = await supabase.rpc('find_closest_archetype', {
+        const { data, error } = await supabase.rpc(fnName, {
             user_o: profileScores.O,
             user_c: profileScores.C,
             user_e: profileScores.E,
@@ -13,11 +13,21 @@ export const findClosestArchetype = async (profileScores) => {
 
         if (error) throw error;
 
-        // Retorna apenas o campeão (o mais próximo)
         return data && data.length > 0 ? data[0] : null;
 
     } catch (error) {
-        console.error("[DEV] Erro ao buscar arquétipo no Supabase:", error);
+        console.error(`[DEV] Erro ao buscar arquétipo no Supabase (${fnName}):`, error);
         return null;
     }
-};
+}
+
+/** O personagem mais PRÓXIMO do perfil (RF005). */
+export const findClosestArchetype = (profileScores) =>
+    callArchetypeRpc('find_closest_archetype', profileScores);
+
+/**
+ * O personagem mais DISTANTE do perfil — o "anti-arquétipo".
+ * Requer migration_008; sem ela, retorna null (degradação graciosa).
+ */
+export const findFarthestArchetype = (profileScores) =>
+    callArchetypeRpc('find_farthest_archetype', profileScores);

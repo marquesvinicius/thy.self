@@ -49,6 +49,9 @@ mock.module('../src/services/archetype.service.js', {
     findClosestArchetype: async () => ({
       id: 'arch-1', name: 'Arquétipo Teste', universe: 'Testes', distance: 12.3,
     }),
+    findFarthestArchetype: async () => ({
+      id: 'arch-far', name: 'Anti Teste', universe: 'Testes', distance: 88.8,
+    }),
   },
 });
 

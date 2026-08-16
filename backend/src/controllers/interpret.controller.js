@@ -3,7 +3,11 @@ import {
   updateResultInterpretation,
 } from '../database/queries/result.queries.js';
 import { getInterpretativeSignals } from '../database/queries/answer.queries.js';
-import { generateInterpretation, generateReferenceDetail } from '../services/llm.service.js';
+import {
+  generateInterpretation,
+  generateReferenceDetail,
+  getRegenLens,
+} from '../services/llm.service.js';
 import { findClosestArchetype } from '../services/archetype.service.js';
 import { checkRegenBudget, recordRegen } from '../services/llm-limiter.js';
 import { success } from '../utils/apiResponse.js';
@@ -47,6 +51,19 @@ export async function handleInterpret(req, res, next) {
       normalizeStringList(exclude_work_titles),
       normalizeStringList((persistedInterpretation.obras_culturais || []).map(work => work?.titulo))
     );
+    const excludedCategories = mergeUniqueNormalized(
+      normalizeStringList((persistedInterpretation.referencias || []).map(ref => ref?.categoria))
+    );
+    // Índice da lente: o contador in-memory zera num restart do servidor,
+    // mas as referências persistidas não. Cada geração produz ~3 referências,
+    // então ceil(len/3) - 1 estima quantas regens já aconteceram — usamos o
+    // maior dos dois para a lente nunca regredir para "Contemporâneos".
+    const persistedRefCount = (persistedInterpretation.referencias || []).length;
+    const regensSoFar = Math.max(
+      regenBudget.used,
+      Math.max(0, Math.ceil(persistedRefCount / 3) - 1),
+    );
+    const regenLens = getRegenLens(regensSoFar);
 
     // Generate new interpretation with higher temperature for variety.
     // We only care about the new `referencias` / `obras_culturais` here —
@@ -62,6 +79,8 @@ export async function handleInterpret(req, res, next) {
         temperature: 1.2,
         excludedReferenceNames,
         excludedWorkTitles,
+        excludedCategories,
+        regenLens,
       }
     );
 
@@ -95,6 +114,7 @@ export async function handleInterpret(req, res, next) {
       // já existe, garantindo consistência visual entre as gerações.
       interpretacao: persistedInterpretation.interpretacao || llmInterpretation.interpretacao,
       vibe_resumo: persistedInterpretation.vibe_resumo || llmInterpretation.vibe_resumo,
+      prompt_version: persistedInterpretation.prompt_version || llmInterpretation.prompt_version,
       referencias: mergedReferencias,
       obras_culturais: mergedObras,
     };

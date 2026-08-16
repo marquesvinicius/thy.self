@@ -9,9 +9,10 @@ import {
 import { updateSessionStatus } from '../database/queries/session.queries.js';
 import { calculateProfile } from '../engine/BigFiveEngine.js';
 import { calculateConsistency } from '../engine/consistency.js';
+import { calculateResponseStyle } from '../engine/response-style.js';
 import { DIMENSIONS } from '../engine/dimensions.js';
 import { classifyScore } from '../engine/normalization.js';
-import { findClosestArchetype } from './archetype.service.js';
+import { findClosestArchetype, findFarthestArchetype } from './archetype.service.js';
 import { generateInterpretation } from './llm.service.js';
 import { AppError } from '../utils/AppError.js';
 import {
@@ -53,6 +54,7 @@ function buildProfilePayloadFromRow(row) {
     consistency: row.consistency || null,
     llm_interpretation: row.llm_interpretation || null,
     archetype: row.archetype || null,
+    anti_archetype: row.anti_archetype || null,
   };
 }
 
@@ -69,6 +71,7 @@ export async function analyzeSession(sessionId) {
     // (desempate por id), então recomputar do escore salvo dá sempre o
     // mesmo resultado. RF005 visível também em resultados reidratados.
     profile.archetype = await findClosestArchetype(profile.scores);
+    profile.anti_archetype = await findFarthestArchetype(profile.scores);
     return {
       session_id: sessionId,
       profile,
@@ -101,15 +104,21 @@ export async function analyzeSession(sessionId) {
   // 4. Gather interpretative signals — structured qualitative context for LLM
   const interpretativeSignals = await getInterpretativeSignals(sessionId);
 
-  // 5. Find the closest archetype (Supabase RPC calculates Euclidean distance)
+  // 5. Closest + farthest archetypes (Supabase RPCs, Euclidean distance)
   const archetype = await findClosestArchetype(profile.scores);
+  const antiArchetype = await findFarthestArchetype(profile.scores);
+
+  // 5b. Response-style signature — deterministic signals about HOW the user
+  // answered (extremes, neutrals, acquiescence, hesitation). LLM-only input.
+  const responseStyle = calculateResponseStyle(answers);
 
   // 6. Generate LLM interpretation (graceful — returns null on failure)
   const llmInterpretation = await generateInterpretation(
     profile,
     consistency,
     interpretativeSignals,
-    archetype
+    archetype,
+    { responseStyle, antiArchetype }
   );
 
   // 7. Save result with all data
@@ -132,6 +141,7 @@ export async function analyzeSession(sessionId) {
       consistency,
       llm_interpretation: llmInterpretation,
       archetype,
+      anti_archetype: antiArchetype,
       calculated_at: savedRow?.calculated_at || new Date().toISOString(),
     }),
   };

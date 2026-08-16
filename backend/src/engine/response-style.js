@@ -1,0 +1,126 @@
+import { DIMENSION_KEYS, QUESTION_KIND } from '../config/constants.js';
+
+/**
+ * Assinatura de estilo de resposta — sinais determinísticos sobre COMO o
+ * usuário respondeu a camada objetiva (BFI-2-S), independentes do QUE ele
+ * respondeu. Alimentam a LLM com observações verificáveis:
+ *
+ *   - extremos:      taxa de respostas em ±2 ("respondeu com convicção")
+ *   - neutros:       taxa de respostas em 0 ("evitou se comprometer")
+ *   - aquiescência:  concordar tanto com itens diretos quanto invertidos —
+ *                    quem concorda com "sou organizado" E com "sou desorganizado"
+ *                    está concordando com o formato, não com o conteúdo
+ *   - hesitação:     item cuja resposta demorou muito acima da mediana
+ *                    (deltas de answered_at — só faz sentido no fluxo 1-a-1)
+ *
+ * Tudo calculado a partir das linhas que o /analyze já busca. Zero I/O.
+ */
+
+const ACQUIESCENCE_MIN_RATE = 0.7; // concordância alta nos dois sentidos
+const HESITATION_OUTLIER_FACTOR = 3; // delta > 3× mediana = hesitação
+const HESITATION_MIN_SAMPLES = 10;
+const HESITATION_MAX_REASONABLE_MS = 5 * 60 * 1000; // pausas > 5min são interrupção, não hesitação
+
+function likertValueOf(answer) {
+  const trait = answer?.questions?.trait;
+  if (!trait || !DIMENSION_KEYS.includes(trait)) return null;
+  const raw = Number(answer.alternatives?.[`impact_${trait.toLowerCase()}`]);
+  return Number.isFinite(raw) ? raw : null;
+}
+
+export function calculateResponseStyle(answers) {
+  const objective = (answers || []).filter(
+    a => a?.questions?.kind === QUESTION_KIND.OBJECTIVE
+  );
+
+  let extreme = 0;
+  let neutral = 0;
+  let agreeDirect = 0;
+  let totalDirect = 0;
+  let agreeReverse = 0;
+  let totalReverse = 0;
+  let counted = 0;
+
+  for (const answer of objective) {
+    const value = likertValueOf(answer);
+    if (value === null) continue;
+    counted += 1;
+
+    if (Math.abs(value) === 2) extreme += 1;
+    if (value === 0) neutral += 1;
+
+    // Aquiescência: "concordar" = valor bruto positivo, ANTES do sinal do
+    // reverse_key (queremos saber se a pessoa concorda com a afirmação como
+    // escrita, independente da direção psicométrica do item).
+    if (answer.questions.reverse_key) {
+      totalReverse += 1;
+      if (value > 0) agreeReverse += 1;
+    } else {
+      totalDirect += 1;
+      if (value > 0) agreeDirect += 1;
+    }
+  }
+
+  const agreeDirectRate = totalDirect > 0 ? agreeDirect / totalDirect : 0;
+  const agreeReverseRate = totalReverse > 0 ? agreeReverse / totalReverse : 0;
+
+  return {
+    answer_count: counted,
+    extreme_count: extreme,
+    extreme_rate: counted > 0 ? round2(extreme / counted) : 0,
+    neutral_count: neutral,
+    neutral_rate: counted > 0 ? round2(neutral / counted) : 0,
+    agree_direct_rate: round2(agreeDirectRate),
+    agree_reverse_rate: round2(agreeReverseRate),
+    // Aquiescente: concorda com quase tudo, inclusive itens que se contradizem.
+    acquiescence:
+      totalDirect >= 3 && totalReverse >= 3
+      && agreeDirectRate >= ACQUIESCENCE_MIN_RATE
+      && agreeReverseRate >= ACQUIESCENCE_MIN_RATE,
+    hesitation: calculateHesitation(answers),
+  };
+}
+
+/**
+ * Item em que o usuário demorou visivelmente mais que o próprio ritmo.
+ * Retorna null quando não há amostra confiável (poucas respostas, deltas
+ * corrompidos ou pausa longa demais para ser hesitação genuína).
+ */
+function calculateHesitation(answers) {
+  const timed = (answers || [])
+    .filter(a => a?.answered_at)
+    .map(a => ({
+      question_text: a.questions?.text || '',
+      at: new Date(a.answered_at).getTime(),
+    }))
+    .filter(a => Number.isFinite(a.at))
+    .sort((a, b) => a.at - b.at);
+
+  if (timed.length < HESITATION_MIN_SAMPLES + 1) return null;
+
+  const deltas = [];
+  for (let i = 1; i < timed.length; i += 1) {
+    const ms = timed[i].at - timed[i - 1].at;
+    if (ms > 0 && ms <= HESITATION_MAX_REASONABLE_MS) {
+      deltas.push({ ms, question_text: timed[i].question_text });
+    }
+  }
+  if (deltas.length < HESITATION_MIN_SAMPLES) return null;
+
+  const sorted = [...deltas].sort((a, b) => a.ms - b.ms);
+  const median = sorted[Math.floor(sorted.length / 2)].ms;
+  if (median <= 0) return null;
+
+  const slowest = sorted[sorted.length - 1];
+  if (slowest.ms < median * HESITATION_OUTLIER_FACTOR) return null;
+
+  return {
+    question_text: slowest.question_text,
+    seconds: round2(slowest.ms / 1000),
+    median_seconds: round2(median / 1000),
+  };
+}
+
+function round2(n) {
+  return Math.round(n * 100) / 100;
+}

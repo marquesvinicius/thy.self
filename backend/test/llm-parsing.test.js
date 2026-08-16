@@ -9,6 +9,13 @@ const {
   parseResponse,
   normalizeReferences,
   normalizeWorks,
+  formatInterpretativeBlock,
+  hasReflectionSignal,
+  interpretationCitesReflection,
+  getRegenLens,
+  PROMPT_VERSION,
+  truncateWords,
+  buildResponseStyleBlock,
 } = await import('../src/services/llm.service.js');
 
 const PROFILE_FIXTURE = {
@@ -127,8 +134,8 @@ test('normalizeReferences lança quando nada sobra após filtros', () => {
     profile: PROFILE_FIXTURE,
     // Exclui todos os fallbacks conhecidos para forçar lista vazia
     excludedReferenceNames: [
-      'Christopher Nolan', 'Quentin Tarantino', 'Vince Gilligan',
-      'Cillian Murphy', 'Walter White', 'Daenerys Targaryen',
+      'Clarice Lispector', 'Alan Turing', 'Hannah Arendt',
+      'Hayao Miyazaki', 'Björk', 'Walter White',
     ],
   }));
 });
@@ -176,4 +183,152 @@ test('normalizeWorks exclui títulos já usados', () => {
   assert.ok(!result.some(w => w.titulo === 'Dark'));
   // O slot de série é preenchido por fallback
   assert.equal(result.filter(w => w.tipo === 'serie').length, 1);
+});
+
+test('normalizeReferences exclui categorias já usadas', () => {
+  const refs = [
+    { categoria: 'Diretor', nome: 'Denis Villeneuve', motivo: 'm', wiki_query: 'q' },
+    { categoria: 'Cientista', nome: 'Lise Meitner', motivo: 'm', wiki_query: 'q' },
+    { categoria: 'Escritora', nome: 'Clarice Lispector', motivo: 'm', wiki_query: 'q' },
+  ];
+  const result = normalizeReferences(refs, {
+    profile: PROFILE_FIXTURE,
+    excludedCategories: ['Diretor'],
+  });
+
+  assert.ok(!result.some(r => r.categoria === 'Diretor'));
+  // Política: 2 referências REAIS valem mais que 3 com uma enlatada.
+  // O fallback só entra para evitar seção vazia (menos de 2).
+  assert.equal(result.length, 2);
+  assert.ok(!result.some(r => r.motivo.startsWith('Aproximação direta por')));
+});
+
+test('normalizeReferences preserva o rastro de raciocínio (ancora/criterio)', () => {
+  const refs = [
+    {
+      ancora: '"deixei um amigo levar a culpa"',
+      criterio: 'evita confronto direto assumindo custo depois',
+      categoria: 'Escritor',
+      nome: 'Graciliano Ramos',
+      motivo: 'ponte',
+      wiki_query: 'Graciliano_Ramos',
+    },
+    { categoria: 'Cientista', nome: 'Lise Meitner', motivo: 'm', wiki_query: 'q' },
+  ];
+  const result = normalizeReferences(refs, { profile: PROFILE_FIXTURE });
+
+  assert.equal(result.length, 2);
+  assert.equal(result[0].ancora, '"deixei um amigo levar a culpa"');
+  assert.match(result[0].criterio, /evita confronto/);
+  // Referência sem os campos novos não ganha chaves vazias
+  assert.equal('ancora' in result[1], false);
+});
+
+test('formatInterpretativeBlock inclui cenário (context) da pergunta', () => {
+  const block = formatInterpretativeBlock([
+    {
+      category_slug: 'moral_dilemma',
+      question_text: 'Você devolveria a carteira?',
+      question_context: 'Ele tem uma família para sustentar.',
+      alternative_text: 'Sim, devolveria.',
+      user_observation: null,
+    },
+  ]);
+
+  assert.match(block, /cenário: "Ele tem uma família para sustentar\."/);
+  assert.match(block, /devolveria/i);
+});
+
+test('hasReflectionSignal e interpretationCitesReflection', () => {
+  const signals = [
+    {
+      category_slug: 'interest',
+      question_type: 'reflection',
+      is_reflection: true,
+      question_text: 'O que importa?',
+      alternative_text: null,
+      user_observation: 'às vezes improviso só para não travar',
+    },
+  ];
+
+  assert.equal(hasReflectionSignal(signals), true);
+  assert.equal(
+    interpretationCitesReflection(
+      'Você escreveu "às vezes improviso só para não travar" e isso muda o mapa.',
+      signals
+    ),
+    true
+  );
+  assert.equal(
+    interpretationCitesReflection('Você é alguém intenso e complexo.', signals),
+    false
+  );
+});
+
+test('getRegenLens cicla pelas três lentes', () => {
+  assert.equal(getRegenLens(0).id, 'contemporaneos');
+  assert.equal(getRegenLens(1).id, 'historicos');
+  assert.equal(getRegenLens(2).id, 'ficcao');
+  assert.equal(getRegenLens(99).id, 'ficcao');
+});
+
+test('PROMPT_VERSION está definido', () => {
+  assert.equal(typeof PROMPT_VERSION, 'string');
+  assert.ok(PROMPT_VERSION.length > 0);
+});
+
+// ── truncateWords (guard do vibe_resumo) ─────────────────────────────────────
+
+test('truncateWords preserva frases dentro do limite', () => {
+  assert.equal(truncateWords('Decide rápido, mas revisa tudo.', 12), 'Decide rápido, mas revisa tudo.');
+});
+
+test('truncateWords corta frases longas com reticências', () => {
+  const long = 'um dois três quatro cinco seis sete oito nove dez onze doze treze catorze';
+  const result = truncateWords(long, 12);
+  assert.ok(result.endsWith('…'));
+  assert.ok(result.split(/\s+/).length <= 13);
+});
+
+test('parseResponse trunca vibe_resumo estourado', () => {
+  const payload = validPayload();
+  payload.vibe_resumo = 'uma frase absurdamente longa que nunca deveria aparecer no heading principal do resultado da análise de personalidade';
+  const parsed = parseResponse(JSON.stringify(payload), { profile: PROFILE_FIXTURE });
+  assert.ok(parsed.vibe_resumo.split(/\s+/).length <= 13);
+});
+
+// ── buildResponseStyleBlock ──────────────────────────────────────────────────
+
+test('buildResponseStyleBlock destaca convicção quando extremos dominam', () => {
+  const block = buildResponseStyleBlock({
+    answer_count: 30, extreme_count: 22, extreme_rate: 0.73,
+    neutral_count: 1, neutral_rate: 0.03,
+    agree_direct_rate: 0.5, agree_reverse_rate: 0.3,
+    acquiescence: false, hesitation: null,
+  });
+  assert.match(block, /Convicção/);
+  assert.match(block, /22 de 30/);
+});
+
+test('buildResponseStyleBlock sinaliza aquiescência e hesitação', () => {
+  const block = buildResponseStyleBlock({
+    answer_count: 30, extreme_count: 5, extreme_rate: 0.17,
+    neutral_count: 12, neutral_rate: 0.4,
+    agree_direct_rate: 0.8, agree_reverse_rate: 0.75,
+    acquiescence: true,
+    hesitation: { question_text: 'Eu sou alguém que… confia nas outras pessoas.', seconds: 41.2, median_seconds: 6.5 },
+  });
+  assert.match(block, /Aquiescência/);
+  assert.match(block, /41\.2s/);
+  assert.match(block, /confia nas outras pessoas/);
+});
+
+test('buildResponseStyleBlock fica vazio para estilo mediano', () => {
+  const block = buildResponseStyleBlock({
+    answer_count: 30, extreme_count: 8, extreme_rate: 0.27,
+    neutral_count: 5, neutral_rate: 0.17,
+    agree_direct_rate: 0.5, agree_reverse_rate: 0.3,
+    acquiescence: false, hesitation: null,
+  });
+  assert.equal(block, '');
 });

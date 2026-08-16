@@ -3,7 +3,7 @@ import {
 } from '../database/queries/result.queries.js';
 import { getAnswerReviewBySessionId } from '../database/queries/answer.queries.js';
 import { checkRegenBudget } from '../services/llm-limiter.js';
-import { findClosestArchetype } from '../services/archetype.service.js';
+import { findClosestArchetype, findFarthestArchetype } from '../services/archetype.service.js';
 import { DIMENSIONS } from '../engine/dimensions.js';
 import { classifyScore } from '../engine/normalization.js';
 import { success } from '../utils/apiResponse.js';
@@ -67,9 +67,10 @@ export async function handleGetResult(req, res, next) {
     const regenBudget = checkRegenBudget(session_id);
 
     const profile = toProfilePayload(result);
-    // RF005: arquétipo recomputado do escore salvo (função determinística
-    // no Postgres, desempate por id) — não é persistido em `results`.
+    // RF005: arquétipos recomputados do escore salvo (funções determinísticas
+    // no Postgres, desempate por id) — não são persistidos em `results`.
     profile.archetype = await findClosestArchetype(profile.scores);
+    profile.anti_archetype = await findFarthestArchetype(profile.scores);
 
     return success(res, {
       session_id,
