@@ -203,6 +203,7 @@
     },
     {
       "external_id": "INT_PX_01",
+      "is_active": false,
       "category": "paradoxical",
       "text": "Se você pudesse saber com certeza absoluta uma coisa sobre o seu futuro, você escolheria saber?",
       "context": "Considere que essa informação não poderia ser mudada.",
@@ -537,6 +538,7 @@
     },
     {
       "external_id": "INT_PX_08",
+      "is_active": false,
       "category": "paradoxical",
       "text": "É melhor ser temido ou ser amado?",
       "context": "Sendo amado, você corre risco de ser traído. Sendo temido, corre o risco do isolamento.",
@@ -554,6 +556,7 @@
     },
     {
       "external_id": "INT_PX_09",
+      "is_active": false,
       "category": "paradoxical",
       "text": "Você apagaria uma memória dolorosa se isso também apagasse o que você aprendeu com ela?",
       "context": "O trauma foi severo, mas a lição te protege de cometer um erro igual.",
@@ -598,6 +601,97 @@
       "category": "interest",
       "text": "Qual fracasso na sua vida mais te ensinou sobre quem você realmente é?",
       "context": "Aquele momento onde o ego se quebrou para revelar a estrutura por baixo.",
+      "type": "reflection",
+      "alternatives": []
+    },
+    {
+      "external_id": "INT_PX_11",
+      "category": "paradoxical",
+      "text": "Ao ver alguém da sua idade com a vida que você queria, o que surge primeiro?",
+      "context": "Primeiro impulso, sem filtrar o que você 'deveria' sentir.",
+      "type": "multiple_choice",
+      "alternatives": [
+        {
+          "text": "Inveja que me empurra a agir.",
+          "sort_order": 0
+        },
+        {
+          "text": "Amargura — um peso que fica.",
+          "sort_order": 1
+        },
+        {
+          "text": "Indiferença genuína.",
+          "sort_order": 2
+        },
+        {
+          "text": "Curiosidade: quero entender o caminho deles.",
+          "sort_order": 3
+        }
+      ]
+    },
+    {
+      "external_id": "INT_PX_12",
+      "category": "paradoxical",
+      "text": "Se amanhã sua rotina inteira fosse destruída sem aviso, o que você faria primeiro?",
+      "context": "Não o plano ideal — o reflexo nas primeiras horas.",
+      "type": "multiple_choice",
+      "alternatives": [
+        {
+          "text": "Reconstruir o mesmo sistema, o mais rápido possível.",
+          "sort_order": 0
+        },
+        {
+          "text": "Improvisar as próximas 48 horas e ver o que sobra.",
+          "sort_order": 1
+        },
+        {
+          "text": "Pedir ajuda a alguém de confiança.",
+          "sort_order": 2
+        },
+        {
+          "text": "Parar até ter um plano claro.",
+          "sort_order": 3
+        }
+      ]
+    },
+    {
+      "external_id": "INT_PX_13",
+      "category": "paradoxical",
+      "text": "Você prefere ser lembrado por algo grande depois de morto, ou viver intensamente agora mesmo que ninguém lembre?",
+      "context": "Assuma que não dá para otimizar os dois.",
+      "type": "multiple_choice",
+      "alternatives": [
+        {
+          "text": "Ser lembrado — o legado importa mais.",
+          "sort_order": 0
+        },
+        {
+          "text": "Viver agora — o presente basta.",
+          "sort_order": 1
+        },
+        {
+          "text": "Tentaria os dois mesmo assim.",
+          "sort_order": 2
+        },
+        {
+          "text": "Ainda não sei.",
+          "sort_order": 3
+        }
+      ]
+    },
+    {
+      "external_id": "INT_MD_11",
+      "category": "moral_dilemma",
+      "text": "Conte uma vez em que você escolheu o caminho mais fácil sabendo que não era o certo — o que isso mostrou sobre você?",
+      "context": "Pode ser pequeno. O que importa é a escolha consciente.",
+      "type": "reflection",
+      "alternatives": []
+    },
+    {
+      "external_id": "INT_IN_09",
+      "category": "interest",
+      "text": "O que você protege com mais força: a imagem que os outros têm de você, ou a imagem que você tem de si?",
+      "context": "Responda com um exemplo concreto, se conseguir.",
       "type": "reflection",
       "alternatives": []
     }

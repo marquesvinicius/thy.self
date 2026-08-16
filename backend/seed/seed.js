@@ -140,6 +140,8 @@ async function seedInterpretative(categoryMap) {
 
     // Upsert por external_id (mesmo padrão da camada objetiva) — reseed
     // idempotente: rodar o seed N vezes não duplica perguntas.
+    // is_active: false desativa duplicatas sem apagar (preserva respostas antigas).
+    const isActive = q.is_active !== false;
     const { data: question, error: qErr } = await supabase
       .from('questions')
       .upsert(
@@ -152,6 +154,7 @@ async function seedInterpretative(categoryMap) {
           trait: null,
           reverse_key: false,
           external_id: q.external_id,
+          is_active: isActive,
         },
         { onConflict: 'external_id' }
       )
@@ -163,7 +166,11 @@ async function seedInterpretative(categoryMap) {
       continue;
     }
 
-    inserted++;
+    if (isActive) {
+      inserted++;
+    } else {
+      console.log(`  Deactivated interpretative question ${q.external_id}`);
+    }
 
     if (Array.isArray(q.alternatives) && q.alternatives.length > 0) {
       const alts = q.alternatives.map(a => ({
