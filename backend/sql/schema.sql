@@ -101,6 +101,7 @@ CREATE TABLE sessions (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nickname     VARCHAR(100),
   status       VARCHAR(20) NOT NULL DEFAULT 'active',
+  question_order INTEGER[],
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ
 );
@@ -179,5 +180,20 @@ AS $$
     SQRT(POWER(o_score - user_o, 2) + POWER(c_score - user_c, 2) + POWER(e_score - user_e, 2) + POWER(a_score - user_a, 2) + POWER(n_score - user_n, 2)) as distance
   FROM archetypes
   ORDER BY distance ASC, id ASC
+  LIMIT 1;
+$$;
+
+-- Anti-arquétipo: o personagem mais DISTANTE do perfil (migration_008).
+CREATE OR REPLACE FUNCTION find_farthest_archetype(user_o float, user_c float, user_e float, user_a float, user_n float)
+RETURNS TABLE (id varchar, name varchar, universe varchar, distance float)
+LANGUAGE sql
+AS $$
+  SELECT
+    id,
+    name,
+    universe,
+    SQRT(POWER(o_score - user_o, 2) + POWER(c_score - user_c, 2) + POWER(e_score - user_e, 2) + POWER(a_score - user_a, 2) + POWER(n_score - user_n, 2)) as distance
+  FROM archetypes
+  ORDER BY distance DESC, id ASC
   LIMIT 1;
 $$;

@@ -1,9 +1,12 @@
 import { supabase } from '../../config/supabase.js';
 
-export async function createSession(nickname) {
+export async function createSession(nickname, questionOrder = null) {
   const { data, error } = await supabase
     .from('sessions')
-    .insert({ nickname: nickname || null })
+    .insert({
+      nickname: nickname || null,
+      question_order: questionOrder,
+    })
     .select()
     .single();
 
@@ -19,6 +22,18 @@ export async function getSessionById(id) {
     .single();
 
   if (error && error.code !== 'PGRST116') throw error;
+  return data;
+}
+
+export async function updateSessionQuestionOrder(id, questionOrder) {
+  const { data, error } = await supabase
+    .from('sessions')
+    .update({ question_order: questionOrder })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
   return data;
 }
 
