@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getQuestions, submitAnswer, undoLastAnswer } from '@/services/api';
 import Header from '@/components/Header';
@@ -10,15 +10,38 @@ import MicroFeedback from '@/components/MicroFeedback';
 import TutorialPopup from '@/components/TutorialPopup';
 import StageTransition from '@/components/StageTransition';
 import QuestionRenderer from '@/components/QuestionRenderer';
-import { clearActiveSession } from '@/lib/activeSession';
+import {
+  clearActiveSession,
+} from '@/lib/activeSession';
+import {
+  narrativeLimitFor,
+  setNarrativeMode,
+  clearNarrativeMode,
+} from '@/lib/narrativeMode';
 
 const BLOCK_SIZE = 1;
+// Pedimos 1 pergunta a mais que o bloco: a próxima já fica em memória
+// (prefetch), eliminando a espera de rede entre perguntas objetivas.
+const FETCH_SIZE = BLOCK_SIZE + 1;
 
-// Chave de sessionStorage que marca que o usuário já viu o ritual de passagem
+// Baselines de ritmo (segundos por pergunta) — ponto de partida da estimativa
+// de tempo restante, substituídas pela mediana do ritmo real do usuário
+// conforme ele responde.
+const PACE_BASELINE = { objective: 8, interpretative: 25 };
+const PACE_WINDOW = 7;      // mediana móvel das últimas N respostas
+const PACE_CAP_MS = 120000; // pausas > 2min não entram na mediana
+
+// Chave de sessionStorage que marca que o usuário já viu a tela de decisão
 // entre BFI-2-S (objetiva) e a parte narrativa. Indexada por session_id para
 // que uma nova sessão comece o fluxo do zero.
 function stageTransitionKey(sessionId) {
   return `stage_transition_seen:${sessionId}`;
+}
+
+function median(values) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
 }
 
 export default function Quiz() {
@@ -50,9 +73,54 @@ export default function Quiz() {
   // 3-phase transition: 'visible' | 'exiting' | 'entering'
   const [phase, setPhase] = useState('entering');
 
-  const loadQuestions = useCallback(async (sid, preferQuestionId = null) => {
+  // ── Fast lane (camada objetiva) ──
+  // Fila de prefetch: a próxima pergunta já buscada, pronta para entrar sem
+  // round-trip. Perguntas objetivas avançam de forma otimista (o POST roda
+  // em background); as interpretativas mantêm o ritual completo.
+  const queueRef = useRef([]);
+  // Guarda ids já submetidos para ignorar cliques duplicados durante a troca.
+  const submittedRef = useRef(new Set());
+  // POSTs otimistas em voo — o "voltar" fica bloqueado enquanto houver um,
+  // senão o undo apagaria a resposta anterior à que ainda não chegou.
+  const [inFlight, setInFlight] = useState(0);
+  // Ritmo real do usuário: timestamps da última resposta + amostras por camada.
+  const paceRef = useRef({ lastAt: null });
+  const [paceSamples, setPaceSamples] = useState({ objective: [], interpretative: [] });
+
+  function recordPace(kind) {
+    const now = Date.now();
+    const last = paceRef.current.lastAt;
+    paceRef.current.lastAt = now;
+    if (!last) return;
+    const deltaMs = now - last;
+    if (deltaMs <= 0 || deltaMs > PACE_CAP_MS) return;
+    setPaceSamples(prev => ({
+      ...prev,
+      [kind]: [...prev[kind], deltaMs / 1000].slice(-PACE_WINDOW),
+    }));
+  }
+
+  // Estimativa de tempo restante do ATO atual (a parte 2 é opcional — seria
+  // desonesto somá-la ao horizonte de quem ainda está na parte 1).
+  function estimateRemainingMin() {
+    if (!stageProgress) return null;
+    const isObjective = stage === 'objective';
+    const remaining = isObjective
+      ? Math.max(0, stageProgress.objective_total - stageProgress.objective_answered)
+      : Math.max(0, stageProgress.interpretative_total - stageProgress.interpretative_answered);
+    if (remaining === 0) return null;
+    const kind = isObjective ? 'objective' : 'interpretative';
+    const secPerAnswer = median(paceSamples[kind]) ?? PACE_BASELINE[kind];
+    return Math.max(1, Math.round((remaining * secPerAnswer) / 60));
+  }
+
+  const loadQuestions = useCallback(async (sid) => {
     try {
-      const data = await getQuestions(sid, BLOCK_SIZE, preferQuestionId);
+      const data = await getQuestions(
+        sid,
+        FETCH_SIZE,
+        narrativeLimitFor(sid),
+      );
       setProgress({
         answered: data.total_answered,
         total: data.total_answered + data.total_available,
@@ -61,7 +129,10 @@ export default function Quiz() {
       setStageProgress(data.stage_progress || null);
 
       if (data.questions.length > 0) {
-        setQuestions(data.questions);
+        // Primeira pergunta entra na tela; o excedente vira prefetch.
+        queueRef.current = data.questions.slice(BLOCK_SIZE);
+        const onScreen = data.questions.slice(0, BLOCK_SIZE);
+        setQuestions(onScreen);
         setAnswers({}); // reset block answers
 
         // Detecta transição objetiva → interpretativa. Como o picker do
@@ -96,12 +167,28 @@ export default function Quiz() {
         setTimeout(() => setPhase('visible'), 500);
       } else {
         setQuestions([]);
+        // Sem perguntas em tela ainda precisamos rotular a etapa corretamente
+        // (um reload no fim do quiz não deve voltar a exibir "etapa 1/2").
+        const sp = data.stage_progress;
+        if (sp && sp.objective_answered >= sp.objective_total) {
+          setStage('interpretative');
+        }
         setPhase('visible');
       }
     } catch (err) {
+      if (err?.status === 410 || err?.code === 'GONE') {
+        // Uma aba antiga pode tentar retomar uma sessão já analisada. Não
+        // mantenha esse id no storage: ele faria cada montagem repetir 410.
+        sessionStorage.removeItem('session_id');
+        clearActiveSession();
+        clearNarrativeMode();
+        setSessionId(null);
+        router.replace('/');
+        return;
+      }
       console.error('Failed to load questions:', err);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const sid = sessionStorage.getItem('session_id');
@@ -117,17 +204,29 @@ export default function Quiz() {
 
   const handleSelect = (questionId, alternativeId) => {
     if (submitting) return;
+    if (submittedRef.current.has(questionId)) return;
 
     setAnswers(prev => ({ ...prev, [questionId]: alternativeId }));
 
     const q = questions.find((x) => x.id === questionId);
+    if (!q) return;
+
+    // Fast lane: itens BFI-2-S avançam sem ritual — sem flash, sem pausa,
+    // POST em background e a próxima pergunta (prefetch) entra na hora.
+    // O ritual completo fica reservado à camada narrativa, o que faz a
+    // mudança de ritmo entre os atos ser SENTIDA, não só anunciada.
+    if (q.kind === 'objective') {
+      fastSubmit(q, alternativeId);
+      return;
+    }
+
     // Pós teste de usabilidade (abril/2026): removemos os botões "Confirmar"
     // de TODOS os widgets onde a resposta não é digitável. Cada clique
     // commita imediatamente e avança. A única exceção é `reflection`, onde
     // o texto precisa ser redigido antes de ser submetido; para esta, o
     // botão "Confirmar" (externo) continua existindo e há também um botão
     // "Pular" para quem não consegue se lembrar de uma situação específica.
-    const isAutoSubmit = q && q.type !== 'reflection';
+    const isAutoSubmit = q.type !== 'reflection';
 
     if (isAutoSubmit) {
       const immediateAnswers = { ...answers, [questionId]: alternativeId };
@@ -137,16 +236,121 @@ export default function Quiz() {
     }
   };
 
+  /**
+   * Fast lane da camada objetiva: avança a UI imediatamente e envia a
+   * resposta em background. Se o envio falhar, ressincroniza do servidor
+   * (o botão "voltar" continua sendo a rede de segurança de correção).
+   */
+  async function fastSubmit(question, payload) {
+    submittedRef.current.add(question.id);
+    recordPace('objective');
+    setInFlight(n => n + 1);
+
+    const next = queueRef.current.shift() || null;
+
+    setPhase('exiting');
+    setTimeout(() => {
+      if (next) {
+        setQuestions([next]);
+        setAnswers({});
+        const nextIsInterpretative = next.kind !== 'objective';
+        setStage(nextIsInterpretative ? 'interpretative' : 'objective');
+        if (nextIsInterpretative) {
+          maybeShowStageDecision();
+        }
+        setPhase('entering');
+        setTimeout(() => setPhase('visible'), 250);
+      }
+      // Sem prefetch disponível: o refill abaixo (pós-POST) recarrega tudo.
+    }, 140);
+
+    try {
+      const res = await submitAnswer(sessionId, question.id, payload);
+      setProgress(prev => ({
+        ...prev,
+        answered: res.progress.answered,
+        canAnalyze: res.progress.can_analyze,
+      }));
+      setStageProgress(prev => (prev
+        ? { ...prev, objective_answered: res.progress.objective_answered }
+        : prev));
+
+      if (!next) {
+        // Fila secou (última objetiva ou prefetch perdido): busca completa,
+        // que também detecta a fronteira entre atos.
+        await loadQuestions(sessionId);
+      } else {
+        await refillQueue(next.id);
+      }
+    } catch (err) {
+      console.error('Falha ao salvar resposta (fast lane):', err);
+      submittedRef.current.delete(question.id);
+      setUndoError('Uma resposta não foi salva — recarregando para ressincronizar.');
+      queueRef.current = [];
+      await loadQuestions(sessionId);
+    } finally {
+      setInFlight(n => Math.max(0, n - 1));
+    }
+  }
+
+  /** Reabastece o prefetch com a pergunta seguinte à que está na tela. */
+  async function refillQueue(currentQuestionId) {
+    try {
+      const data = await getQuestions(
+        sessionId,
+        FETCH_SIZE,
+        null,
+        narrativeLimitFor(sessionId),
+      );
+      setProgress({
+        answered: data.total_answered,
+        total: data.total_answered + data.total_available,
+        canAnalyze: data.can_analyze,
+      });
+      setStageProgress(data.stage_progress || null);
+      queueRef.current = (data.questions || []).filter(
+        q => q.id !== currentQuestionId && !submittedRef.current.has(q.id)
+      ).slice(0, FETCH_SIZE - BLOCK_SIZE);
+    } catch (err) {
+      // Prefetch é otimização: se falhar, o fluxo cai no caminho com loading.
+      queueRef.current = [];
+      if (err?.status === 410 || err?.code === 'GONE') {
+        sessionStorage.removeItem('session_id');
+        clearActiveSession();
+        clearNarrativeMode();
+        setSessionId(null);
+        router.replace('/');
+      }
+    }
+  }
+
+  /** Mostra a tela de decisão entre atos (uma vez por sessão). */
+  function maybeShowStageDecision() {
+    let alreadySeen = false;
+    try {
+      alreadySeen = !!sessionStorage.getItem(stageTransitionKey(sessionId));
+    } catch {}
+    if (!alreadySeen) setShowStageTransition(true);
+  }
+
   async function handleSubmitBlock(immediateAnswers = null) {
     const submitData = (immediateAnswers && !immediateAnswers.nativeEvent) ? immediateAnswers : answers;
     const readyToSubmit = questions.length > 0 && Object.keys(submitData).length === questions.length;
 
     if (submitting || !readyToSubmit) return;
     setSubmitting(true);
+    recordPace('interpretative');
 
     // Flash oracular
     setFlashing(true);
     setTimeout(() => setFlashing(false), 550);
+
+    // Notifica os olhos do MysticBackground: eles olham para o centro da
+    // tela (onde o usuário acabou de agir) e contraem a pupila junto com
+    // o flash — o observador percebeu a escolha.
+    try {
+      window.dispatchEvent(new CustomEvent('thyself:answered'));
+    } catch {}
 
     // Pausa contemplativa
     await new Promise(r => setTimeout(r, 250));
@@ -190,11 +394,11 @@ export default function Quiz() {
     setUndoError(null);
     setUndoing(true);
     try {
-      const data = await undoLastAnswer(sessionId);
-      // Recarrega priorizando a pergunta desfeita — sem isso o picker
-      // embaralha de novo e pode servir um item que o usuário nunca viu.
+      await undoLastAnswer(sessionId);
+      // A ordem persistida no servidor faz a pergunta desfeita voltar
+      // naturalmente ao topo do próximo trecho.
       setAnswers({});
-      await loadQuestions(sessionId, data.undone_question_id);
+      await loadQuestions(sessionId);
     } catch (err) {
       console.error('Falha ao desfazer resposta:', err);
       const message = err?.message || '';
@@ -208,17 +412,16 @@ export default function Quiz() {
     }
   }
 
-  async function handleSkipReflection(questionId) {
+  async function handleSkipQuestion(questionId, questionType = 'reflection') {
     if (submitting) return;
-    // Usuário optou por pular a pergunta dissertativa. Submete resposta
-    // com user_observation vazio e alternative_id null — a migração 002
-    // tornou `alternative_id` opcional, e `getInterpretativeSignals`
-    // descarta linhas sem conteúdo útil (nem alternativa nem observação),
-    // então a pergunta conta como respondida mas NÃO polui o contexto
-    // narrativo enviado à LLM.
+    // Pular vale para TODA a camada narrativa (nenhuma delas altera escores).
+    // Submete resposta com alternative_id null — `getInterpretativeSignals`
+    // descarta linhas sem conteúdo útil, então a pergunta conta como
+    // respondida mas NÃO polui o contexto enviado à LLM. O backend rejeita
+    // skip em perguntas objetivas (guard no answer.service).
     const skipPayload = {
       alternative_id: null,
-      answer_type: 'reflection',
+      answer_type: questionType === 'reflection' ? 'reflection' : 'skipped',
       user_observation: '',
     };
     const immediateAnswers = { ...answers, [questionId]: skipPayload };
@@ -238,25 +441,42 @@ export default function Quiz() {
     setPendingTutorials([]);
   };
 
-  const handleStageTransitionContinue = () => {
-    setShowStageTransition(false);
+  /**
+   * Escolha do ato narrativo na tela de decisão: 'short' (teto de perguntas)
+   * ou 'full' (catálogo inteiro). Persiste o modo, marca a tela como vista e
+   * recarrega o bloco já sob o novo teto — o `total_available` do backend
+   * muda, então a barra de progresso precisa ser refeita.
+   */
+  const handleChooseNarrativeMode = async (mode) => {
     if (sessionId) {
+      setNarrativeMode(sessionId, mode);
       try {
         sessionStorage.setItem(stageTransitionKey(sessionId), '1');
       } catch {}
     }
+    setShowStageTransition(false);
+    queueRef.current = [];
+    await loadQuestions(sessionId);
   };
 
   function handleAnalyze() {
     sessionStorage.setItem('session_id', sessionId);
     // Avaliação concluída — não há mais o que retomar.
     clearActiveSession();
-    router.push('/result');
+    clearNarrativeMode();
+    router.push('/result?analyze=1');
   }
 
   function handleEndSession() {
     sessionStorage.removeItem('session_id');
     clearActiveSession();
+    clearNarrativeMode();
+    router.push('/');
+  }
+
+  // "Pausar — continuo depois": volta à landing SEM limpar o marcador de
+  // sessão ativa; o banner "continuar de onde parei" cuida da volta.
+  function handlePauseSession() {
     router.push('/');
   }
 
@@ -269,16 +489,26 @@ export default function Quiz() {
   if (!sessionId) return null;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-x-hidden">
       <MysticBackground showEyes={false} />
-      <MicroFeedback trigger={showFeedback} onComplete={handleFeedbackComplete} />
+      {showFeedback && (
+        <MicroFeedback
+          key={`feedback-${progress.answered}`}
+          onComplete={handleFeedbackComplete}
+        />
+      )}
 
       {/* Ritual de passagem entre BFI-2-S e parte narrativa. Tem prioridade
           sobre o TutorialPopup de widget: se o usuário estiver vendo o card
           de transição, adiamos o tutorial de reflection/etc. até ele clicar
           em "continuar" — assim as duas camadas não aparecem empilhadas. */}
       {showStageTransition && (
-        <StageTransition onContinue={handleStageTransitionContinue} />
+        <StageTransition
+          onChoose={handleChooseNarrativeMode}
+          onAnalyze={handleAnalyze}
+          onPause={handlePauseSession}
+          narrativeTotal={stageProgress?.interpretative_total ?? null}
+        />
       )}
 
       {pendingTutorials.length > 0 && !showStageTransition && (
@@ -295,9 +525,9 @@ export default function Quiz() {
 
       <Header />
 
-      <main className="flex-1 flex flex-col pt-20 relative z-[1]">
+      <main className="flex-1 flex flex-col pt-16 md:pt-20 relative z-[1] overflow-x-hidden">
         {/* Status bar */}
-        <div className="flex flex-col gap-3 px-6 md:px-10 py-4 border-b border-border">
+        <div className="flex flex-col gap-3 px-5 sm:px-6 md:px-10 py-4 border-b border-border">
           <ProgressBar current={progress.answered} total={progress.total} />
           <div className="flex flex-wrap items-center gap-5 text-[10px] uppercase tracking-widest text-muted">
             <span>respostas: {progress.answered}</span>
@@ -318,6 +548,14 @@ export default function Quiz() {
                       : ''
                   }`}
             </span>
+            {/* Horizonte honesto: estimativa do ato atual, calibrada pelo
+                ritmo real do usuário (baseline → mediana móvel). */}
+            {estimateRemainingMin() !== null && (
+              <span className="hidden md:inline text-muted/50">
+                <span className="text-muted/40">·</span>{' '}
+                ~{estimateRemainingMin()} min restantes
+              </span>
+            )}
           </div>
           {undoError && (
             <p className="text-[10px] text-foreground/80 tracking-wider">
@@ -327,23 +565,23 @@ export default function Quiz() {
         </div>
 
         {/* Ações abaixo da linha divisória */}
-        <div className="flex justify-between items-center gap-4 px-6 md:px-10 py-3 text-[10px] uppercase tracking-widest text-muted">
+        <div className="flex flex-wrap justify-between items-center gap-3 px-5 sm:px-6 md:px-10 py-2 md:py-3 text-[11px] md:text-[10px] uppercase tracking-widest text-muted">
           <button
             onClick={handleUndo}
-            disabled={undoing || submitting || progress.answered === 0}
-            className="inline-flex items-center gap-2 hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            disabled={undoing || submitting || inFlight > 0 || progress.answered === 0}
+            className="inline-flex items-center gap-2 min-h-11 md:min-h-0 py-2 md:py-0 hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             title="Desfazer a última resposta"
           >
             <span aria-hidden="true">←</span>
             {undoing ? 'voltando...' : 'voltar'}
           </button>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-6">
             {progress.canAnalyze && (
-              <button onClick={handleAnalyze} className="text-foreground border border-foreground px-4 py-1 hover:bg-foreground hover:text-background transition-all">
+              <button onClick={handleAnalyze} className="text-foreground border border-foreground min-h-11 md:min-h-0 px-4 py-2 md:py-1 hover:bg-foreground hover:text-background transition-all">
                 analisar
               </button>
             )}
-            <button onClick={handleEndSession} className="hover:text-foreground transition-colors">
+            <button onClick={handleEndSession} className="min-h-11 md:min-h-0 px-2 py-2 md:py-0 hover:text-foreground transition-colors">
               terminar sessão
             </button>
           </div>
@@ -351,32 +589,32 @@ export default function Quiz() {
 
         {/* Question Area */}
         {questions.length > 0 ? (
-          <div className={`flex-1 flex flex-col items-center justify-center p-6 md:p-10 overflow-hidden ${phaseClasses[phase]}`}>
+          <div className={`flex-1 flex flex-col items-center justify-start md:justify-center px-5 py-6 sm:px-6 sm:py-8 md:p-10 overflow-x-hidden md:overflow-hidden ${phaseClasses[phase]}`}>
             <MysticEyesOverlay />
 
-            <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-center">
+            <div className="w-full max-w-6xl mx-auto min-w-0 flex-1 flex flex-col justify-start md:justify-center">
               {questions.map((q) => (
-                <div key={q.id} className="w-full flex flex-col md:grid md:grid-cols-2 gap-10 md:gap-20 items-center justify-center relative z-10" style={phase === 'entering' ? { animationDelay: `0ms`, animationFillMode: 'both' } : undefined}>
+                <div key={q.id} className="w-full min-w-0 flex flex-col md:grid md:grid-cols-2 gap-8 md:gap-20 items-center justify-center relative z-10" style={phase === 'entering' ? { animationDelay: `0ms`, animationFillMode: 'both' } : undefined}>
 
                   {/* Left Side: Question */}
-                  <div className={`w-full space-y-6 md:pr-10 md:border-r border-border/50 text-center md:text-left ${
+                  <div className={`w-full min-w-0 space-y-6 md:space-y-6 md:pr-10 md:border-r border-border/50 text-center md:text-left ${
                     q.kind === 'interpretative' ? 'md:pr-14' : ''
                   }`}>
                     <span className="text-[10px] uppercase tracking-widest text-muted">
                       {q.kind === 'objective' ? 'BFI-2-S' : q.category}
                     </span>
-                    <h2 className={`font-bold leading-tight tracking-tight ${
+                    <h2 className={`font-bold leading-tight tracking-tight break-words text-balance ${
                       q.kind === 'interpretative'
-                        ? 'text-2xl md:text-4xl lg:text-5xl'
-                        : 'text-xl md:text-3xl lg:text-4xl'
+                        ? 'text-2xl md:text-3xl lg:text-4xl'
+                        : 'text-xl md:text-2xl lg:text-3xl'
                     }`}>
                       {q.text}
                     </h2>
-                    {q.context && <p className="text-sm md:text-base text-muted leading-relaxed">{q.context}</p>}
+                    {q.context && <p className="text-sm md:text-base text-muted leading-relaxed break-words">{q.context}</p>}
                   </div>
 
                   {/* Right Side: Options & Submit */}
-                  <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center space-y-12">
+                  <div className="w-full max-w-md min-w-0 mx-auto flex flex-col items-center justify-center space-y-10 md:space-y-12">
                     <div className="w-full flex justify-center">
                       <QuestionRenderer
                         question={q}
@@ -399,7 +637,7 @@ export default function Quiz() {
                           {submitting ? 'Enviando...' : 'Confirmar'}
                         </button>
                         <button
-                          onClick={() => handleSkipReflection(q.id)}
+                          onClick={() => handleSkipQuestion(q.id, 'reflection')}
                           disabled={submitting}
                           className="text-[11px] uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors underline underline-offset-4 disabled:opacity-30 disabled:cursor-not-allowed"
                           title="Pule quando não se lembrar de uma situação específica"
@@ -408,13 +646,26 @@ export default function Quiz() {
                         </button>
                       </div>
                     )}
+
+                    {/* Pular vale para TODA a narrativa — nada aqui altera
+                        escores, e o custo de pular é declarado, não escondido. */}
+                    {q.kind === 'interpretative' && q.type !== 'reflection' && (
+                      <button
+                        onClick={() => handleSkipQuestion(q.id, q.type)}
+                        disabled={submitting}
+                        className="text-[10px] uppercase tracking-[0.25em] text-muted/70 hover:text-foreground transition-colors underline underline-offset-4 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Não altera seu escore — mas é menos material seu na leitura final"
+                      >
+                        pular — não altera seu escore
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center px-5 py-8">
             <div className="text-center space-y-6 animate-fade-in">
               <p className="text-lg font-bold">
                 {progress.canAnalyze

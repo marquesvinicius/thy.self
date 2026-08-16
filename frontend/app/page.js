@@ -1,12 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSession } from '@/services/api';
 import Logo from '@/components/Logo';
 import Header from '@/components/Header';
 import MysticBackground from '@/components/MysticBackground';
-import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/activeSession';
+import {
+  setActiveSession,
+  clearActiveSession,
+  getLastResultSnapshot,
+  clearLastResultSession,
+  subscribeActiveSession,
+  getActiveSessionSnapshot,
+  getActiveSessionServerSnapshot,
+} from '@/lib/activeSession';
 
 const QUESTION_TYPE_GUIDE = [
   {
@@ -35,21 +43,39 @@ export default function Home() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
-  const [resumableSession, setResumableSession] = useState(null);
+  const [startError, setStartError] = useState(null);
 
-  useEffect(() => {
-    setResumableSession(getActiveSession());
-  }, []);
+  // Marcador de sessão em andamento lido como external store: aparece no
+  // primeiro paint do cliente e reage sozinho a set/clear (inclusive de
+  // outra aba), sem efeito de mount nem setState em cascata.
+  const resumableSession = useSyncExternalStore(
+    subscribeActiveSession,
+    getActiveSessionSnapshot,
+    getActiveSessionServerSnapshot,
+  );
+  const lastResultSession = useSyncExternalStore(
+    subscribeActiveSession,
+    getLastResultSnapshot,
+    () => null,
+  );
 
   async function handleStartQuiz() {
     setLoading(true);
+    setStartError(null);
     try {
       const session = await createSession();
       sessionStorage.setItem('session_id', session.session_id);
       setActiveSession(session.session_id);
+      clearLastResultSession();
       router.push('/quiz');
     } catch (err) {
       console.error('Failed to create session:', err);
+      const msg = err?.message || '';
+      setStartError(
+        /failed to fetch|networkerror|load failed/i.test(msg)
+          ? 'Não foi possível conectar à API. Confirme que o backend está em http://localhost:3000 e tente de novo.'
+          : (msg || 'Falha ao iniciar a sessão. Tente novamente.'),
+      );
       setLoading(false);
     }
   }
@@ -60,9 +86,15 @@ export default function Home() {
     router.push('/quiz');
   }
 
+  function handleResumeResult() {
+    if (!lastResultSession || loading) return;
+    sessionStorage.setItem('session_id', lastResultSession);
+    router.push('/result');
+  }
+
   function handleDiscardSession() {
+    // clearActiveSession notifica o store — o banner desaparece sozinho.
     clearActiveSession();
-    setResumableSession(null);
   }
 
   function handleStartClick() {
@@ -82,8 +114,11 @@ export default function Home() {
               <h2 className="text-sm md:text-base uppercase tracking-[0.2em]">Como responder o quiz</h2>
               <p className="text-xs md:text-sm text-muted">
                 O thy.self funciona em duas camadas: uma objetiva (BFI-2-S) que
-                alimenta o cálculo dos cinco fatores, e uma interpretativa que
-                apenas colore a leitura final. Leia rápido e siga pelo instinto.
+                alimenta o cálculo dos cinco fatores OCEAN, e uma interpretativa que
+                apenas enriquece o resultado final. Leia calmamente e responda de forma autêntica.
+              </p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted/70 pt-1">
+                parte 1: ~5 min · parte 2 (opcional): ~8 min
               </p>
             </div>
 
@@ -96,9 +131,15 @@ export default function Home() {
               ))}
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex flex-col items-end gap-3 pt-2">
+              {startError && (
+                <p className="w-full text-xs text-foreground/80 leading-relaxed border border-foreground/20 px-3 py-2">
+                  {startError}
+                </p>
+              )}
+              <div className="flex justify-end gap-3">
               <button
-                onClick={() => setShowGuide(false)}
+                onClick={() => { setShowGuide(false); setStartError(null); }}
                 disabled={loading}
                 className="border border-border px-6 py-2 text-[11px] uppercase tracking-[0.2em] hover:border-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
@@ -111,6 +152,7 @@ export default function Home() {
               >
                 {loading ? 'iniciando...' : 'entendi, começar'}
               </button>
+              </div>
             </div>
           </div>
         </div>
@@ -123,15 +165,17 @@ export default function Home() {
           Conhece-te a ti mesmo
         </p>
 
-        <div className="pt-8">
-          <button
-            onClick={handleStartClick}
-            disabled={loading}
-            className="border border-foreground px-10 py-3 text-xs uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            {loading ? '...' : 'começar'}
-          </button>
-        </div>
+        {!lastResultSession && (
+          <div className="pt-8">
+            <button
+              onClick={handleStartClick}
+              disabled={loading}
+              className="border border-foreground px-10 py-3 text-xs uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {loading ? '...' : 'começar'}
+            </button>
+          </div>
+        )}
 
         {resumableSession && (
           <div className="pt-2 space-y-3 animate-fade-in">
@@ -152,6 +196,30 @@ export default function Home() {
                 className="text-[11px] uppercase tracking-[0.25em] text-muted hover:text-foreground transition-colors disabled:opacity-40"
               >
                 descartar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {lastResultSession && !resumableSession && (
+          <div className="pt-2 space-y-3 animate-fade-in">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-muted/80">
+              você tem um resultado disponível
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
+              <button
+                onClick={handleResumeResult}
+                disabled={loading}
+                className="border border-foreground px-5 py-2 text-[11px] uppercase tracking-[0.2em] hover:bg-foreground hover:text-background transition-all disabled:opacity-40"
+              >
+                ver resultado
+              </button>
+              <button
+                onClick={handleStartClick}
+                disabled={loading}
+                className="border border-border px-5 py-2 text-[11px] uppercase tracking-[0.2em] hover:border-foreground transition-colors disabled:opacity-40"
+              >
+                começar nova sessão
               </button>
             </div>
           </div>

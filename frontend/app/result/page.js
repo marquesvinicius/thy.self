@@ -17,7 +17,7 @@ import ResultActions from '@/components/ResultActions';
 import ReferenceDetailModal from '@/components/ReferenceDetailModal';
 import AnswerReviewModal from '@/components/AnswerReviewModal';
 import DisclaimerGate from '@/components/DisclaimerGate';
-import { clearActiveSession } from '@/lib/activeSession';
+import { clearActiveSession, setLastResultSession, clearLastResultSession } from '@/lib/activeSession';
 
 const MAX_REGENS = 3;
 
@@ -31,7 +31,12 @@ function disclaimerKey(sessionId) {
 // Deduplicamos requisições em voo pela chave da sessão (ou modo teste).
 const inflightLoad = new Map();
 
-function loadResultPayload({ isTestMode, getSessionId, setSessionIdStorage }) {
+function loadResultPayload({
+  isTestMode,
+  analyzeFresh,
+  getSessionId,
+  setSessionIdStorage,
+}) {
   const sessionKey = isTestMode ? '__test__' : getSessionId();
   if (!sessionKey) {
     return Promise.reject(new Error('NO_SESSION'));
@@ -50,12 +55,11 @@ function loadResultPayload({ isTestMode, getSessionId, setSessionIdStorage }) {
     }
 
     const activeSessionId = sessionKey;
-    let data;
-    try {
-      data = await getResult(activeSessionId);
-    } catch {
-      data = await analyzeSession(activeSessionId);
-    }
+    // Após o quiz, o resultado ainda não existe: analise diretamente para
+    // evitar um 404 esperado no console antes do fallback para POST /analyze.
+    const data = analyzeFresh
+      ? await analyzeSession(activeSessionId)
+      : await getResult(activeSessionId).catch(() => analyzeSession(activeSessionId));
     return { data, activeSessionId };
   })().finally(() => {
     inflightLoad.delete(sessionKey);
@@ -69,7 +73,7 @@ export default function Result() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex flex-col">
-        <MysticBackground />
+        <MysticBackground readingFocus />
         <Header />
         <main className="flex-1 flex flex-col items-center pt-24 pb-16 px-6 relative z-[1]">
           <ImmersiveLoader />
@@ -110,6 +114,7 @@ function ResultContent() {
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
 
   const isTestMode = searchParams.get('test') === '1';
+  const analyzeFresh = searchParams.get('analyze') === '1';
   const regenExhausted = regenCount >= MAX_REGENS;
 
   useEffect(() => {
@@ -125,12 +130,14 @@ function ResultContent() {
 
         const { data, activeSessionId } = await loadResultPayload({
           isTestMode,
+          analyzeFresh,
           getSessionId: () => sessionStorage.getItem('session_id'),
           setSessionIdStorage: (id) => sessionStorage.setItem('session_id', id),
         });
 
         if (!cancelled) {
           setSessionId(activeSessionId);
+          setLastResultSession(activeSessionId);
           setProfile(data.profile);
           setLlmInterpretation(data.profile.llm_interpretation || null);
           // Sincroniza o contador de re-geração com o servidor — o estado
@@ -159,7 +166,7 @@ function ResultContent() {
     })();
 
     return () => { cancelled = true; };
-  }, [router, isTestMode]);
+  }, [router, isTestMode, analyzeFresh]);
 
   // Hidrata o cache de detalhes a partir do sessionStorage quando o
   // session_id fica conhecido. Mantém o contrato "1 chamada por referência"
@@ -229,6 +236,7 @@ function ResultContent() {
   function handleNewSession() {
     sessionStorage.removeItem('session_id');
     clearActiveSession();
+    clearLastResultSession();
     router.push('/');
   }
 
@@ -310,7 +318,7 @@ function ResultContent() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <MysticBackground />
+      <MysticBackground readingFocus />
       <Header />
 
       <main className="flex-1 flex flex-col items-center pt-24 pb-16 px-6 relative z-[1]">

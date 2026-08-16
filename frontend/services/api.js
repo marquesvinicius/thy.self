@@ -33,7 +33,10 @@ async function request(path, options = {}) {
       const data = await res.json();
 
       if (!data.success) {
-        throw new Error(data.error?.message || 'Request failed');
+        const error = new Error(data.error?.message || 'Request failed');
+        error.status = res.status;
+        error.code = data.error?.code;
+        throw error;
       }
 
       return data.data;
@@ -59,13 +62,18 @@ export async function createSession(nickname) {
   });
 }
 
-export async function getQuestions(sessionId, count = 1, preferQuestionId = null) {
+export async function getQuestions(
+  sessionId,
+  count = 1,
+  narrativeLimit = null,
+) {
   const params = new URLSearchParams({
     session_id: sessionId,
     count: String(count),
   });
-  if (preferQuestionId != null) {
-    params.set('prefer_question_id', String(preferQuestionId));
+  // Teto de perguntas narrativas (versão curta do ato 2). Omitido = completa.
+  if (narrativeLimit != null) {
+    params.set('narrative_limit', String(narrativeLimit));
   }
   return request(`/questions?${params}`);
 }
