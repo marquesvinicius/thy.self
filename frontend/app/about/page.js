@@ -60,7 +60,7 @@ function SectionTitle({ eyebrow, title }) {
 export default function AboutPage() {
   return (
     <div className="min-h-screen flex flex-col">
-      <MysticBackground />
+      <MysticBackground readingFocus />
       <Header />
 
       <main className="flex-1 pt-24 pb-24 px-6 relative z-[1]">

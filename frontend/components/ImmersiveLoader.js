@@ -22,10 +22,10 @@ const PIPELINE_STAGES = [
 ];
 
 const WAITING_PHRASES = [
-  'Lendo entre as linhas...',
-  'Conectando referências...',
-  'Decifrando padrões ocultos...',
-  'Quase lá...',
+  'Ainda montando…',
+  'Cruzando as respostas…',
+  'Quase pronto.',
+  'Só mais um pouco.',
 ];
 
 const WAITING_ROTATION = 3000;

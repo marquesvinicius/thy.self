@@ -7,32 +7,35 @@ const TUTORIALS = {
     },
     reflection: {
         title: 'Reflexão Livre',
-        desc: 'Um espaço livre para escrever o que lhe vem à cabeça. Suas palavras são interpretadas para pintar um quadro fiel de quem você é.'
+        desc: 'Um espaço livre para escrever o que lhe vem à cabeça. Quanto mais direto, melhor a leitura no final.'
     }
 };
 
 export default function TutorialPopup({ types, onComplete }) {
     const [currentIndex, setCurrentIndex] = useState(0);
 
-    if (!types || types.length === 0) return null;
-
-    const type = types[currentIndex];
-    const tutorial = TUTORIALS[type];
+    // Filtramos os tipos sem tutorial cadastrado DURANTE o render, em vez de
+    // pular via efeito. Isso mantém todos os hooks incondicionais (antes o
+    // `return null` acima do useEffect violava as regras de hooks) e dispensa
+    // o setState síncrono dentro do efeito.
+    const requestedCount = Array.isArray(types) ? types.length : 0;
+    const list = (Array.isArray(types) ? types : []).filter(t => TUTORIALS[t]);
+    const tutorial = list.length > 0 ? TUTORIALS[list[Math.min(currentIndex, list.length - 1)]] : null;
 
     const handleNext = () => {
-        if (currentIndex < types.length - 1) {
+        if (currentIndex < list.length - 1) {
             setCurrentIndex(prev => prev + 1);
         } else {
-            onComplete();
+            onComplete?.();
         }
     };
 
+    // Nenhum dos tipos pedidos tem tutorial: marca como visto e sai de cena.
     useEffect(() => {
-        if (!tutorial) {
-            handleNext();
+        if (requestedCount > 0 && list.length === 0) {
+            onComplete?.();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentIndex, tutorial]);
+    }, [requestedCount, list.length, onComplete]);
 
     if (!tutorial) return null;
 
@@ -49,7 +52,7 @@ export default function TutorialPopup({ types, onComplete }) {
                     onClick={handleNext}
                     className="w-full border border-foreground px-6 py-3 text-[11px] uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all"
                 >
-                    {currentIndex < types.length - 1 ? 'próximo' : 'entendido'}
+                    {currentIndex < list.length - 1 ? 'próximo' : 'entendido'}
                 </button>
             </div>
         </div>

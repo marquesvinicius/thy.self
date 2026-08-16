@@ -2,22 +2,21 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { getAnswerReview } from '@/services/api';
+import ModalShell from '@/components/ModalShell';
 
 /**
  * AnswerReviewModal — introduzido após o teste de usabilidade (abril/2026).
  *
  * Mostra ao usuário todas as respostas que ele deu durante o quiz, divididas
  * em duas abas:
- *   1. "Big Five (BFI-2-S)" — agrupada por traço (O/C/E/A/N). Para cada item,
- *      exibe a pergunta, a alternativa escolhida, e o sinal/tamanho da
- *      contribuição Likert (com `reverse_key` já aplicado). Isso responde a:
- *      "enxergar quais traços foram influenciados por quais respostas".
- *   2. "Narrativas (interpretativas)" — dilemas morais, paradoxos, interesses.
- *      Exibe a pergunta, a alternativa e/ou a reflexão livre do usuário.
+ *   1. "Big Five (BFI-2-S)" — agrupada por traço (O/C/E/A/N). Cada seção tem
+ *      uma barra de soma bruta (−12…+12) na mesma linguagem visual das
+ *      DimensionBar do resultado, e cada item mostra a contribuição Likert
+ *      assinada (reverse_key já aplicado).
+ *   2. "Narrativas (interpretativas)" — dilemas, paradoxos e interesses,
+ *      com a escolha e/ou reflexão livre do usuário.
  *
- * O modal é puramente de leitura — não permite editar respostas. Para
- * corrigir, o usuário deve recomeçar a sessão (botão "nova sessão" ou
- * voltar durante o quiz).
+ * Somente leitura — para corrigir, o usuário usa o "voltar" durante o quiz.
  */
 
 const TRAIT_META = {
@@ -27,6 +26,10 @@ const TRAIT_META = {
   A: { name: 'Amabilidade', short: 'A' },
   N: { name: 'Neuroticismo', short: 'N' },
 };
+
+// Limites teóricos da soma bruta por traço: 6 itens × Likert [−2, +2].
+const RAW_MIN = -12;
+const RAW_MAX = 12;
 
 const CATEGORY_LABELS = {
   moral_dilemma: 'Dilema moral',
@@ -39,16 +42,6 @@ export default function AnswerReviewModal({ open, sessionId, onClose }) {
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
   const [tab, setTab] = useState('objective');
-
-  useEffect(() => {
-    if (!open) return;
-
-    const onKeyDown = event => {
-      if (event.key === 'Escape') onClose?.();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, onClose]);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,37 +80,30 @@ export default function AnswerReviewModal({ open, sessionId, onClose }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-sm p-4 md:p-6">
-      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-border bg-background shadow-[0_0_40px_rgba(255,255,255,0.05)]">
-        <div className="p-5 border-b border-border flex items-center justify-between gap-4 sticky top-0 bg-background z-10">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.34em] text-muted">revisar respostas</p>
-            <h2 className="text-lg font-semibold tracking-tight mt-1">
-              o que você respondeu
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-[10px] uppercase tracking-[0.22em] text-muted hover:text-foreground transition-colors"
-          >
-            fechar
-          </button>
-        </div>
+    <ModalShell open={open} onClose={onClose} label="revisar respostas" maxWidth="max-w-3xl">
+      <div className="space-y-6">
+        <h2 className="text-lg md:text-xl font-bold tracking-tight">
+          o que você respondeu
+        </h2>
 
         {loading && (
-          <div className="p-8 text-center text-xs uppercase tracking-[0.24em] text-muted">
-            carregando suas respostas...
+          <div className="py-10 flex flex-col items-center gap-5">
+            <div className="w-2 h-2 rounded-full bg-foreground/40 animate-pulse-dot" />
+            <p className="text-xs uppercase tracking-[0.3em] text-muted">
+              carregando suas respostas...
+            </p>
           </div>
         )}
 
         {error && !loading && (
-          <div className="p-8 text-center space-y-3">
+          <div className="border border-border p-5 text-center">
             <p className="text-sm text-muted">{error}</p>
           </div>
         )}
 
         {!loading && !error && data && (
-          <div className="p-5 space-y-5">
+          <div className="space-y-6">
+            {/* Abas */}
             <div className="flex border border-border divide-x divide-border text-[11px] uppercase tracking-[0.22em]">
               <button
                 onClick={() => setTab('objective')}
@@ -147,6 +133,26 @@ export default function AnswerReviewModal({ open, sessionId, onClose }) {
           </div>
         )}
       </div>
+    </ModalShell>
+  );
+}
+
+/* Barra de soma bruta: centro = 0; preenche para a direita (positivo) ou
+   esquerda (negativo) a partir do meio — mesma linguagem das DimensionBar. */
+function RawSumBar({ total }) {
+  const clamped = Math.max(RAW_MIN, Math.min(RAW_MAX, total));
+  const half = 50; // percentual do centro
+  const extent = (Math.abs(clamped) / RAW_MAX) * half;
+  const left = clamped >= 0 ? half : half - extent;
+
+  return (
+    <div className="relative w-full h-1 bg-border" aria-hidden="true">
+      {/* Marca do centro (zero) */}
+      <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-px h-2.5 bg-muted/60" />
+      <div
+        className="absolute top-0 h-full bg-foreground transition-all duration-700 ease-out"
+        style={{ left: `${left}%`, width: `${extent}%` }}
+      />
     </div>
   );
 }
@@ -154,46 +160,55 @@ export default function AnswerReviewModal({ open, sessionId, onClose }) {
 function ObjectiveTab({ byTrait, traitTotals }) {
   const traitKeys = Object.keys(TRAIT_META);
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <p className="text-[11px] leading-relaxed text-muted/80">
-        As 30 perguntas do BFI-2-S são agrupadas por traço. A marca à direita de cada resposta mostra quanto aquele item contribuiu para o traço — o sinal já considera <em>reverse_key</em> (itens escritos no sentido oposto são invertidos automaticamente).
+        As 30 perguntas do BFI-2-S agrupadas por traço. A marca à esquerda de
+        cada resposta mostra a contribuição Likert assinada — o sinal já
+        considera <em>reverse_key</em> (itens escritos no sentido oposto são
+        invertidos automaticamente). A barra resume a soma bruta do eixo
+        (−12 … +12, centro = neutro).
       </p>
 
       {traitKeys.map(key => {
         const meta = TRAIT_META[key];
         const rows = byTrait[key] || [];
         const total = traitTotals[key] || 0;
-        if (rows.length === 0) {
-          return (
-            <section key={key} className="border border-border/70 p-4">
-              <header className="flex items-baseline justify-between gap-3 mb-2">
-                <h3 className="text-sm font-semibold tracking-tight">{meta.name}</h3>
-                <span className="text-[10px] uppercase tracking-[0.22em] text-muted">sem respostas</span>
-              </header>
-            </section>
-          );
-        }
+
         return (
-          <section key={key} className="border border-border/70 p-4 space-y-3">
-            <header className="flex items-baseline justify-between gap-3">
-              <h3 className="text-sm font-semibold tracking-tight">{meta.name} <span className="text-muted font-normal">({meta.short})</span></h3>
-              <span className="text-[10px] uppercase tracking-[0.22em] text-muted">
-                soma bruta: {total >= 0 ? `+${total}` : total}
-              </span>
-            </header>
-            <ul className="space-y-2">
-              {rows.map(row => (
-                <li key={row.id} className="flex items-start gap-3 border-t border-border/50 pt-2">
-                  <ContributionBadge value={row?.contribution?.delta} reverseKey={row.reverse_key} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12px] leading-relaxed text-foreground/90">{row.question_text}</p>
-                    <p className="text-[11px] text-muted mt-1">
-                      resposta: <span className="text-foreground/80">{row.answer_text || '—'}</span>
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+          <section key={key} className="relative border border-border p-5 pt-6 space-y-4">
+            <div className="absolute -top-2.5 left-4 px-2 bg-background flex items-baseline gap-2">
+              <span className="text-sm font-bold tracking-tight leading-none">{meta.short}</span>
+              <h3 className="text-[11px] uppercase tracking-[0.24em] text-foreground font-semibold">
+                {meta.name}
+              </h3>
+            </div>
+
+            {rows.length === 0 ? (
+              <p className="text-[10px] uppercase tracking-[0.22em] text-muted">sem respostas</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-4">
+                  <RawSumBar total={total} />
+                  <span className="text-xs font-semibold tabular-nums whitespace-nowrap">
+                    {total >= 0 ? `+${total}` : total}
+                  </span>
+                </div>
+
+                <ul className="space-y-2.5">
+                  {rows.map(row => (
+                    <li key={row.id} className="flex items-start gap-3 border-t border-border/50 pt-2.5">
+                      <ContributionBadge value={row?.contribution?.delta} reverseKey={row.reverse_key} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] leading-relaxed text-foreground/90">{row.question_text}</p>
+                        <p className="text-[11px] text-muted mt-1">
+                          resposta: <span className="text-foreground/80">{row.answer_text || '—'}</span>
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </section>
         );
       })}
@@ -211,25 +226,24 @@ function InterpretativeTab({ answers }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       <p className="text-[11px] leading-relaxed text-muted/80">
-        As respostas narrativas não alteram o escore do Big Five — elas servem
+        As respostas narrativas não alteram o escore do Big Five — servem
         apenas como contexto qualitativo para o texto de interpretação e para
         as referências culturais.
       </p>
-      <ul className="space-y-3">
-        {answers.map(row => (
-          <li key={row.id} className="border border-border/70 p-4 space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[9px] uppercase tracking-[0.22em] text-muted">
+      <ul className="space-y-5">
+        {answers.map((row, index) => (
+          <li key={row.id} className="relative border border-border p-5 pt-6 space-y-2">
+            <div className="absolute -top-2.5 left-4 px-2 bg-background flex items-baseline gap-2">
+              <span className="text-[10px] tabular-nums text-muted/60">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <span className="text-[10px] uppercase tracking-[0.24em] text-foreground font-semibold">
                 {CATEGORY_LABELS[row.category_slug] || row.category_slug || 'outro'}
               </span>
-              {row.answer_type && (
-                <span className="text-[9px] uppercase tracking-[0.22em] text-muted/70">
-                  {row.answer_type}
-                </span>
-              )}
             </div>
+
             <p className="text-[12px] leading-relaxed text-foreground/90">{row.question_text}</p>
             {row.answer_text && (
               <p className="text-[11px] text-muted">
@@ -242,7 +256,7 @@ function InterpretativeTab({ answers }) {
               </blockquote>
             )}
             {!row.answer_text && !row.user_observation && (
-              <p className="text-[11px] text-muted italic">pulada pelo usuário</p>
+              <p className="text-[11px] text-muted italic">pulada</p>
             )}
           </li>
         ))}
@@ -254,23 +268,24 @@ function InterpretativeTab({ answers }) {
 function ContributionBadge({ value, reverseKey }) {
   const delta = Number(value || 0);
   const sign = delta > 0 ? '+' : delta < 0 ? '' : '±';
-  const intensity = Math.min(Math.abs(delta), 2);
-  const colorClass =
-    delta > 0
-      ? 'border-foreground/70 text-foreground'
-      : delta < 0
-        ? 'border-foreground/70 text-foreground'
-        : 'border-border text-muted';
+  const strong = Math.abs(delta) === 2;
+
   return (
     <span
-      className={`inline-flex flex-col items-center justify-center min-w-[44px] h-[44px] border px-2 ${colorClass}`}
+      className={`inline-flex flex-col items-center justify-center min-w-[42px] h-[42px] border px-2 shrink-0 ${
+        delta === 0
+          ? 'border-border text-muted'
+          : strong
+            ? 'border-foreground text-foreground'
+            : 'border-foreground/50 text-foreground/90'
+      }`}
       title={reverseKey ? 'item invertido (reverse_key)' : 'item direto'}
     >
       <span className="text-sm font-semibold tabular-nums leading-none">
         {sign}{delta || 0}
       </span>
       <span className="text-[8px] uppercase tracking-[0.18em] text-muted mt-1">
-        {intensity === 0 ? 'neutro' : reverseKey ? 'inv.' : 'dir.'}
+        {delta === 0 ? 'neutro' : reverseKey ? 'inv.' : 'dir.'}
       </span>
     </span>
   );

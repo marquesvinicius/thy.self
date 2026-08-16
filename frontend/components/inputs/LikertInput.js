@@ -85,19 +85,22 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
   ];
 
   return (
-    <div className="w-full max-w-xl mx-auto space-y-5">
-      <div className="flex justify-between text-[10px] uppercase tracking-[0.25em] text-muted px-1">
+    <div className="w-full max-w-xl mx-auto min-w-0 space-y-5">
+      <div className="hidden md:flex justify-between text-[10px] uppercase tracking-[0.25em] text-muted px-1">
         <span>Discordo</span>
         <span>Concordo</span>
       </div>
 
-      <div className="flex items-start justify-between gap-2 md:gap-4">
+      <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between md:gap-4">
         {orderedPairs.map(({ alt, size, tone, label }) => {
           const isSelected = externalSelectedId === alt.id;
           const sizeMap = {
-            lg: 'h-14 w-14 md:h-16 md:w-16',
-            md: 'h-11 w-11 md:h-12 md:w-12',
-            sm: 'h-8 w-8 md:h-10 md:w-10',
+            // No mobile, todos têm 64px para dar mais presença visual e
+            // aproveitar melhor a área vertical disponível.
+            // A hierarquia de tamanhos original permanece no desktop.
+            lg: 'h-16 w-16 md:h-16 md:w-16',
+            md: 'h-16 w-16 md:h-12 md:w-12',
+            sm: 'h-16 w-16 md:h-10 md:w-10',
           };
           const toneRing =
             tone === 'negative'
@@ -107,7 +110,7 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
                 : 'hover:border-foreground/40';
 
           return (
-            <div key={alt.id} className="flex flex-col items-center gap-2 flex-1 min-w-0">
+            <div key={alt.id} className="flex flex-row items-center justify-start gap-5 min-w-0 w-full md:flex-1 md:flex-col md:gap-2">
               <button
                 type="button"
                 aria-label={label}
@@ -122,7 +125,7 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
                 } disabled:opacity-40 disabled:cursor-not-allowed`}
               />
               <span
-                className={`text-[9px] md:text-[10px] uppercase tracking-[0.12em] text-center leading-tight max-w-[72px] md:max-w-[84px] transition-colors ${
+                className={`flex-1 min-w-0 text-[9px] md:text-[10px] uppercase tracking-[0.12em] text-left md:text-center leading-tight break-words md:max-w-[84px] transition-colors ${
                   isSelected ? 'text-foreground' : 'text-muted'
                 }`}
               >

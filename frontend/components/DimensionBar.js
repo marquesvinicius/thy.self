@@ -6,16 +6,14 @@ export default function DimensionBar({ dimension, consistency = null, animate = 
   const [visible, setVisible] = useState(!animate);
   const [displayScore, setDisplayScore] = useState(animate ? 0 : dimension.score);
 
-  // Delay before revealing
+  // Delay before revealing. O caso `!animate` já é coberto pelos valores
+  // iniciais do useState (e por `shownScore` no render) — não precisa de
+  // setState síncrono aqui.
   useEffect(() => {
-    if (!animate) {
-      setVisible(true);
-      setDisplayScore(dimension.score);
-      return;
-    }
+    if (!animate) return;
     const timer = setTimeout(() => setVisible(true), delay);
     return () => clearTimeout(timer);
-  }, [animate, delay, dimension.score]);
+  }, [animate, delay]);
 
   // Animate number counting from 0 to score
   useEffect(() => {
@@ -53,7 +51,7 @@ export default function DimensionBar({ dimension, consistency = null, animate = 
             </span>
           </div>
           <span className="text-2xl md:text-3xl font-bold tabular-nums">
-            {Math.round(displayScore)}
+            {Math.round(animate ? displayScore : dimension.score)}
           </span>
         </div>
 

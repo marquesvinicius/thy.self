@@ -11,6 +11,14 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Escala tipográfica global: 14px (~87,5% do default do browser).
+   Todos os tamanhos rem do Tailwind (text-xl…text-5xl) encolhem
+   proporcionalmente — equivale ao equilíbrio visual do zoom ~75–80%,
+   mas os micro-labels em px fixo (text-[10px]) permanecem legíveis. */
+html {
+  font-size: 14px;
+}
+
 body {
   background: var(--color-background);
   color: var(--color-foreground);
@@ -20,6 +28,42 @@ body {
 ::selection {
   background: var(--color-foreground);
   color: var(--color-background);
+}
+
+/* ── Scrollbar minimalista ───
+   Propriedades padrão (Chromium 121+, Firefox): thumb grafite sobre trilho
+   preto, sem setas. `scrollbar-color` é herdada a partir do :root; o bloco
+   ::-webkit-* cobre Safari/Chromium antigos (ignorado quando o padrão CSS
+   é suportado). */
+
+:root {
+  scrollbar-color: #2e2e2e transparent;
+}
+
+* {
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #2e2e2e;
+  border: 2px solid var(--color-background);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4a;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* ── Oracular Animations ─── */
@@ -126,6 +170,20 @@ body {
   );
 }
 
+/* Véu de contraste: mantém a ambientação, mas cria uma base mais uniforme
+   para o conteúdo textual e os controles interativos. */
+.mystic-content-shield {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+}
+
+/* Nas telas de leitura, apenas os olhos ficam mais discretos. */
+.mystic-bg-reading > svg {
+  opacity: 0.42;
+}
+
 /* Flash oracular — raio de visão ao responder */
 @keyframes oracularFlash {
   0%   { opacity: 0; }
@@ -136,6 +194,23 @@ body {
 .mystic-oracle-flash {
   background: white;
   animation: oracularFlash 0.5s ease-out forwards;
+}
+
+/* ── Mystic Eyes: respiração da pupila (dilatação lenta ±12%) ─── */
+
+@keyframes pupilBreath {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.12); }
+}
+
+.pupil-breath {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pupilBreath 8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pupil-breath { animation: none; }
 }
 
 /* ── Result Page: Re-generation spinner ─── */

@@ -167,8 +167,9 @@ export async function exportResultPdf({ profile, llmInterpretation, shareUrl = n
     content: [
       buildTitleBlock(profile, nickname, palette),
       buildInterpretationBlock(llmInterpretation, palette),
-      buildEssenceBlock(llmInterpretation, palette),
+      // Arquétipo antes das referências — é ele quem calibra a narrativa.
       buildArchetypeBlock(profile, palette),
+      buildEssenceBlock(llmInterpretation, palette),
       buildBigFiveBlock(profile, palette),
       buildDisclaimer(palette),
     ],
@@ -282,7 +283,7 @@ function buildEssenceBlock(llm, palette) {
   if (refs.length === 0 && works.length === 0) return { text: '' };
 
   const children = [
-    { text: '2 · TUA ESSÊNCIA', style: 'sectionLabel' },
+    { text: '3 · TUA ESSÊNCIA', style: 'sectionLabel' },
     { text: 'ressonâncias culturais', style: 'sectionTitle' },
     { text: 'Figuras e obras em diálogo com o seu perfil.', style: 'sectionSub' },
   ];
@@ -330,7 +331,7 @@ function buildArchetypeBlock(profile, palette) {
 
   return {
     stack: [
-      { text: '3 · ARQUÉTIPO ESTATÍSTICO', style: 'sectionLabel' },
+      { text: '2 · ARQUÉTIPO ESTATÍSTICO', style: 'sectionLabel' },
       { text: archetype.name, style: 'sectionTitle' },
       {
         text: (archetype.universe || '').toUpperCase(),

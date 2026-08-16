@@ -39,7 +39,7 @@ export default function CulturalCard({
 
         {/* Category badge */}
         <div className="absolute top-3 left-3">
-          <span className="text-[9px] uppercase tracking-[0.2em] bg-background/80 backdrop-blur-sm border border-border px-2 py-1">
+          <span className="text-[9px] uppercase tracking-[0.2em] bg-background border border-border px-2 py-1">
             {categoria}
           </span>
         </div>

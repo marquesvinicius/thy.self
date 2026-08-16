@@ -5,6 +5,7 @@ import NarrativeBlock from '@/components/NarrativeBlock';
 import DimensionBar from '@/components/DimensionBar';
 import CulturalCard from '@/components/CulturalCard';
 import WorksBlock from '@/components/WorksBlock';
+import ScrollFadeSection from '@/components/ScrollFadeSection';
 
 /**
  * ResultView — presentational shell for the Dual-Core result screen.
@@ -42,7 +43,7 @@ export default function ResultView({
     <div className="w-full max-w-3xl space-y-16">
       {/* ── 1. Interpretação (topo narrativo) ── */}
       {hasNarrative && (
-        <section className="space-y-6">
+        <ScrollFadeSection className="space-y-6">
           {llmInterpretation.vibe_resumo && (
             <VibeHero text={llmInterpretation.vibe_resumo} kicker="a sua síntese" />
           )}
@@ -53,15 +54,58 @@ export default function ResultView({
           {llmInterpretation.interpretacao && (
             <NarrativeBlock text={llmInterpretation.interpretacao} />
           )}
-        </section>
+        </ScrollFadeSection>
       )}
 
-      {/* ── 2. Tua essência ── */}
+      {/* ── 2. Arquétipo estatístico (RF005 — distância euclidiana) ──
+          Vem ANTES das referências: é ele quem calibra o tom da narrativa
+          e das ressonâncias culturais — a ordem espelha o pipeline. */}
+      {profile.archetype?.name && (
+        <ScrollFadeSection className="space-y-6">
+          <SectionHeader
+            label="arquétipo estatístico"
+            sub="o personagem mais próximo do seu perfil no espaço pentadimensional OCEAN"
+          />
+          <div className="border border-border p-6 md:p-8 text-center space-y-4">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-muted">
+              {profile.archetype.universe}
+            </p>
+            <p className="text-2xl md:text-4xl font-bold tracking-tight">
+              {profile.archetype.name}
+            </p>
+            {Number.isFinite(Number(profile.archetype.distance)) && (
+              <p className="text-[11px] text-muted/80 leading-relaxed max-w-md mx-auto">
+                distância euclidiana de{' '}
+                <span className="text-foreground/80 tabular-nums">
+                  {Number(profile.archetype.distance).toFixed(1)}
+                </span>{' '}
+                entre o seu perfil e {profile.archetype.name} nos cinco eixos
+                OCEAN — o mais próximo dentre 2.125 personagens do catálogo
+                Open-Source Psychometrics Project.
+              </p>
+            )}
+            {profile.anti_archetype?.name && (
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted/70">
+                no extremo oposto: {profile.anti_archetype.name}
+                {profile.anti_archetype.universe ? ` (${profile.anti_archetype.universe})` : ''}
+                {Number.isFinite(Number(profile.anti_archetype.distance))
+                  ? ` · distância ${Number(profile.anti_archetype.distance).toFixed(1)}`
+                  : ''}
+              </p>
+            )}
+            <p className="text-[10px] uppercase tracking-[0.2em] text-muted/60 pt-2 border-t border-border/50">
+              usado como calibrador de tom da narrativa — não é um rótulo
+            </p>
+          </div>
+        </ScrollFadeSection>
+      )}
+
+      {/* ── 3. Tua essência (referências calibradas pelo arquétipo) ── */}
       {hasNarrative && (
-        <section className="space-y-6">
+        <ScrollFadeSection className="space-y-6">
           <SectionHeader
             label="tua essência"
-            sub="referências culturais e obras em ressonância com o seu perfil"
+            sub="referências e obras próximas ao seu perfil"
           />
 
           {Array.isArray(llmInterpretation.referencias) && llmInterpretation.referencias.length > 0 && (
@@ -103,43 +147,11 @@ export default function ResultView({
               </button>
             </div>
           )}
-        </section>
+        </ScrollFadeSection>
       )}
 
-      {/* ── 2.5 Arquétipo estatístico (RF005 — distância euclidiana) ── */}
-      {profile.archetype?.name && (
-        <section className="space-y-6">
-          <SectionHeader
-            label="arquétipo estatístico"
-            sub="o personagem mais próximo do seu perfil no espaço pentadimensional OCEAN"
-          />
-          <div className="border border-border p-6 md:p-8 text-center space-y-4">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-muted">
-              {profile.archetype.universe}
-            </p>
-            <p className="text-2xl md:text-4xl font-bold tracking-tight">
-              {profile.archetype.name}
-            </p>
-            {Number.isFinite(Number(profile.archetype.distance)) && (
-              <p className="text-[11px] text-muted/80 leading-relaxed max-w-md mx-auto">
-                distância euclidiana de{' '}
-                <span className="text-foreground/80 tabular-nums">
-                  {Number(profile.archetype.distance).toFixed(1)}
-                </span>{' '}
-                entre o seu perfil e {profile.archetype.name} nos cinco eixos
-                OCEAN — o mais próximo dentre 2.125 personagens do catálogo
-                Open-Source Psychometrics Project.
-              </p>
-            )}
-            <p className="text-[10px] uppercase tracking-[0.2em] text-muted/60 pt-2 border-t border-border/50">
-              usado como calibrador de tom da narrativa — não é um rótulo
-            </p>
-          </div>
-        </section>
-      )}
-
-      {/* ── 3. Perfil Big Five (base técnica, fundamentação) ── */}
-      <section className="space-y-6">
+      {/* ── 4. Perfil Big Five (base técnica, fundamentação) ── */}
+      <ScrollFadeSection className="space-y-6">
         <SectionHeader
           label="perfil técnico big five"
           sub={`fundamentação quantitativa · ${profile.answer_count} respostas · BFI-2-S (Soto & John, 2017)`}
@@ -155,7 +167,7 @@ export default function ResultView({
             />
           ))}
         </div>
-      </section>
+      </ScrollFadeSection>
     </div>
   );
 }

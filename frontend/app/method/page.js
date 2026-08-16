@@ -97,6 +97,29 @@ const COMPARISON = [
   },
 ];
 
+const AI_FLOW_STEPS = [
+  {
+    number: '01',
+    title: 'respostas',
+    text: 'as respostas objetivas e interpretativas formam a matéria-prima da análise, cada uma com seu papel separado.',
+  },
+  {
+    number: '02',
+    title: 'perfil calculado',
+    text: 'o motor determinístico calcula os cinco escores, a consistência e o estilo de resposta a partir da camada objetiva.',
+  },
+  {
+    number: '03',
+    title: 'contexto narrativo',
+    text: 'o sistema reúne os escores, o arquétipo já selecionado e o contexto qualitativo permitido para orientar a interpretação.',
+  },
+  {
+    number: '04',
+    title: 'devolutiva',
+    text: 'a IA transforma esse contexto em uma leitura textual, referências e obras culturais para a tela de resultado.',
+  },
+];
+
 function SectionTitle({ eyebrow, title }) {
   return (
     <div className="space-y-2 mb-8">
@@ -129,7 +152,7 @@ function InlineEq({ tex }) {
 export default function MethodPage() {
   return (
     <div className="min-h-screen flex flex-col">
-      <MysticBackground showEyes={false} />
+      <MysticBackground readingFocus />
       <Header />
 
       <main className="flex-1 pt-24 pb-24 px-6 relative z-[1]">
@@ -422,14 +445,65 @@ export default function MethodPage() {
             </p>
           </section>
 
+          {/* AI flow */}
+          <section>
+            <SectionTitle eyebrow="7. fluxo da interpretação" title="onde a IA entra — e onde ela não entra" />
+            <p className="text-sm text-muted leading-relaxed mb-6">
+              a IA entra somente depois que o perfil numérico e o arquétipo já
+              foram calculados. ela organiza uma devolutiva narrativa a partir
+              desse resultado e das respostas qualitativas, mas não participa da
+              medição nem decide o arquétipo.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {AI_FLOW_STEPS.map((step, index) => (
+                <div key={step.number} className="border border-border p-4 space-y-3 relative">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-muted">
+                      etapa {step.number}
+                    </span>
+                    {index < AI_FLOW_STEPS.length - 1 && (
+                      <span className="hidden lg:inline text-foreground/30" aria-hidden="true">→</span>
+                    )}
+                  </div>
+                  <h3 className="text-xs font-bold uppercase tracking-[0.15em]">
+                    {step.title}
+                  </h3>
+                  <p className="text-[11px] text-muted leading-relaxed">
+                    {step.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
+              <div className="border border-foreground/60 p-5 space-y-2">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-muted">limites</div>
+                <p className="text-xs text-muted leading-relaxed">
+                  a IA não calcula os escores, não escolhe o arquétipo e não
+                  transforma o resultado em diagnóstico. sua função é
+                  interpretativa e complementar.
+                </p>
+              </div>
+              <div className="border border-border p-5 space-y-2">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-muted">se a IA falhar</div>
+                <p className="text-xs text-muted leading-relaxed">
+                  o perfil OCEAN e o arquétipo continuam disponíveis. a
+                  devolutiva pode recorrer ao fallback do sistema sem alterar o
+                  cálculo já realizado.
+                </p>
+              </div>
+            </div>
+          </section>
+
           {/* LLM role */}
           <section>
-            <SectionTitle eyebrow="7. o modelo de linguagem" title="orquestrador narrativo, não juiz" />
+            <SectionTitle eyebrow="8. o modelo de linguagem" title="orquestrador narrativo, não juiz" />
             <p className="text-sm text-muted leading-relaxed mb-4">
-              quando o usuário solicita a leitura narrativa, o sistema monta
-              um prompt estruturado em três blocos claramente rotulados e
-              envia a um modelo de linguagem de larga escala. o retorno é
-              texto em português, devolvido como JSON validado.
+              quando o usuário solicita a leitura narrativa, o sistema envia
+              ao modelo de linguagem o contexto já preparado pela análise. a
+              resposta é validada e transformada em uma devolutiva em português
+              para a tela de resultado.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
@@ -466,7 +540,7 @@ export default function MethodPage() {
               <ul className="text-xs text-muted space-y-1.5 leading-relaxed">
                 <li>— nenhuma saída do LLM retroalimenta o motor de cálculo</li>
                 <li>— se a IA falhar, o perfil numérico permanece acessível</li>
-                <li>— a narrativa é efêmera: não é persistida no banco</li>
+                <li>— a devolutiva gerada é salva junto ao resultado para ser reaberta depois</li>
                 <li>— o mesmo perfil pode gerar textos diferentes — a narrativa é <strong className="text-foreground">não-determinística por natureza</strong></li>
               </ul>
             </div>
@@ -474,7 +548,7 @@ export default function MethodPage() {
 
           {/* Per-answer transparency */}
           <section>
-            <SectionTitle eyebrow="8. auditabilidade resposta a resposta" title="ver qual pergunta empurrou qual traço" />
+            <SectionTitle eyebrow="9. auditabilidade resposta a resposta" title="ver qual pergunta empurrou qual traço" />
             <p className="text-sm text-muted leading-relaxed mb-6">
               o perfil é uma soma de trinta pequenas decisões. em uma tela
               dedicada de revisão, você pode percorrer as suas respostas do
@@ -513,7 +587,7 @@ export default function MethodPage() {
 
           {/* Export */}
           <section>
-            <SectionTitle eyebrow="9. exportação" title="exportação em PDF" />
+            <SectionTitle eyebrow="10. exportação" title="exportação em PDF" />
             <div className="space-y-4 text-sm text-muted leading-relaxed">
               <p>
                 ao concluir o questionário, o usuário pode exportar o resultado
@@ -531,7 +605,7 @@ export default function MethodPage() {
 
           {/* Boundaries */}
           <section>
-            <SectionTitle eyebrow="10. limites" title="o que o thy.self não é" />
+            <SectionTitle eyebrow="11. limites" title="o que o thy.self não é" />
             <div className="space-y-3">
               {[
                 { label: 'não é diagnóstico clínico', text: 'nenhum escore deste sistema sugere, aproxima-se ou substitui uma avaliação psicológica ou psiquiátrica profissional.' },
@@ -549,7 +623,7 @@ export default function MethodPage() {
 
           {/* References */}
           <section>
-            <SectionTitle eyebrow="11. referências" title="de onde vem cada decisão" />
+            <SectionTitle eyebrow="12. referências" title="de onde vem cada decisão" />
             <div className="space-y-2 text-[11px] md:text-xs text-muted leading-relaxed">
               <p>
                 <strong className="text-foreground">SOTO, C. J.; JOHN, O. P.</strong> The next Big Five Inventory (BFI-2):

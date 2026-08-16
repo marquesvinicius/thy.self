@@ -21,7 +21,7 @@ export default function RootLayout({ children }) {
         SÓ ao próprio <body> — filhos continuam sendo verificados normalmente.
       */}
       <body
-        className={`${geistMono.variable} antialiased`}
+        className={`${geistMono.variable} antialiased overflow-x-hidden`}
         suppressHydrationWarning
       >
         {children}
