@@ -41,6 +41,17 @@ export async function getQuestionsWithAlternatives(questionIds) {
   return data;
 }
 
+export async function getQuestionKindById(questionId) {
+  const { data, error } = await supabase
+    .from('questions')
+    .select('id, kind, type')
+    .eq('id', questionId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') throw error;
+  return data;
+}
+
 export async function getAlternativeWithImpacts(alternativeId) {
   const { data, error } = await supabase
     .from('alternatives')

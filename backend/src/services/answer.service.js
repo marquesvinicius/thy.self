@@ -4,9 +4,15 @@ import {
   countObjectiveAnswersBySessionId,
   deleteLastAnswer,
 } from '../database/queries/answer.queries.js';
-import { getAlternativeWithImpacts } from '../database/queries/question.queries.js';
+import {
+  getAlternativeWithImpacts,
+  getQuestionKindById,
+} from '../database/queries/question.queries.js';
 import { AppError } from '../utils/AppError.js';
-import { MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS } from '../config/constants.js';
+import {
+  MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS,
+  QUESTION_KIND,
+} from '../config/constants.js';
 
 export async function recordAnswer(sessionId, questionId, alternativeId, answerType = 'alternative_id', userObservation = null) {
   // Validate that the alternative belongs to the question only if using standard alternatives
@@ -20,6 +26,24 @@ export async function recordAnswer(sessionId, questionId, alternativeId, answerT
     if (alternative.question_id !== questionId) {
       throw new AppError(
         'Alternative does not belong to the specified question.',
+        400,
+        'VALIDATION_ERROR'
+      );
+    }
+  }
+
+  // Respostas sem alternativa (pular narrativa / reflexão vazia) só são
+  // válidas na camada interpretativa. Um "skip" numa pergunta objetiva
+  // inflaria o contador do BFI-2-S com um item sem valor Likert,
+  // corrompendo o cálculo OCEAN — bloqueado na fonte.
+  if (!alternativeId) {
+    const question = await getQuestionKindById(questionId);
+    if (!question) {
+      throw new AppError('Question not found.', 404, 'NOT_FOUND');
+    }
+    if (question.kind !== QUESTION_KIND.INTERPRETATIVE) {
+      throw new AppError(
+        'Objective (BFI-2-S) questions cannot be skipped.',
         400,
         'VALIDATION_ERROR'
       );

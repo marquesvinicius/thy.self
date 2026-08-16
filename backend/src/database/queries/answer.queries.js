@@ -157,6 +157,9 @@ export async function countObjectiveAnswersBySessionId(sessionId) {
  * @returns {Promise<Array<{
  *   category_slug: string,
  *   question_text: string,
+ *   question_context: string|null,
+ *   question_type: string|null,
+ *   is_reflection: boolean,
  *   alternative_text: string|null,
  *   user_observation: string|null,
  * }>>}
@@ -169,6 +172,8 @@ export async function getInterpretativeSignals(sessionId) {
       alternatives ( text ),
       questions!inner (
         text,
+        context,
+        type,
         kind,
         question_categories ( slug )
       )
@@ -179,12 +184,23 @@ export async function getInterpretativeSignals(sessionId) {
   if (error) throw error;
 
   return (data || [])
-    .map(row => ({
-      category_slug: row.questions?.question_categories?.slug || 'unknown',
-      question_text: row.questions?.text || '',
-      alternative_text: row.alternatives?.text ?? null,
-      user_observation: row.user_observation ?? null,
-    }))
+    .map(row => {
+      const questionType = row.questions?.type || null;
+      const alternativeText = row.alternatives?.text ?? null;
+      const userObservation = row.user_observation ?? null;
+      const isReflection = questionType === 'reflection'
+        || (!alternativeText && !!userObservation);
+
+      return {
+        category_slug: row.questions?.question_categories?.slug || 'unknown',
+        question_text: row.questions?.text || '',
+        question_context: row.questions?.context ?? null,
+        question_type: questionType,
+        is_reflection: isReflection,
+        alternative_text: alternativeText,
+        user_observation: userObservation,
+      };
+    })
     .filter(sig => sig.alternative_text || sig.user_observation);
 }
 
