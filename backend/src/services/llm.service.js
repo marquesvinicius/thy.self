@@ -1104,7 +1104,7 @@ async function generateStructuredOutput({
     return null;
   }
 
-  const budget = checkDailyBudget();
+  const budget = await checkDailyBudget();
   if (!budget.allowed) {
     logger.info(`${errorLabel} skipped: daily limit reached (${budget.used}/${budget.limit})`);
     return null;
@@ -1141,7 +1141,7 @@ async function generateStructuredOutput({
       throw parseErr;
     }
 
-    recordLLMCall();
+    await recordLLMCall();
     return parsed;
   } catch (err) {
     logger.error(`${errorLabel} failed (graceful skip)`, {

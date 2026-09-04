@@ -146,6 +146,7 @@ CREATE TABLE results (
   raw_impacts        JSONB NOT NULL,
   consistency        JSONB,
   llm_interpretation JSONB,
+  regen_count        INTEGER NOT NULL DEFAULT 0,
   calculated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -197,3 +198,40 @@ AS $$
   ORDER BY distance DESC, id ASC
   LIMIT 1;
 $$;
+
+-- ============================================================
+-- USO DO LLM (migration_010) — contadores persistidos
+-- ============================================================
+CREATE TABLE llm_daily_usage (
+  day        DATE PRIMARY KEY,
+  call_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE OR REPLACE FUNCTION increment_llm_daily_usage()
+RETURNS INTEGER AS $$
+DECLARE
+  new_count INTEGER;
+BEGIN
+  INSERT INTO llm_daily_usage (day, call_count, updated_at)
+  VALUES (CURRENT_DATE, 1, NOW())
+  ON CONFLICT (day) DO UPDATE
+    SET call_count = llm_daily_usage.call_count + 1,
+        updated_at = NOW()
+  RETURNING call_count INTO new_count;
+  RETURN new_count;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION increment_session_regen(p_session_id UUID)
+RETURNS INTEGER AS $$
+DECLARE
+  new_count INTEGER;
+BEGIN
+  UPDATE results
+     SET regen_count = regen_count + 1
+   WHERE session_id = p_session_id
+  RETURNING regen_count INTO new_count;
+  RETURN COALESCE(new_count, 0);
+END;
+$$ LANGUAGE plpgsql;

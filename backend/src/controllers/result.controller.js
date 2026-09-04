@@ -64,7 +64,7 @@ export async function handleGetResult(req, res, next) {
     // Orçamento de re-geração vem junto para o frontend sincronizar o
     // contador do botão "gerar novas referências" com a verdade do servidor
     // (o estado local se perdia num reload da página).
-    const regenBudget = checkRegenBudget(session_id);
+    const regenBudget = await checkRegenBudget(session_id);
 
     const profile = toProfilePayload(result);
     // RF005: arquétipos recomputados do escore salvo (funções determinísticas

@@ -31,7 +31,7 @@ export async function handleInterpret(req, res, next) {
     }
 
     // Check per-session re-generation limit
-    const regenBudget = checkRegenBudget(session_id);
+    const regenBudget = await checkRegenBudget(session_id);
     if (!regenBudget.allowed) {
       throw new AppError(
         `Limite de re-geração atingido (${regenBudget.limit}/${regenBudget.limit}). Inicie uma nova sessão.`,
@@ -131,7 +131,7 @@ export async function handleInterpret(req, res, next) {
     }
 
     // Record successful re-generation
-    recordRegen(session_id);
+    await recordRegen(session_id);
 
     return success(res, {
       session_id,

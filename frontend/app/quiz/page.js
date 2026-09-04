@@ -526,6 +526,15 @@ export default function Quiz() {
       <Header />
 
       <main className="flex-1 flex flex-col pt-16 md:pt-20 relative z-[1] overflow-x-hidden">
+        {/* Anúncio para leitor de tela. A troca de pergunta é puramente
+            visual (animação + troca de nó); sem uma região live, quem usa
+            leitor de tela não recebe aviso nenhum de que avançou. */}
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {questions.length > 0
+            ? `Pergunta ${progress.answered + 1} de ${progress.total}. ${questions[0]?.text ?? ''}`
+            : ''}
+        </div>
+
         {/* Status bar */}
         <div className="flex flex-col gap-3 px-5 sm:px-6 md:px-10 py-4 border-b border-border">
           <ProgressBar current={progress.answered} total={progress.total} />
@@ -603,11 +612,14 @@ export default function Quiz() {
                     <span className="text-[10px] uppercase tracking-widest text-muted">
                       {q.kind === 'objective' ? 'BFI-2-S' : q.category}
                     </span>
-                    <h2 className={`font-bold leading-tight tracking-tight break-words text-balance ${
-                      q.kind === 'interpretative'
-                        ? 'text-2xl md:text-3xl lg:text-4xl'
-                        : 'text-xl md:text-2xl lg:text-3xl'
-                    }`}>
+                    <h2
+                      id={`question-${q.id}-text`}
+                      className={`font-bold leading-tight tracking-tight break-words text-balance ${
+                        q.kind === 'interpretative'
+                          ? 'text-2xl md:text-3xl lg:text-4xl'
+                          : 'text-xl md:text-2xl lg:text-3xl'
+                      }`}
+                    >
                       {q.text}
                     </h2>
                     {q.context && <p className="text-sm md:text-base text-muted leading-relaxed break-words">{q.context}</p>}
@@ -615,7 +627,14 @@ export default function Quiz() {
 
                   {/* Right Side: Options & Submit */}
                   <div className="w-full max-w-md min-w-0 mx-auto flex flex-col items-center justify-center space-y-10 md:space-y-12">
-                    <div className="w-full flex justify-center">
+                    {/* As opções formam um grupo semanticamente ligado ao
+                        enunciado: sem isso, o leitor de tela anuncia cinco
+                        botões soltos, sem dizer a que pergunta respondem. */}
+                    <div
+                      className="w-full flex justify-center"
+                      role="group"
+                      aria-labelledby={`question-${q.id}-text`}
+                    >
                       <QuestionRenderer
                         question={q}
                         value={answers[q.id]}

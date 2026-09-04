@@ -238,3 +238,34 @@ body {
   white-space: normal;
 }
 
+
+/* ── Acessibilidade: foco visível por teclado ───
+   A interface não tinha nenhum estilo de foco: quem navega por teclado
+   (ou por leitor de tela) não conseguia enxergar onde estava. Usamos
+   :focus-visible para não poluir o clique de mouse, e um anel de alto
+   contraste que funciona sobre o fundo escuro do produto. */
+
+*:focus-visible {
+  outline: 2px solid var(--foreground, #fff);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* Alvos redondos (escala Likert) merecem o anel acompanhando a forma. */
+button.rounded-full:focus-visible {
+  outline-offset: 4px;
+  border-radius: 9999px;
+}
+
+/* Conteúdo só para leitor de tela (rótulos e anúncios de progresso). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

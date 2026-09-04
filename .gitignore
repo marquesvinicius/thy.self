@@ -62,3 +62,6 @@ supabase/.temp
 SWCPQ-Features-Aggregated-Dataset-*/
 test-*.js
 test-*.txt
+
+# Saídas de execução do harness de avaliação (artefatos, não fonte)
+backend/eval/*.json

@@ -8,7 +8,13 @@ const router = Router();
 // POST /api/v1/dev/quick-analyze — Create session + random answers + analyze
 router.post('/quick-analyze', handleQuickAnalyze);
 
-// GET /api/v1/dev/stats — Orçamento LLM do dia (contadores in-memory do limiter)
-router.get('/stats', (req, res) => success(res, getUsageStats()));
+// GET /api/v1/dev/stats — Orçamento LLM do dia (contadores persistidos)
+router.get('/stats', async (req, res, next) => {
+  try {
+    return success(res, await getUsageStats());
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default router;

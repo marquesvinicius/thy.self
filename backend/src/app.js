@@ -3,6 +3,7 @@ import cors from 'cors';
 import { corsOptions } from './config/cors.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import routes from './routes/index.js';
+import { checkSupabaseHealth } from './services/supabase-health.service.js';
 import { logger } from './utils/logger.js';
 
 const app = express();
@@ -17,12 +18,33 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
+/**
+ * Liveness: process is up.
+ * Readiness (deep=1): also probes Supabase — use this for startup/preflight.
+ *   GET /health        → always 200 if the process is alive
+ *   GET /health?deep=1 → 200 ok | 503 degraded when Supabase is unreachable
+ */
+app.get('/health', async (req, res) => {
+  const deep = req.query.deep === '1' || req.query.deep === 'true';
+
+  if (!deep) {
+    return res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    });
+  }
+
+  const supabase = await checkSupabaseHealth();
+  const healthy = supabase.status === 'ok';
+
+  return res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'ok' : 'degraded',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    dependencies: {
+      supabase,
+    },
   });
 });
 
