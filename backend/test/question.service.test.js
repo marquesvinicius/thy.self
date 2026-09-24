@@ -11,6 +11,8 @@ let questionsFixture = [];
 let answeredIdsFixture = [];
 let objectiveAnsweredFixture = 0;
 let sessionOrderFixture = null;
+let sessionMissing = false;
+const persistedOrders = [];
 
 mock.module('../src/database/queries/question.queries.js', {
   namedExports: {
@@ -31,18 +33,20 @@ mock.module('../src/database/queries/answer.queries.js', {
 
 mock.module('../src/database/queries/session.queries.js', {
   namedExports: {
-    getSessionById: async () => ({
-      question_order: sessionOrderFixture || [
+    getSessionById: async () => (sessionMissing ? null : {
+      question_order: sessionOrderFixture === undefined ? null : sessionOrderFixture || [
         ...questionsFixture.filter(q => q.kind === 'objective').map(q => q.id),
         ...questionsFixture.filter(q => q.kind === 'interpretative').map(q => q.id),
       ],
     }),
-    updateSessionQuestionOrder: async (_id, order) => ({ question_order: order }),
+    updateSessionQuestionOrder: async (id, order) => {
+      persistedOrders.push({ id, order });
+      return { question_order: order };
+    },
   },
 });
 
 const { getQuestions } = await import('../src/services/question.service.js');
-const { buildQuestionOrder } = await import('../src/utils/questionOrder.js');
 
 function objectiveQ(id, trait) {
   return {
@@ -74,22 +78,6 @@ function interpretativeQ(id, slug) {
     alternatives: [{ id: id * 100, text: 'Opção', sort_order: 0 }],
   };
 }
-
-test('buildQuestionOrder materializa objetivos antes da narrativa', () => {
-  const questions = [
-    objectiveQ(1, 'O'),
-    objectiveQ(2, 'C'),
-    interpretativeQ(101, 'moral_dilemma'),
-    interpretativeQ(102, 'interest'),
-    { ...interpretativeQ(103, 'paradoxical'), type: 'reflection' },
-  ];
-
-  const order = buildQuestionOrder(questions);
-
-  assert.deepEqual(new Set(order), new Set(questions.map(q => q.id)));
-  assert.ok(order.slice(0, 2).every(id => [1, 2].includes(id)));
-  assert.ok(order.indexOf(103) < order.length);
-});
 
 test('picker prioriza itens objetivos enquanto houver BFI-2-S pendente', async () => {
   questionsFixture = [
@@ -227,10 +215,8 @@ test('skip interpretativo consome o slot e segue a ordem fixa', async () => {
   sessionOrderFixture = null;
 });
 
-test('ordem persistida pode colocar reflexão no próximo slot', async () => {
-  const reflection = { ...interpretativeQ(200, 'interest'), type: 'reflection', alternatives: [] };
-  // Pool interpretativo total = 4; 2 já respondidas (nenhuma reflexão) →
-  // disponível (2) <= ceil(4/2) → força a reflexão no batch.
+test('reflexão na ordem persistida é servida sem alternativas', async () => {
+  const reflection = { ...interpretativeQ(200, 'interest'), type: 'reflection' };
   questionsFixture = [
     interpretativeQ(101, 'moral_dilemma'),
     interpretativeQ(102, 'paradoxical'),
@@ -245,6 +231,8 @@ test('ordem persistida pode colocar reflexão no próximo slot', async () => {
 
   assert.equal(result.questions.length, 1);
   assert.equal(result.questions[0].type, 'reflection');
+  // A fixture traz alternativas; reflexão é texto livre e não as expõe.
+  assert.deepEqual(result.questions[0].alternatives, []);
   sessionOrderFixture = null;
 });
 
@@ -300,25 +288,6 @@ test('narrativeLimit inválido é ignorado (não trava o ato narrativo)', async 
   assert.equal(result.stage_progress.interpretative_total, 2);
 });
 
-test('rotação emocional alterna categorias (pesado → leve → médio)', async () => {
-  // 1 interpretativa já respondida → índice 1 da rotação → 'interest'
-  questionsFixture = [
-    { ...interpretativeQ(100, 'moral_dilemma') }, // respondida
-    interpretativeQ(101, 'moral_dilemma'),
-    interpretativeQ(102, 'paradoxical'),
-    interpretativeQ(103, 'interest'),
-  ];
-  // Fixture realista: `answeredIds` inclui as 30 objetivas + a interpretativa,
-  // pois o serviço deriva a contagem narrativa por subtração.
-  answeredIdsFixture = [...Array.from({ length: 30 }, (_, i) => i + 1), 100];
-  objectiveAnsweredFixture = 30;
-
-  const result = await getQuestions('session-1', 1);
-
-  assert.equal(result.questions.length, 1);
-  assert.equal(result.questions[0].id, 101); // a ordem materializada é a fonte da verdade
-});
-
 test('reflexão NÃO é forçada se o usuário já respondeu (ou pulou) uma', async () => {
   const answeredReflection = { ...interpretativeQ(201, 'interest'), type: 'reflection', alternatives: [] };
   const pendingReflection = { ...interpretativeQ(202, 'interest'), type: 'reflection', alternatives: [] };
@@ -335,4 +304,141 @@ test('reflexão NÃO é forçada se o usuário já respondeu (ou pulou) uma', as
 
   assert.equal(result.questions.length, 1);
   assert.notEqual(result.questions[0].id, 202);
+});
+
+function reset({ questions = [], answered = [], objective = 0, order = null } = {}) {
+  questionsFixture = questions;
+  answeredIdsFixture = answered;
+  objectiveAnsweredFixture = objective;
+  sessionOrderFixture = order;
+  sessionMissing = false;
+  persistedOrders.length = 0;
+}
+
+const thirtyAnswered = () => Array.from({ length: 30 }, (_, i) => i + 1);
+
+test('sessão inexistente devolve lote vazio, sem progresso por etapa', async () => {
+  reset({ questions: [objectiveQ(1, 'O')] });
+  sessionMissing = true;
+
+  assert.deepEqual(await getQuestions('ghost', 5), {
+    questions: [], total_answered: 0, total_available: 0, can_analyze: false,
+  });
+});
+
+test('sessão sem ordem materializa e persiste a ordem uma única vez', async () => {
+  reset({ questions: [objectiveQ(1, 'O'), interpretativeQ(101, 'interest')] });
+  sessionOrderFixture = undefined; // sessão recém-criada: question_order nulo no banco
+
+  const result = await getQuestions('sess-new', 5);
+
+  assert.equal(persistedOrders.length, 1);
+  assert.equal(persistedOrders[0].id, 'sess-new');
+  assert.deepEqual(persistedOrders[0].order, [1, 101]);
+  assert.deepEqual(result.questions.map(q => q.id), [1, 101]);
+});
+
+test('sessão com ordem já persistida não regrava a ordem', async () => {
+  reset({ questions: [objectiveQ(1, 'O')], order: [1] });
+  await getQuestions('sess', 5);
+  assert.equal(persistedOrders.length, 0);
+});
+
+test('orçamento narrativo limita as interpretativas DENTRO do lote', async () => {
+  // Teto 3, 1 já respondida → cabem 2, mesmo pedindo 5.
+  reset({
+    questions: [100, 101, 102, 103, 104, 105].map(id => interpretativeQ(id, 'paradoxical')),
+    answered: [...thirtyAnswered(), 100],
+    objective: 30,
+    order: [100, 101, 102, 103, 104, 105],
+  });
+
+  const result = await getQuestions('s', 5, { narrativeLimit: 3 });
+
+  assert.deepEqual(result.questions.map(q => q.id), [101, 102]);
+  assert.equal(result.total_available, 2);
+  assert.deepEqual(result.stage_progress, {
+    objective_answered: 30, objective_total: 0, interpretative_answered: 1, interpretative_total: 3,
+  });
+});
+
+test('teto narrativo 0 encerra a narrativa, mas objetivas pendentes seguem', async () => {
+  reset({
+    questions: [objectiveQ(1, 'O'), interpretativeQ(101, 'interest')],
+    order: [101, 1],
+  });
+
+  const result = await getQuestions('s', 5, { narrativeLimit: 0 });
+
+  assert.deepEqual(result.questions.map(q => q.id), [1]);
+  assert.equal(result.total_available, 1);
+});
+
+test('teto narrativo negativo é ignorado (vale o catálogo inteiro)', async () => {
+  reset({ questions: [101, 102].map(id => interpretativeQ(id, 'interest')), answered: thirtyAnswered(), objective: 30 });
+  const result = await getQuestions('s', 5, { narrativeLimit: -1 });
+  assert.equal(result.stage_progress.interpretative_total, 2);
+  assert.equal(result.questions.length, 2);
+});
+
+test('teto narrativo fracionário é truncado', async () => {
+  reset({ questions: [101, 102, 103].map(id => interpretativeQ(id, 'interest')), answered: thirtyAnswered(), objective: 30 });
+  const result = await getQuestions('s', 5, { narrativeLimit: '2.9' });
+  assert.equal(result.stage_progress.interpretative_total, 2);
+});
+
+test('lote respeita o count pedido e o progresso por etapa soma as camadas', async () => {
+  reset({
+    questions: [objectiveQ(1, 'O'), objectiveQ(2, 'C'), objectiveQ(3, 'E'), interpretativeQ(101, 'interest')],
+    answered: [1],
+    objective: 1,
+  });
+
+  const result = await getQuestions('s', 1);
+
+  assert.deepEqual(result.questions.map(q => q.id), [2]);
+  assert.equal(result.total_answered, 1);
+  assert.equal(result.total_available, 3);
+  assert.deepEqual(result.stage_progress, {
+    objective_answered: 1, objective_total: 3, interpretative_answered: 0, interpretative_total: 1,
+  });
+});
+
+test('formato público da pergunta: objetiva × interpretativa', async () => {
+  const bare = { ...interpretativeQ(101, 'interest'), kind: undefined, type: undefined, trait: undefined };
+  reset({ questions: [objectiveQ(1, 'O'), bare], order: [1, 101] });
+
+  const [obj, interp] = (await getQuestions('s', 5)).questions;
+
+  assert.deepEqual(obj, {
+    id: 1, text: 'BFI item 1', context: null, category: 'objective_bfi2s',
+    kind: 'objective', trait: 'O', type: 'multiple_choice',
+    alternatives: [{ id: 100, text: 'Discordo' }, { id: 101, text: 'Concordo' }],
+  });
+  // Sem kind/type/trait no banco → defaults seguros (interpretativa, múltipla escolha, sem traço).
+  assert.deepEqual(interp, {
+    id: 101, text: 'Interpretativa 101', context: null, category: 'interest',
+    kind: 'interpretative', trait: null, type: 'multiple_choice',
+    alternatives: [{ id: 10100, text: 'Opção' }],
+  });
+});
+
+test('alternativas de interpretativas são as mesmas, só embaralhadas', async () => {
+  const q = interpretativeQ(101, 'interest');
+  q.alternatives = [0, 1, 2, 3, 4, 5].map(i => ({ id: i, text: `alt ${i}`, sort_order: i }));
+  reset({ questions: [q], answered: thirtyAnswered(), objective: 30 });
+
+  const seen = new Set();
+  for (let i = 0; i < 20; i += 1) {
+    const [served] = (await getQuestions('s', 1)).questions;
+    assert.deepEqual(served.alternatives.map(a => a.id).sort(), [0, 1, 2, 3, 4, 5]);
+    seen.add(served.alternatives.map(a => a.id).join());
+  }
+  assert.ok(seen.size > 1, 'a ordem das alternativas interpretativas deveria variar');
+});
+
+test('pergunta da ordem que não voltou do join de alternativas é descartada', async () => {
+  reset({ questions: [objectiveQ(1, 'O'), objectiveQ(2, 'C')], order: [1, 2, 999] });
+  const result = await getQuestions('s', 5);
+  assert.deepEqual(result.questions.map(q => q.id), [1, 2]);
 });
