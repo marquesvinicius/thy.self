@@ -12,16 +12,19 @@ const calls = {
   createResult: [],
   updateSessionStatus: [],
   generateInterpretation: 0,
+  llmArgs: null,
 };
+let savedRowFixture = { calculated_at: '2026-07-16T12:00:00.000Z' };
 
 let answersFixture = [];
 let existingResultFixture = null;
 let llmFixture = null;
 
+const SIGNALS = [{ category: 'interest', question: 'Q?', answer: 'A' }];
 mock.module('../src/database/queries/answer.queries.js', {
   namedExports: {
     getAnswersBySessionId: async () => answersFixture,
-    getInterpretativeSignals: async () => [],
+    getInterpretativeSignals: async () => SIGNALS,
   },
 });
 
@@ -30,7 +33,7 @@ mock.module('../src/database/queries/result.queries.js', {
     getResultBySessionId: async () => existingResultFixture,
     createResult: async (sessionId, profile, consistency, llm) => {
       calls.createResult.push({ sessionId, profile, consistency, llm });
-      return { calculated_at: '2026-07-16T12:00:00.000Z' };
+      return savedRowFixture;
     },
   },
 });
@@ -57,8 +60,9 @@ mock.module('../src/services/archetype.service.js', {
 
 mock.module('../src/services/llm.service.js', {
   namedExports: {
-    generateInterpretation: async () => {
+    generateInterpretation: async (...args) => {
       calls.generateInterpretation += 1;
+      calls.llmArgs = args;
       return llmFixture;
     },
   },
@@ -70,6 +74,8 @@ function resetCalls() {
   calls.createResult = [];
   calls.updateSessionStatus = [];
   calls.generateInterpretation = 0;
+  calls.llmArgs = null;
+  savedRowFixture = { calculated_at: '2026-07-16T12:00:00.000Z' };
 }
 
 /** 30 respostas objetivas (6 por eixo), todas +1 → escore 75 em cada eixo. */
@@ -99,7 +105,12 @@ test('retorna resultado persistido sem novo cálculo nem nova chamada LLM (idemp
   const result = await analyzeSession('sess-idem');
 
   assert.equal(result.profile.llm_interpretation.vibe_resumo, 'já existia');
-  assert.equal(result.profile.scores.O, 70);
+  assert.deepEqual(result.profile.scores, { O: 70, C: 55, E: 40, A: 60, N: 30 });
+  assert.equal(result.profile.calculated_at, '2026-07-01T10:00:00.000Z');
+  assert.equal(result.profile.consistency, null);
+  // Arquétipos não são persistidos: recomputados do escore salvo (RF005).
+  assert.equal(result.profile.archetype.id, 'arch-1');
+  assert.equal(result.profile.anti_archetype.id, 'arch-far');
   assert.equal(calls.generateInterpretation, 0);
   assert.equal(calls.createResult.length, 0);
   assert.equal(calls.updateSessionStatus.length, 0);
@@ -112,9 +123,26 @@ test('rejeita análise com menos de 30 respostas objetivas (INSUFFICIENT_DATA)',
 
   await assert.rejects(
     () => analyzeSession('sess-short'),
-    err => err.code === 'INSUFFICIENT_DATA' && err.statusCode === 422
+    {
+      code: 'INSUFFICIENT_DATA',
+      statusCode: 422,
+      message: 'Not enough BFI-2-S answers. Current: 29, minimum: 30.',
+    }
   );
   assert.equal(calls.createResult.length, 0);
+});
+
+test('interpretativas não completam o mínimo: 29 objetivas + 10 narrativas → 422', async () => {
+  resetCalls();
+  existingResultFixture = null;
+  const narrative = Array.from({ length: 10 }, () => ({
+    questions: { kind: 'interpretative', trait: null, reverse_key: false },
+    alternatives: {},
+  }));
+  answersFixture = [...thirtyObjectiveAnswers().slice(0, 29), ...narrative];
+
+  await assert.rejects(() => analyzeSession('sess-narr'), { code: 'INSUFFICIENT_DATA' });
+  assert.equal(calls.generateInterpretation, 0);
 });
 
 test('pipeline completo: calcula, persiste e marca a sessão como completed', async () => {
@@ -170,4 +198,44 @@ test('resultado persistido sem llm_interpretation dispara recomputação', async
 
   assert.equal(calls.generateInterpretation, 1);
   assert.equal(result.profile.llm_interpretation.vibe_resumo, 'segunda tentativa');
+});
+
+test('a IA recebe perfil, consistência, sinais, arquétipo e o estilo de resposta', async () => {
+  resetCalls();
+  existingResultFixture = null;
+  answersFixture = thirtyObjectiveAnswers();
+  llmFixture = { vibe_resumo: 'x' };
+
+  const result = await analyzeSession('sess-args');
+
+  const [profile, consistency, signals, archetype, options] = calls.llmArgs;
+  assert.equal(profile.answerCount, 30);
+  assert.deepEqual(consistency.O, { mean: 1, stddev: 0, tension: false, n: 6 });
+  assert.equal(signals, SIGNALS);
+  assert.equal(archetype.id, 'arch-1');
+  assert.equal(options.antiArchetype.id, 'arch-far');
+  assert.equal(options.responseStyle.answer_count, 30);
+  assert.equal(options.responseStyle.agree_direct_rate, 1);
+
+  // O que foi calculado é o que foi persistido e devolvido.
+  assert.equal(calls.createResult[0].sessionId, 'sess-args');
+  assert.equal(calls.createResult[0].consistency, consistency);
+  assert.deepEqual(result.profile.consistency, consistency);
+  assert.equal(result.profile.archetype.name, 'Arquétipo Teste');
+  assert.equal(result.profile.anti_archetype.name, 'Anti Teste');
+  assert.equal(result.profile.calculated_at, '2026-07-16T12:00:00.000Z');
+  assert.equal(result.session_id, 'sess-args');
+});
+
+test('sem calculated_at na linha salva, o payload usa o instante atual', async () => {
+  resetCalls();
+  existingResultFixture = null;
+  answersFixture = thirtyObjectiveAnswers();
+  savedRowFixture = null;
+
+  const before = Date.now();
+  const result = await analyzeSession('sess-now');
+  const stamped = Date.parse(result.profile.calculated_at);
+
+  assert.ok(stamped >= before && stamped <= Date.now());
 });
