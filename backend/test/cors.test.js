@@ -29,3 +29,8 @@ test('origem não autorizada é recusada com 403 (e não 500)', () => {
   assert.equal(err.statusCode, 403);
   assert.equal(err.code, 'CORS_FORBIDDEN');
 });
+
+test('superfície liberada: só GET/POST e o cabeçalho Content-Type', () => {
+  assert.deepEqual(corsOptions.methods, ['GET', 'POST']);
+  assert.deepEqual(corsOptions.allowedHeaders, ['Content-Type']);
+});

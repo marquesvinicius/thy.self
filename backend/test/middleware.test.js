@@ -15,8 +15,11 @@ mock.module('../src/database/queries/session.queries.js', {
     },
   },
 });
+const logged = [];
 mock.module('../src/utils/logger.js', {
-  namedExports: { logger: { error() {}, warn() {}, info() {}, debug() {} } },
+  namedExports: {
+    logger: { error: (message, meta) => logged.push({ message, meta }), warn() {}, info() {}, debug() {} },
+  },
 });
 
 const { validateRequest } = await import('../src/middleware/validateRequest.js');
@@ -113,9 +116,12 @@ test('validateRequest responde 400 (não 500) quando a requisição não tem cor
 
 test('sessionGuard exige session_id (400) sem consultar o banco', async () => {
   lookups.length = 0;
-  const err = await run(sessionGuard, { body: {}, query: {} });
-  assert.equal(err.statusCode, 400);
-  assert.equal(err.code, 'VALIDATION_ERROR');
+  for (const req of [{ body: {}, query: {} }, { body: {} }, {}]) {
+    const err = await run(sessionGuard, req);
+    assert.equal(err.statusCode, 400);
+    assert.equal(err.code, 'VALIDATION_ERROR');
+    assert.equal(err.message, 'session_id is required.');
+  }
   assert.equal(lookups.length, 0);
 });
 
@@ -132,6 +138,7 @@ test('sessionGuard responde 404 para sessão inexistente', async () => {
   const err = await run(sessionGuard, { body: { session_id: 'x' } });
   assert.equal(err.statusCode, 404);
   assert.equal(err.code, 'NOT_FOUND');
+  assert.equal(err.message, 'Session not found.');
 });
 
 test('sessionGuard responde 410 para sessão já concluída (RN013)', async () => {
@@ -139,6 +146,7 @@ test('sessionGuard responde 410 para sessão já concluída (RN013)', async () =
   const err = await run(sessionGuard, { body: { session_id: 'x' } });
   assert.equal(err.statusCode, 410);
   assert.equal(err.code, 'GONE');
+  assert.equal(err.message, 'Session already completed.');
 });
 
 test('sessionGuard anexa a sessão ativa à requisição e segue', async () => {
@@ -156,6 +164,20 @@ test('errorHandler preserva status e código de um AppError', () => {
   errorHandler(new AppError('Não achei.', 404, 'NOT_FOUND'), { path: '/x' }, res, () => {});
   assert.equal(res.statusCode, 404);
   assert.deepEqual(res.body, { success: false, error: { message: 'Não achei.', code: 'NOT_FOUND' } });
+});
+
+test('RNF015/016: errorHandler registra mensagem, stack e caminho em log estruturado', () => {
+  logged.length = 0;
+  const err = new AppError('Não achei.', 404, 'NOT_FOUND');
+  errorHandler(err, { path: '/api/v1/result/x' }, fakeRes(), () => {});
+  assert.deepEqual(logged, [{ message: 'Não achei.', meta: { stack: err.stack, path: '/api/v1/result/x' } }]);
+});
+
+test('AppError sem status/código explícitos vira 400 ERROR', () => {
+  const err = new AppError('x');
+  assert.equal(err.statusCode, 400);
+  assert.equal(err.code, 'ERROR');
+  assert.ok(err instanceof Error);
 });
 
 test('errorHandler esconde a mensagem de erros inesperados (500 genérico)', () => {

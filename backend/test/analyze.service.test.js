@@ -139,7 +139,8 @@ test('interpretativas não completam o mínimo: 29 objetivas + 10 narrativas →
     questions: { kind: 'interpretative', trait: null, reverse_key: false },
     alternatives: {},
   }));
-  answersFixture = [...thirtyObjectiveAnswers().slice(0, 29), ...narrative];
+  // Linha sem pergunta associada (join vazio) também não conta.
+  answersFixture = [...thirtyObjectiveAnswers().slice(0, 29), ...narrative, { questions: null, alternatives: null }];
 
   await assert.rejects(() => analyzeSession('sess-narr'), { code: 'INSUFFICIENT_DATA' });
   assert.equal(calls.generateInterpretation, 0);

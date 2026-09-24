@@ -7,6 +7,7 @@ import { findClosestArchetype, findFarthestArchetype } from '../services/archety
 import { profilePayloadFromRow } from '../engine/profile-payload.js';
 import { success } from '../utils/apiResponse.js';
 import { AppError } from '../utils/AppError.js';
+import { DIMENSION_KEYS } from '../config/constants.js';
 
 /**
  * GET /api/v1/result/:session_id
@@ -15,12 +16,8 @@ import { AppError } from '../utils/AppError.js';
  */
 export async function handleGetResult(req, res, next) {
   try {
+    // A rota /:session_id garante o parâmetro não vazio.
     const { session_id } = req.params;
-
-    if (!session_id) {
-      throw new AppError('session_id is required', 400, 'MISSING_SESSION_ID');
-    }
-
     const result = await getResultBySessionId(session_id);
 
     if (!result) {
@@ -62,16 +59,12 @@ export async function handleGetResult(req, res, next) {
 export async function handleGetAnswerReview(req, res, next) {
   try {
     const { session_id } = req.params;
-    if (!session_id) {
-      throw new AppError('session_id is required', 400, 'MISSING_SESSION_ID');
-    }
-
     const answers = await getAnswerReviewBySessionId(session_id);
     const objective = answers.filter(a => a.kind === 'objective');
     const interpretative = answers.filter(a => a.kind === 'interpretative');
 
     const byTrait = {};
-    for (const key of ['O', 'C', 'E', 'A', 'N']) byTrait[key] = [];
+    for (const key of DIMENSION_KEYS) byTrait[key] = [];
     for (const row of objective) {
       if (row.trait && byTrait[row.trait]) byTrait[row.trait].push(row);
     }

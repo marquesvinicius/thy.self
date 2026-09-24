@@ -12,6 +12,7 @@ let answeredIdsFixture = [];
 let objectiveAnsweredFixture = 0;
 let sessionOrderFixture = null;
 let sessionMissing = false;
+let droppedFromJoin = new Set();
 const persistedOrders = [];
 
 mock.module('../src/database/queries/question.queries.js', {
@@ -19,8 +20,8 @@ mock.module('../src/database/queries/question.queries.js', {
     getAllActiveQuestions: async () => questionsFixture,
     getQuestionsWithAlternatives: async ids =>
       questionsFixture
-        .filter(q => ids.includes(q.id))
-        .map(q => ({ ...q, alternatives: q.alternatives || [] })),
+        .filter(q => ids.includes(q.id) && !droppedFromJoin.has(q.id))
+        .map(q => ({ ...q })),
   },
 });
 
@@ -312,6 +313,7 @@ function reset({ questions = [], answered = [], objective = 0, order = null } = 
   objectiveAnsweredFixture = objective;
   sessionOrderFixture = order;
   sessionMissing = false;
+  droppedFromJoin = new Set();
   persistedOrders.length = 0;
 }
 
@@ -437,8 +439,34 @@ test('alternativas de interpretativas são as mesmas, só embaralhadas', async (
   assert.ok(seen.size > 1, 'a ordem das alternativas interpretativas deveria variar');
 });
 
-test('pergunta da ordem que não voltou do join de alternativas é descartada', async () => {
+test('id da ordem que não existe mais no catálogo é ignorado', async () => {
   reset({ questions: [objectiveQ(1, 'O'), objectiveQ(2, 'C')], order: [1, 2, 999] });
   const result = await getQuestions('s', 5);
   assert.deepEqual(result.questions.map(q => q.id), [1, 2]);
+});
+
+test('pergunta desativada entre as duas consultas é descartada do lote', async () => {
+  reset({ questions: [objectiveQ(1, 'O'), objectiveQ(2, 'C'), objectiveQ(3, 'E')], order: [1, 2, 3] });
+  droppedFromJoin = new Set([2]);
+  const result = await getQuestions('s', 5);
+  assert.deepEqual(result.questions.map(q => q.id), [1, 3]);
+});
+
+test('pergunta de múltipla escolha sem alternativas vem com lista vazia', async () => {
+  const q = objectiveQ(1, 'O');
+  delete q.alternatives;
+  reset({ questions: [q], order: [1] });
+  const [served] = (await getQuestions('s', 1)).questions;
+  assert.deepEqual(served.alternatives, []);
+});
+
+test('total disponível só conta interpretativas que estão na ordem da sessão', async () => {
+  // Catálogo ganhou interpretativas depois que a sessão começou: elas não
+  // estão na ordem materializada e não podem inflar a barra de progresso.
+  reset({
+    questions: [objectiveQ(1, 'O'), objectiveQ(2, 'C'), ...[101, 102, 103].map(id => interpretativeQ(id, 'interest'))],
+    order: [1, 2, 101],
+  });
+  const result = await getQuestions('s', 1);
+  assert.equal(result.total_available, 3);
 });

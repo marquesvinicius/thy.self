@@ -29,6 +29,11 @@ function resetDb() {
     llm: { vibe_resumo: 'nova', referencias: [{ nome: 'Feynman' }], obras_culturais: [] },
     detail: { resumo: 'detalhe' },
     failNextQuery: null,
+    failPersist: null,
+    failResultQuery: null,
+    llmCalls: [],
+    detailCalls: [],
+    lensCalls: [],
   });
 }
 resetDb();
@@ -47,14 +52,14 @@ mock.module('../src/utils/logger.js', {
 mock.module('../src/database/queries/session.queries.js', {
   namedExports: {
     createSession: async (nickname, order) => ({ id: 'new-session', nickname, status: 'active', created_at: 'now', question_order: order }),
-    getSessionById: async id => { maybeFail(); return db.sessions.get(id) ?? null; },
+    getSessionById: async id => db.sessions.get(id) ?? null,
     updateSessionQuestionOrder: async () => ({}),
     updateSessionStatus: async (id, status) => ({ id, status }),
   },
 });
 mock.module('../src/database/queries/question.queries.js', {
   namedExports: {
-    getAllActiveQuestions: async () => db.questions,
+    getAllActiveQuestions: async () => { maybeFail(); return db.questions; },
     getQuestionsWithAlternatives: async ids => db.questions.filter(q => ids.includes(q.id)),
     getQuestionKindById: async id => db.questions.find(q => q.id === id) ?? null,
     getAlternativeWithImpacts: async id => db.alternatives.get(id) ?? null,
@@ -83,9 +88,13 @@ mock.module('../src/database/queries/answer.queries.js', {
 });
 mock.module('../src/database/queries/result.queries.js', {
   namedExports: {
-    getResultBySessionId: async () => db.result,
+    getResultBySessionId: async () => {
+      if (db.failResultQuery) throw db.failResultQuery;
+      return db.result;
+    },
     createResult: async () => ({}),
     updateResultInterpretation: async (_id, interpretation) => {
+      if (db.failPersist) throw db.failPersist;
       db.persistedInterpretation = interpretation;
       return {};
     },
@@ -99,9 +108,9 @@ mock.module('../src/services/archetype.service.js', {
 });
 mock.module('../src/services/llm.service.js', {
   namedExports: {
-    generateInterpretation: async () => db.llm,
-    generateReferenceDetail: async () => db.detail,
-    getRegenLens: () => ({ id: 'lens' }),
+    generateInterpretation: async (...args) => { db.llmCalls.push(args); return db.llm; },
+    generateReferenceDetail: async (...args) => { db.detailCalls.push(args); return db.detail; },
+    getRegenLens: used => { db.lensCalls.push(used); return { id: `lens-${used}` }; },
   },
 });
 
@@ -141,6 +150,12 @@ const RESULT_ROW = {
 
 // ── infraestrutura ──────────────────────────────────────────────────────────
 
+test('respostas de sucesso usam o envelope { success: true, data }', async () => {
+  const { body } = await call('GET', '/api/v1/questions?session_id=active');
+  assert.equal(body.success, true);
+  assert.ok(body.data);
+});
+
 test('GET /health responde ok', async () => {
   const { status, body } = await call('GET', '/health');
   assert.equal(status, 200);
@@ -158,13 +173,22 @@ test('JSON malformado → 400, não 500', async () => {
   const { status, body } = await call('POST', '/api/v1/answer', undefined, { raw: '{"session_id":' });
   assert.equal(status, 400);
   assert.equal(body.success, false);
+  assert.equal(body.error.code, 'ERROR', 'erro do parser não traz código próprio');
 });
 
 test('erro inesperado do banco → 500 genérico, sem vazar a mensagem interna', async () => {
-  db.failNextQuery = new Error('password=hunter2 connection refused');
-  const { status, body } = await call('GET', '/api/v1/questions?session_id=active');
-  assert.equal(status, 500);
-  assert.deepEqual(body.error, { message: 'Internal server error', code: 'INTERNAL_ERROR' });
+  const leak = () => new Error('password=hunter2 connection refused');
+  const attempts = [
+    () => { db.failNextQuery = leak(); return call('GET', '/api/v1/questions?session_id=active'); },
+    () => { db.failNextQuery = leak(); return call('POST', '/api/v1/session', {}); },
+    () => { db.failResultQuery = leak(); return call('GET', '/api/v1/result/x'); },
+    () => { db.failResultQuery = null; db.answerRows = null; return call('GET', '/api/v1/result/x/review'); },
+  ];
+  for (const attempt of attempts) {
+    const { status, body } = await attempt();
+    assert.equal(status, 500);
+    assert.deepEqual(body.error, { message: 'Internal server error', code: 'INTERNAL_ERROR' });
+  }
 });
 
 // ── sessão e perguntas ──────────────────────────────────────────────────────
@@ -184,11 +208,32 @@ test('GET /questions: 400 sem sessão, 404 inexistente, 410 concluída (RN013)',
   assert.equal(gone.body.error.code, 'GONE');
 });
 
-test('GET /questions serve o lote na ordem da sessão e limita count a 20', async () => {
-  const { status, body } = await call('GET', '/api/v1/questions?session_id=active&count=999');
+test('GET /questions serve o lote na ordem da sessão', async () => {
+  const { status, body } = await call('GET', '/api/v1/questions?session_id=active');
   assert.equal(status, 200);
   assert.deepEqual(body.data.questions.map(q => q.id), [1, 2, 101]);
   assert.equal(body.data.can_analyze, false);
+});
+
+test('GET /questions: count padrão 10, teto 20, inválido volta ao padrão', async () => {
+  db.questions = Array.from({ length: 25 }, (_, i) => ({
+    id: i + 1, kind: 'objective', trait: 'O', type: 'multiple_choice', text: `Q${i + 1}`, alternatives: [],
+  }));
+  db.sessions.get('active').question_order = db.questions.map(q => q.id);
+  const size = async qs => (await call('GET', `/api/v1/questions?session_id=active${qs}`)).body.data.questions.length;
+
+  assert.equal(await size(''), 10);
+  assert.equal(await size('&count=3'), 3);
+  assert.equal(await size('&count=999'), 20);
+  assert.equal(await size('&count=abc'), 10, 'antes: NaN devolvia as 25');
+  assert.equal(await size('&count=0'), 10);
+  assert.equal(await size('&count=-5'), 10);
+});
+
+test('GET /questions repassa o teto narrativo da versão curta', async () => {
+  const { body } = await call('GET', '/api/v1/questions?session_id=active&narrative_limit=0');
+  assert.deepEqual(body.data.questions.map(q => q.id), [1, 2]);
+  assert.equal(body.data.stage_progress.interpretative_total, 0);
 });
 
 // ── respostas ───────────────────────────────────────────────────────────────
@@ -241,7 +286,7 @@ test('POST /analyze com respostas insuficientes → 422 INSUFFICIENT_DATA', asyn
 test('GET /result/:id → 404 sem resultado; 200 com perfil, arquétipos e orçamento', async () => {
   const missing = await call('GET', '/api/v1/result/active');
   assert.equal(missing.status, 404);
-  assert.equal(missing.body.error.code, 'RESULT_NOT_FOUND');
+  assert.deepEqual(missing.body.error, { message: 'Result not found', code: 'RESULT_NOT_FOUND' });
 
   db.result = RESULT_ROW;
   const { status, body } = await call('GET', '/api/v1/result/fresh-session');
@@ -257,26 +302,75 @@ test('GET /result/:id/review agrupa as objetivas por traço', async () => {
     { kind: 'objective', trait: 'O', question_id: 1 },
     { kind: 'objective', trait: 'O', question_id: 2 },
     { kind: 'objective', trait: 'N', question_id: 3 },
+    { kind: 'objective', trait: 'X', question_id: 4 },  // traço inválido: fora dos grupos
+    { kind: 'objective', trait: null, question_id: 5 },
     { kind: 'interpretative', trait: null, question_id: 101 },
   ];
   const { body } = await call('GET', '/api/v1/result/active/review');
-  assert.deepEqual(body.data.totals, { answered: 4, objective: 3, interpretative: 1 });
-  assert.deepEqual(body.data.by_trait.O.map(r => r.question_id), [1, 2]);
-  assert.deepEqual(body.data.by_trait.C, []);
+  assert.deepEqual(body.data.totals, { answered: 6, objective: 5, interpretative: 1 });
+  const ids = rows => rows.map(r => r.question_id);
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(body.data.by_trait).map(([k, rows]) => [k, ids(rows)])),
+    { O: [1, 2], C: [], E: [], A: [], N: [3] }
+  );
   assert.equal(body.data.interpretative[0].question_id, 101);
 });
 
 // ── regeneração e detalhamento ──────────────────────────────────────────────
 
 test('POST /interpret: 400 sem sessão, 404 sem resultado, 503 com IA fora', async () => {
-  assert.equal((await call('POST', '/api/v1/interpret', {})).body.error.code, 'MISSING_SESSION_ID');
-  assert.equal((await call('POST', '/api/v1/interpret', { session_id: 'no-result' })).status, 404);
+  assert.deepEqual((await call('POST', '/api/v1/interpret', {})).body.error,
+    { message: 'session_id is required', code: 'MISSING_SESSION_ID' });
+  const noResult = await call('POST', '/api/v1/interpret', { session_id: 'no-result' });
+  assert.equal(noResult.status, 404);
+  assert.deepEqual(noResult.body.error,
+    { message: 'No result found for this session. Run /analyze first.', code: 'RESULT_NOT_FOUND' });
 
   db.result = RESULT_ROW;
   db.llm = null;
   const down = await call('POST', '/api/v1/interpret', { session_id: 'llm-down' });
   assert.equal(down.status, 503);
-  assert.equal(down.body.error.code, 'LLM_UNAVAILABLE');
+  assert.deepEqual(down.body.error,
+    { message: 'Interpretação indisponível. Limite diário pode ter sido atingido.', code: 'LLM_UNAVAILABLE' });
+});
+
+test('POST /interpret entrega à IA o perfil reconstruído, as exclusões e a lente', async () => {
+  db.result = { ...RESULT_ROW, consistency: { O: { tension: true, stddev: 1.5 } } };
+  await call('POST', '/api/v1/interpret', { session_id: 'regen-args', exclude_reference_names: ['Chaplin'] });
+
+  const [profile, consistency, , archetype, options] = db.llmCalls[0];
+  assert.deepEqual(profile.scores, { O: 70, C: 50, E: 50, A: 50, N: 50 });
+  // Mesma escala da primeira geração (antes: 'moderado-alto' só na regeneração).
+  assert.equal(profile.dimensions.find(d => d.key === 'O').level, 'alto');
+  assert.deepEqual(consistency, { O: { tension: true, stddev: 1.5 } });
+  assert.equal(archetype.id, 'near');
+  assert.equal(options.temperature, 1.2);
+  assert.deepEqual(options.excludedReferenceNames, ['Chaplin', 'Arendt']);
+  assert.deepEqual(options.excludedCategories, ['Filósofa']);
+  assert.deepEqual(options.regenLens, { id: 'lens-0' });
+});
+
+test('POST /interpret: lente estimada pelas referências persistidas após restart', async () => {
+  const nine = Array.from({ length: 9 }, (_, i) => ({ nome: `Ref ${i}` }));
+  db.result = { ...RESULT_ROW, llm_interpretation: { ...RESULT_ROW.llm_interpretation, referencias: nine } };
+  await call('POST', '/api/v1/interpret', { session_id: 'regen-restart' });
+  assert.deepEqual(db.lensCalls, [2]);
+
+  // Resultado sem interpretação persistida: tudo parte do zero, sem erro.
+  db.lensCalls.length = 0;
+  db.result = { ...RESULT_ROW, llm_interpretation: null };
+  const fresh = await call('POST', '/api/v1/interpret', { session_id: 'regen-empty' });
+  assert.equal(fresh.status, 200);
+  assert.deepEqual(db.lensCalls, [0]);
+  assert.deepEqual(fresh.body.data.llm_interpretation.referencias, [{ nome: 'Feynman' }]);
+});
+
+test('POST /interpret: falha ao persistir não derruba a resposta ao usuário', async () => {
+  db.result = RESULT_ROW;
+  db.failPersist = new Error('db down');
+  const res = await call('POST', '/api/v1/interpret', { session_id: 'regen-persist-fail' });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.data.llm_interpretation.referencias.map(r => r.nome), ['Arendt', 'Feynman']);
 });
 
 test('POST /interpret acumula referências, preserva o texto e persiste o resultado', async () => {
@@ -309,6 +403,41 @@ test('POST /interpret/reference-detail valida a referência antes de chamar a IA
     codes.push((await call('POST', '/api/v1/interpret/reference-detail', body)).body.error.code);
   }
   assert.deepEqual(codes, ['MISSING_SESSION_ID', 'MISSING_REFERENCE', 'MISSING_REFERENCE', 'MISSING_REFERENCE_NAME']);
+  const messages = [];
+  for (const body of [{}, { session_id: 's' }, { session_id: 's', reference: {} }]) {
+    messages.push((await call('POST', '/api/v1/interpret/reference-detail', body)).body.error.message);
+  }
+  assert.deepEqual(messages, ['session_id is required', 'reference is required', 'reference.nome is required']);
+  assert.equal(db.detailCalls.length, 0);
+});
+
+test('POST /interpret/reference-detail informa à IA o texto já entregue e as outras referências', async () => {
+  db.result = {
+    ...RESULT_ROW,
+    llm_interpretation: {
+      interpretacao: 'texto entregue',
+      referencias: [
+        { nome: 'Arendt', motivo: 'pensa só', categoria: 'Filósofa' },
+        { nome: 'Feynman', motivo: 'curioso' },
+        null,
+        { motivo: 'sem nome' },
+      ],
+    },
+  };
+  await call('POST', '/api/v1/interpret/reference-detail', {
+    session_id: 's', reference: { nome: 'Feynman', categoria: 'Cientista', motivo: 'm', extra: 'ignorado' },
+  });
+
+  const [, , , , reference, options] = db.detailCalls[0];
+  assert.deepEqual(reference, { nome: 'Feynman', categoria: 'Cientista', motivo: 'm' });
+  assert.deepEqual(options, {
+    priorInterpretation: 'texto entregue',
+    otherReferences: [{ nome: 'Arendt', motivo: 'pensa só' }],
+  });
+
+  db.result = { ...RESULT_ROW, llm_interpretation: null };
+  await call('POST', '/api/v1/interpret/reference-detail', { session_id: 's', reference: { nome: 'X' } });
+  assert.deepEqual(db.detailCalls[1][5], { priorInterpretation: '', otherReferences: [] });
 });
 
 test('POST /interpret/reference-detail: 200 com detalhe; 503 com IA fora', async () => {
@@ -320,4 +449,6 @@ test('POST /interpret/reference-detail: 200 com detalhe; 503 com IA fora', async
   db.detail = null;
   const down = await call('POST', '/api/v1/interpret/reference-detail', { session_id: 's', reference: { nome: 'Arendt' } });
   assert.equal(down.status, 503);
+  assert.deepEqual(down.body.error,
+    { message: 'Detalhamento indisponível. Limite diário pode ter sido atingido.', code: 'LLM_UNAVAILABLE' });
 });

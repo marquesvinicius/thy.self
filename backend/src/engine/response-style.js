@@ -83,8 +83,6 @@ function calculateHesitation(answers) {
     .filter(a => Number.isFinite(a.at))
     .sort((a, b) => a.at - b.at);
 
-  if (timed.length < HESITATION_MIN_SAMPLES + 1) return null;
-
   const deltas = [];
   for (let i = 1; i < timed.length; i += 1) {
     const ms = timed[i].at - timed[i - 1].at;

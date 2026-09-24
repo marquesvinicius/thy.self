@@ -70,13 +70,15 @@ test('can_analyze vira true exatamente na 30ª resposta objetiva', async () => {
 
 test('alternativa inexistente → 404, nada é gravado', async () => {
   reset({ alternative: null });
-  await assert.rejects(recordAnswer('s', 1, 99), { statusCode: 404, code: 'NOT_FOUND' });
+  await assert.rejects(recordAnswer('s', 1, 99), { statusCode: 404, code: 'NOT_FOUND', message: 'Alternative not found.' });
   assert.equal(db.inserted.length, 0);
 });
 
 test('alternativa de outra pergunta → 400, nada é gravado', async () => {
   reset({ alternative: { id: 5, question_id: 2 } });
-  await assert.rejects(recordAnswer('s', 1, 5), { statusCode: 400, code: 'VALIDATION_ERROR' });
+  await assert.rejects(recordAnswer('s', 1, 5), {
+    statusCode: 400, code: 'VALIDATION_ERROR', message: 'Alternative does not belong to the specified question.',
+  });
   assert.equal(db.inserted.length, 0);
 });
 
@@ -85,14 +87,14 @@ test('pular item objetivo (BFI-2-S) é bloqueado na fonte → 400', async () => 
   reset({ question: { kind: 'objective' } });
   await assert.rejects(
     recordAnswer('s', 1, null, 'skip'),
-    { statusCode: 400, message: 'Objective (BFI-2-S) questions cannot be skipped.' }
+    { statusCode: 400, code: 'VALIDATION_ERROR', message: 'Objective (BFI-2-S) questions cannot be skipped.' }
   );
   assert.equal(db.inserted.length, 0);
 });
 
 test('pular pergunta inexistente → 404', async () => {
   reset({ question: null });
-  await assert.rejects(recordAnswer('s', 1, null, 'skip'), { statusCode: 404 });
+  await assert.rejects(recordAnswer('s', 1, null, 'skip'), { statusCode: 404, code: 'NOT_FOUND', message: 'Question not found.' });
 });
 
 test('pular item interpretativo é permitido e grava a observação', async () => {
@@ -114,7 +116,9 @@ test('reflexão com alternative_id não passa pela checagem de alternativa', asy
 
 test('resposta duplicada (violação UNIQUE 23505) → 409 CONFLICT', async () => {
   reset({ alternative: { id: 1, question_id: 1 }, insertError: Object.assign(new Error('dup'), { code: '23505' }) });
-  await assert.rejects(recordAnswer('s', 1, 1), { statusCode: 409, code: 'CONFLICT' });
+  await assert.rejects(recordAnswer('s', 1, 1), {
+    statusCode: 409, code: 'CONFLICT', message: 'This question has already been answered in this session.',
+  });
 });
 
 test('outros erros do banco sobem sem ser mascarados', async () => {
@@ -125,7 +129,7 @@ test('outros erros do banco sobem sem ser mascarados', async () => {
 
 test('undo sem respostas → 404', async () => {
   reset({ lastAnswer: null });
-  await assert.rejects(undoLastAnswer('s'), { statusCode: 404, code: 'NOT_FOUND' });
+  await assert.rejects(undoLastAnswer('s'), { statusCode: 404, code: 'NOT_FOUND', message: 'Não há respostas para desfazer.' });
 });
 
 test('undo devolve a pergunta desfeita e o progresso recalculado', async () => {

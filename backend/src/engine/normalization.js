@@ -14,7 +14,8 @@ import {
  * A perfectly neutral respondent (sum = 0) scores exactly 50.
  */
 export function normalizeByTrait(rawScore, itemsForTrait) {
-  if (!itemsForTrait || itemsForTrait <= 0) return 50;
+  // Uma comparação só cobre 0, negativos, undefined e NaN.
+  if (!(itemsForTrait > 0)) return 50;
 
   const theoreticalMin = itemsForTrait * LIKERT_MIN;
   const theoreticalMax = itemsForTrait * LIKERT_MAX;

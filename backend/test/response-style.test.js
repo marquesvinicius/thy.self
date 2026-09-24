@@ -144,7 +144,8 @@ test('a ordem de chegada não importa: as respostas são ordenadas pelo horário
 test('respostas sem horário são ignoradas e texto ausente vira string vazia', () => {
   const answers = timeline([5, 5, 5, 5, 5, 5, 5, 5, 5, 20]);
   delete answers.at(-1).questions.text;
-  answers.push(objAnswer('O', 1, { at: null }), objAnswer('O', 1, { at: 'data inválida' }));
+  answers.push(objAnswer('O', 1, { at: null }), objAnswer('O', 1, { at: 'data inválida' }), null);
+  answers.push({ answered_at: answers[0].answered_at }); // sem pergunta: não quebra
   assert.deepEqual(calculateResponseStyle(answers).hesitation, {
     question_text: '', seconds: 20, median_seconds: 5,
   });
