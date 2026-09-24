@@ -1,6 +1,6 @@
 -- thy.self Database Schema — snapshot canônico
 --
--- Estado consolidado após migrations 001–006:
+-- Estado consolidado após migrations 001–011:
 --   001: llm_interpretation + consistency em results
 --   002: answer_type + user_observation em answers; alternative_id nullable
 --        (rank_position/slider_value foram removidas pela 006)
@@ -9,6 +9,10 @@
 --   005: remoção das colunas de public share (RF008 revogado)
 --   006: remoção de rank_position/slider_value (nunca consumidas)
 --   007: UNIQUE (question_id, sort_order) em alternatives + dedupe
+--   008: find_farthest_archetype (anti-arquétipo)
+--   009: sessions.question_order (ordem materializada por sessão)
+--   010: llm_daily_usage + results.regen_count (limites persistidos)
+--   011: remoção de sessions.nickname (RNF012) + results.detail_count
 --
 -- Uso: setup limpo de um projeto Supabase novo — execute este arquivo inteiro
 -- no SQL Editor. Para bancos existentes, as migrations numeradas continuam
@@ -97,9 +101,12 @@ CREATE INDEX idx_alternatives_question ON alternatives(question_id);
 -- ============================================================
 -- SESSIONS (RN013: status é 'active' ou 'completed')
 -- ============================================================
+-- RNF012: anonimato estrutural. NÃO existe campo de identificação pessoal
+-- aqui — nem texto livre. A coluna `nickname` existiu até a migration_011 e
+-- foi removida justamente para que o anonimato seja verificável por
+-- inspeção do schema, e não uma promessa da camada de aplicação.
 CREATE TABLE sessions (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  nickname     VARCHAR(100),
   status       VARCHAR(20) NOT NULL DEFAULT 'active',
   question_order INTEGER[],
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -147,6 +154,7 @@ CREATE TABLE results (
   consistency        JSONB,
   llm_interpretation JSONB,
   regen_count        INTEGER NOT NULL DEFAULT 0,
+  detail_count       INTEGER NOT NULL DEFAULT 0,
   calculated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -232,6 +240,19 @@ BEGIN
      SET regen_count = regen_count + 1
    WHERE session_id = p_session_id
   RETURNING regen_count INTO new_count;
+  RETURN COALESCE(new_count, 0);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION increment_session_detail(p_session_id UUID)
+RETURNS INTEGER AS $$
+DECLARE
+  new_count INTEGER;
+BEGIN
+  UPDATE results
+     SET detail_count = detail_count + 1
+   WHERE session_id = p_session_id
+  RETURNING detail_count INTO new_count;
   RETURN COALESCE(new_count, 0);
 END;
 $$ LANGUAGE plpgsql;

@@ -14,7 +14,9 @@ function looksLikeSupabaseTransportFailure(err) {
   );
 }
 
-export function errorHandler(err, req, res, next) {
+// A assinatura tem 4 parâmetros porque é assim que o Express reconhece um
+// error handler — `_next` existe para manter a aridade, não para ser usado.
+export function errorHandler(err, req, res, _next) {
   logger.error(err.message, { stack: err.stack, path: req.path });
 
   if (err.statusCode) {

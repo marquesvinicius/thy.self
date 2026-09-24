@@ -4,6 +4,10 @@ import { analyzeSession } from '../services/analyze.service.js';
 import { AppError } from '../utils/AppError.js';
 import { success } from '../utils/apiResponse.js';
 import { logger } from '../utils/logger.js';
+// Fisher-Yates de verdade: `sort(() => Math.random() - 0.5)` produz
+// permutações enviesadas. É rota de desenvolvimento, mas um gerador de
+// fixtures enviesado esconde exatamente o tipo de bug que ele deveria expor.
+import { shuffle } from '../utils/shuffle.js';
 
 /**
  * POST /api/v1/dev/quick-analyze
@@ -58,7 +62,7 @@ export async function handleQuickAnalyze(req, res, next) {
     // 2. Create session
     const { data: session, error: sessErr } = await supabase
       .from('sessions')
-      .insert({ nickname: '[TEST] Quick Session' })
+      .insert({ status: 'active' })
       .select()
       .single();
 
@@ -66,7 +70,6 @@ export async function handleQuickAnalyze(req, res, next) {
 
     const sessionId = session.id;
 
-    const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
     const selectedObjective = shuffle(objective).slice(0, MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS);
     const selectedInterpretative = shuffle(interpretative).slice(
       0,

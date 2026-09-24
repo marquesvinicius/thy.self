@@ -1,14 +1,11 @@
-import { env } from './environment.js';
-
 // Minimum objective (BFI-2-S) answers required before the Big Five profile
 // can be computed. The BFI-2-S short form defines 30 items (6 per trait),
 // so all 30 must be answered for the calculation to be defensible.
+//
+// Deliberadamente NÃO configurável por variável de ambiente: a RN002 deriva
+// esse número do instrumento, não de operação. Um override capaz de baixá-lo
+// para 5 quebraria a validade psicométrica sem deixar rastro.
 export const MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS = 30;
-
-// Back-compat alias still consumed by some callers / env overrides.
-export const MIN_ANSWERS_FOR_ANALYSIS = env.minAnswersForAnalysis ?? MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS;
-
-export const MAX_QUESTIONS_PER_SESSION = env.maxQuestionsPerSession;
 
 export const SCORE_SCALE_MAX = 100;
 

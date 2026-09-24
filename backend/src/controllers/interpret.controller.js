@@ -9,9 +9,16 @@ import {
   getRegenLens,
 } from '../services/llm.service.js';
 import { findClosestArchetype } from '../services/archetype.service.js';
-import { checkRegenBudget, recordRegen } from '../services/llm-limiter.js';
+import { classifyScore } from '../engine/normalization.js';
+import {
+  checkRegenBudget,
+  recordRegen,
+  checkDetailBudget,
+  recordDetail,
+} from '../services/llm-limiter.js';
 import { success } from '../utils/apiResponse.js';
 import { AppError } from '../utils/AppError.js';
+import { isUuid } from '../utils/uuid.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -28,6 +35,9 @@ export async function handleInterpret(req, res, next) {
 
     if (!session_id) {
       throw new AppError('session_id is required', 400, 'MISSING_SESSION_ID');
+    }
+    if (!isUuid(session_id)) {
+      throw new AppError('session_id must be a valid UUID', 400, 'VALIDATION_ERROR');
     }
 
     // Check per-session re-generation limit
@@ -158,11 +168,26 @@ export async function handleReferenceDetail(req, res, next) {
     if (!session_id) {
       throw new AppError('session_id is required', 400, 'MISSING_SESSION_ID');
     }
+    if (!isUuid(session_id)) {
+      throw new AppError('session_id must be a valid UUID', 400, 'VALIDATION_ERROR');
+    }
     if (!reference || typeof reference !== 'object') {
       throw new AppError('reference is required', 400, 'MISSING_REFERENCE');
     }
     if (!reference.nome || typeof reference.nome !== 'string') {
       throw new AppError('reference.nome is required', 400, 'MISSING_REFERENCE_NAME');
+    }
+
+    // O detalhamento também gasta orçamento de LLM. Sem teto por sessão, um
+    // único usuário clicando em "mais detalhes" consome o orçamento do dia
+    // inteiro — a regeneração já tinha esse teto; este endpoint não tinha.
+    const detailBudget = await checkDetailBudget(session_id);
+    if (!detailBudget.allowed) {
+      throw new AppError(
+        `Limite de detalhamentos atingido (${detailBudget.limit}/${detailBudget.limit}) nesta sessão.`,
+        429,
+        'DETAIL_LIMIT_REACHED'
+      );
     }
 
     const context = await loadInterpretationContext(session_id);
@@ -195,9 +220,15 @@ export async function handleReferenceDetail(req, res, next) {
       );
     }
 
+    await recordDetail(session_id);
+
     return success(res, {
       session_id,
       reference_detail: detail,
+      _detail: {
+        remaining: detailBudget.remaining - 1,
+        limit: detailBudget.limit,
+      },
     });
   } catch (err) {
     next(err);
@@ -312,16 +343,13 @@ function buildDimensionsFromScores(result) {
     { key: 'N', name: 'Neuroticismo', score: Number(result.score_n) },
   ];
 
+  // RN007: a classificação em cinco níveis tem UMA fonte — `classifyScore`.
+  // Havia aqui uma segunda escala (cortes 75/55/45/25, com rótulos
+  // "moderado-alto"/"moderado-baixo") usada só na regeneração e no
+  // detalhamento de referência. O efeito era o LLM receber rótulos
+  // diferentes para o mesmo escore conforme o endpoint chamado.
   return dims.map(d => ({
     ...d,
-    level: scoreToLevel(d.score),
+    level: classifyScore(d.score),
   }));
-}
-
-function scoreToLevel(score) {
-  if (score >= 75) return 'alto';
-  if (score >= 55) return 'moderado-alto';
-  if (score >= 45) return 'moderado';
-  if (score >= 25) return 'moderado-baixo';
-  return 'baixo';
 }

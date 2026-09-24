@@ -1,10 +1,9 @@
 import { supabase } from '../../config/supabase.js';
 
-export async function createSession(nickname, questionOrder = null) {
+export async function createSession(questionOrder = null) {
   const { data, error } = await supabase
     .from('sessions')
     .insert({
-      nickname: nickname || null,
       question_order: questionOrder,
     })
     .select()

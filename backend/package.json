@@ -8,21 +8,27 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "seed": "node seed/seed.js",
-    "test": "node --experimental-test-module-mocks --test \"test/**/*.test.js\""
+    "test": "node --experimental-test-module-mocks --test \"test/**/*.test.js\"",
+    "lint": "eslint .",
+    "test:coverage": "node --experimental-test-module-mocks --experimental-test-coverage --test \"test/**/*.test.js\""
   },
   "engines": {
     "node": ">=20.0.0"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Marques Vinícius Melo Martins",
+  "license": "MIT",
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
     "@supabase/supabase-js": "^2.97.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0"
   },
   "devDependencies": {
-    "csv-parser": "^3.2.0"
+    "@eslint/js": "^10.0.1",
+    "csv-parser": "^3.2.0",
+    "eslint": "^10.10.0",
+    "globals": "^17.12.0"
   }
 }

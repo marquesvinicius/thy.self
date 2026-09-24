@@ -232,7 +232,7 @@ function buildTraitHook(profile) {
 
 // Motivos de fallback: secos e honestos — são aproximações pelos traços
 // dominantes, não curadoria da LLM, e o texto não deve fingir o contrário.
-function buildWorkReason(workType, profile, archetype) {
+function buildWorkReason(workType, profile) {
   const traitHook = buildTraitHook(profile);
 
   if (workType === 'serie') {
@@ -352,7 +352,7 @@ export function normalizeWorks(works, context = {}) {
     if (!selectedByType.has(work.tipo)) {
       selectedByType.set(work.tipo, {
         ...work,
-        motivo: work.motivo || buildWorkReason(work.tipo, context.profile, context.archetype),
+        motivo: work.motivo || buildWorkReason(work.tipo, context.profile),
       });
     }
   }
@@ -369,7 +369,7 @@ export function normalizeWorks(works, context = {}) {
       tipo: missingType,
       titulo: fallback.titulo,
       autor_ou_artista: fallback.autor_ou_artista,
-      motivo: buildWorkReason(missingType, context.profile, context.archetype),
+      motivo: buildWorkReason(missingType, context.profile),
     });
     usedTitles.add(normalizeToken(fallback.titulo));
   }

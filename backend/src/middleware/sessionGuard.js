@@ -1,5 +1,6 @@
 import { getSessionById } from '../database/queries/session.queries.js';
 import { AppError } from '../utils/AppError.js';
+import { isUuid } from '../utils/uuid.js';
 import { SESSION_STATUS } from '../config/constants.js';
 
 /**
@@ -11,6 +12,12 @@ export async function sessionGuard(req, res, next) {
 
   if (!sessionId) {
     return next(new AppError('session_id is required.', 400, 'VALIDATION_ERROR'));
+  }
+
+  // Formato antes de I/O: um session_id que não é UUID faria o Postgres
+  // devolver 22P02 e o erro chegaria ao cliente como 500 (ver utils/uuid.js).
+  if (!isUuid(sessionId)) {
+    return next(new AppError('session_id must be a valid UUID.', 400, 'VALIDATION_ERROR'));
   }
 
   const session = await getSessionById(sessionId);

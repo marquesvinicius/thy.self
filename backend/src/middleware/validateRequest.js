@@ -4,7 +4,12 @@ import { AppError } from '../utils/AppError.js';
  * Creates a middleware that validates req.body against a schema object.
  *
  * Schema format:
- *   { fieldName: { required: boolean, type: string, maxLength?: number } }
+ *   { fieldName: { required: boolean, type: string, maxLength?: number,
+ *                  integer?: boolean } }
+ *
+ * `integer: true` existe porque `type: 'number'` aceita `1.5` e `NaN` — e
+ * chaves estrangeiras (question_id, alternative_id) fracionárias só falham
+ * lá no banco, virando 500 em vez de 400.
  */
 export function validateRequest(schema) {
   return (req, res, next) => {
@@ -27,6 +32,10 @@ export function validateRequest(schema) {
 
         if (rules.maxLength && typeof value === 'string' && value.length > rules.maxLength) {
           errors.push(`Field '${field}' must be ${rules.maxLength} characters or fewer.`);
+        }
+
+        if (rules.integer && !Number.isInteger(value)) {
+          errors.push(`Field '${field}' must be an integer.`);
         }
       }
     }

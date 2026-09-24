@@ -24,10 +24,19 @@ export const env = {
   supabaseUrl: process.env.SUPABASE_URL,
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   allowedOrigins: process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
     : [],
   geminiApiKey: process.env.GEMINI_API_KEY || null,
   llmDailyLimit: parseInt(process.env.LLM_DAILY_LIMIT, 10) || 50,
-  minAnswersForAnalysis: parseInt(process.env.MIN_ANSWERS_FOR_ANALYSIS, 10) || 30,
-  maxQuestionsPerSession: parseInt(process.env.MAX_QUESTIONS_PER_SESSION, 10) || 40,
 };
+
+// RNF009 (controle de acesso à API): em produção, a política de CORS só
+// protege se houver uma lista de origens. Sem ela, `cors.js` recusaria todo
+// navegador e o sintoma no cliente seria apenas "Failed to fetch" — falha
+// silenciosa e cara de diagnosticar. Falhar aqui, na subida, é explícito.
+if (env.nodeEnv === 'production' && env.allowedOrigins.length === 0) {
+  throw new Error(
+    'ALLOWED_ORIGINS é obrigatório quando NODE_ENV=production: sem origens '
+    + 'autorizadas, toda requisição de navegador seria bloqueada pelo CORS.',
+  );
+}

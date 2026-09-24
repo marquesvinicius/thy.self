@@ -123,7 +123,7 @@ fs.createReadStream(csvPath)
                 headers.join(','), // Cabeçalho
                 ...processedCharacters.map(char => {
                     return headers.map(header => {
-                        let val = char[header];
+                        const val = char[header];
                         // Escapar vírgulas no CSV
                         if (typeof val === 'string' && val.includes(',')) {
                             return `"${val}"`;

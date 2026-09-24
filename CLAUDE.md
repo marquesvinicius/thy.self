@@ -18,16 +18,21 @@ Project-level artifacts at the repo root: raw question CSVs (`questions.csv`, `q
 - `npm start` — production start.
 - `npm run seed` — reseed categories, BFI-2-S objective items, interpretative items, and cultural archetypes (`scripts/etl/thy_self_characters.json`) into Supabase. Fully idempotent: objective items upsert on `external_id` (`E1`…`O30`), interpretative items upsert on `external_id` (`INT_MD_01`…`INT_IN_08`), archetypes upsert on `id`.
 - `npm test` — run all Node built-in test-runner suites in `test/**/*.test.js` (includes `--experimental-test-module-mocks`, required by `question.service.test.js`).
+- `npm run test:coverage` — same suite with the native coverage report.
+- `npm run lint` — ESLint flat config (`eslint.config.mjs`). Keep it clean: it is enforced in CI.
 - Run a single test file: `node --experimental-test-module-mocks --test test/bigfive-engine.test.js`.
-- SQL migrations in `sql/migration_00*.sql` are applied manually against the Supabase project in order (`migration_001` → `007_alternatives_unique`). `sql/schema.sql` is the canonical snapshot for a clean setup; `sql/maintenance_dedup_interpretative.sql` is a one-shot cleanup for databases seeded before the interpretative upsert existed.
+- SQL migrations in `sql/migration_0*.sql` are applied manually against the Supabase project in order (`migration_001` → `011_anonymity_and_detail_budget`). `sql/schema.sql` is the canonical snapshot for a clean setup; `sql/maintenance_dedup_interpretative.sql` is a one-shot cleanup for databases seeded before the interpretative upsert existed.
 
 ### Frontend (`cd frontend`)
 - `npm run dev` — Next dev server on **port 3001** (not 3000).
 - `npm run build` / `npm start` — production build / serve.
 - `npm run lint` — ESLint via `eslint.config.mjs` (next config).
+- `npm run test:e2e` — Playwright end-to-end suite in `e2e/` (needs the backend running on 3000 and a seeded database).
 
 ### Required env (`backend/.env`)
-`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` are required — `src/config/environment.js` throws at import time if either is missing. Optional: `PORT`, `NODE_ENV`, `ALLOWED_ORIGINS` (comma-separated), `GEMINI_API_KEY`, `LLM_DAILY_LIMIT`, `MIN_ANSWERS_FOR_ANALYSIS`, `MAX_QUESTIONS_PER_SESSION`.
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` are required — `src/config/environment.js` throws at import time if either is missing. Optional: `PORT`, `NODE_ENV`, `ALLOWED_ORIGINS` (comma-separated — **required** when `NODE_ENV=production`; `environment.js` throws otherwise), `GEMINI_API_KEY`, `LLM_DAILY_LIMIT`, `LLM_LOG_PROMPT`.
+
+The 30-item minimum is **not** env-configurable: it comes from the instrument (RN002), not from operations. `MIN_ANSWERS_FOR_ANALYSIS` and `MAX_QUESTIONS_PER_SESSION` were removed — they were dead constants.
 
 ## Architecture
 
@@ -43,16 +48,18 @@ When touching the engine or seed, preserve this invariant: objective → scored 
 ### Scoring pipeline
 `BigFiveEngine.calculateProfile(answers)` → per-trait raw sum of signed Likert values → `normalizeByTrait` (min-max onto 0–100, neutral = 50) → `classifyScore` bucketing (`muito_baixo` <20, `baixo` <40, `moderado` <60, `alto` <80, `muito_alto` ≥80) → `DIMENSIONS` metadata join.
 
+`classifyScore` is the **single** source of level labels (RN007). Do not add a second scale: `interpret.controller.js` used to carry its own (`scoreToLevel`, cutoffs 75/55/45/25), which meant the LLM saw different labels for the same score depending on the endpoint.
+
 Theoretical bounds assume 6 items × Likert `[-2, +2]`; `normalization.js` falls back to `ITEMS_PER_TRAIT` when an item is missing so partial fixtures normalize deterministically.
 
 ### Request flow (backend)
-`app.js` wires: CORS (`config/cors.js`) → `express.json()` → request logger → `/health` → `/api/v1/*` router → 404 → `errorHandler`. Per-feature folders follow `routes → controllers → services → database/queries` with `engine/` reserved for pure scoring math and `utils/` for logger + typed `AppError`. `sessionGuard` (in `middleware/`) validates `session_id` on protected routes; `validateRequest({...})` does shallow field/type/length checks.
+`app.js` wires: CORS (`config/cors.js`) → `express.json()` → request logger → `/health` (add `?deep=1` to probe Supabase) → `publicRateLimit` → `/api/v1/*` router → 404 → `errorHandler`. The rate limiter (`middleware/rateLimit.js`) is active only in production, so tests and E2E runs are not throttled. Per-feature folders follow `routes → controllers → services → database/queries` with `engine/` reserved for pure scoring math and `utils/` for logger + typed `AppError`. `sessionGuard` (in `middleware/`) validates that `session_id` is present, is a well-formed UUID (`utils/uuid.js` — otherwise Postgres error `22P02` would surface as a 500) and belongs to an active session; `validateRequest({...})` does shallow field/type/length checks.
 
 Dev-only routes mount under `/api/v1/dev` when `NODE_ENV === 'development'` (currently `POST /dev/quick-analyze` — creates a session, generates random answers, and analyzes, used for exercising the LLM path without the full quiz).
 
 ### API surface (for the frontend)
 `frontend/services/api.js` is the single client. Endpoints it uses:
-- `POST /session` → start quiz
+- `POST /session` → start quiz (empty body — the endpoint accepts no fields)
 - `GET  /questions?session_id=…` → fetch next batch
 - `POST /answer` → submit one answer (objective requires `alternative_id`; reflection text uses a separate field path)
 - `POST /analyze` → finalize: computes profile, finds closest archetype, triggers LLM interpretation
@@ -62,7 +69,7 @@ Dev-only routes mount under `/api/v1/dev` when `NODE_ENV === 'development'` (cur
 Public share endpoints were removed (aligned with current DERS RF001–RF007; see `migration_005_drop_public_share.sql`).
 
 ### LLM layer
-`src/services/llm.service.js` calls Gemini (`gemini-2.5-flash-lite`) with retries + timeout, guarded by `llm-limiter.js` (in-memory daily budget via `LLM_DAILY_LIMIT`, max 3 regenerations per session). Reference images are fetched by `image.service.js`. Fallback work/reference lists in `llm.service.js` are used when the API key is absent or the call fails — keep these fallbacks when editing, because dev environments frequently run without `GEMINI_API_KEY`. Interpretation output carries schema versions (`INTERPRETATION_SCHEMA_VERSION`, `DETAIL_SCHEMA_VERSION`) — bump these when changing the response shape.
+`src/services/llm.service.js` calls Gemini (`gemini-2.5-flash-lite`) with retries + timeout, guarded by `llm-limiter.js`. Budgets are **persisted in Postgres** (`llm_daily_usage` table, `results.regen_count`, `results.detail_count`) with atomic RPCs, falling back to in-memory counters only when the database is unreachable: daily budget via `LLM_DAILY_LIMIT`, max 3 regenerations and 6 reference details per session. Reference images are fetched by `image.service.js`. Fallback work/reference lists in `llm.service.js` are used when the API key is absent or the call fails — keep these fallbacks when editing, because dev environments frequently run without `GEMINI_API_KEY`. Interpretation output carries schema versions (`INTERPRETATION_SCHEMA_VERSION`, `DETAIL_SCHEMA_VERSION`) — bump these when changing the response shape.
 
 ### Archetype matching
 `archetype.service.js` delegates to the Postgres function `find_closest_archetype(user_o, user_c, user_e, user_a, user_n)` (defined in `migration_003_archetypes.sql`). The math lives in the DB, not in Node. Catalog rows are loaded by `npm run seed` from `scripts/etl/thy_self_characters.json`.
@@ -75,7 +82,7 @@ Public share endpoints were removed (aligned with current DERS RF001–RF007; se
 - `jsconfig.json` aliases `@/*` to the frontend root (use `@/services/api`, `@/components/...`).
 
 ### Key DB tables (see `backend/sql/schema.sql` + migrations)
-`question_categories`, `questions` (+ `kind`, `trait`, `reverse_key`, `external_id`), `alternatives` (carry per-trait `impact_o|c|e|a|n` for objective items), `sessions` (status: `active|completed`), `answers` (+ `answer_type`, `user_observation`; `alternative_id` nullable for reflections), `results`, `archetypes`. `schema.sql` is the consolidated snapshot of migrations `001`–`006` — use it for a clean setup; use the numbered migrations for existing databases.
+`question_categories`, `questions` (+ `kind`, `trait`, `reverse_key`, `external_id`), `alternatives` (carry per-trait `impact_o|c|e|a|n` for objective items), `sessions` (status: `active|completed`; **no personal-data column** — `nickname` was dropped in `migration_011` so RNF012's anonymity is a property of the schema), `answers` (+ `answer_type`, `user_observation`; `alternative_id` nullable for reflections), `results`, `archetypes`. `schema.sql` is the consolidated snapshot of migrations `001`–`011` — use it for a clean setup; use the numbered migrations for existing databases.
 
 ## Conventions worth knowing
 

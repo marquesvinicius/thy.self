@@ -58,12 +58,38 @@ function buildProfilePayloadFromRow(row) {
   };
 }
 
-export async function analyzeSession(sessionId) {
+/**
+ * Análises em voo, por sessão.
+ *
+ * A idempotência abaixo só protege DEPOIS que existe resultado persistido.
+ * Duas chamadas concorrentes numa sessão nova (React.StrictMode em dev,
+ * duplo clique, retry do cliente) passavam as duas pela verificação e
+ * disparavam DUAS gerações de LLM — o `upsert` em `results` evitava a linha
+ * duplicada, mas não o custo nem o tempo. Compartilhar a promessa em voo
+ * resolve o caso real: a segunda chamada espera o resultado da primeira.
+ *
+ * Escopo deliberado: o mapa é do processo. Não é um lock distribuído, e não
+ * precisa ser — o cenário que ele cobre é o duplo disparo do MESMO cliente,
+ * que chega sempre na mesma instância dentro da mesma janela.
+ */
+const analysesInFlight = new Map();
+
+export function analyzeSession(sessionId) {
+  const running = analysesInFlight.get(sessionId);
+  if (running) return running;
+
+  const promise = runAnalysis(sessionId).finally(() => {
+    analysesInFlight.delete(sessionId);
+  });
+
+  analysesInFlight.set(sessionId, promise);
+  return promise;
+}
+
+async function runAnalysis(sessionId) {
   // Idempotência: se já existe um resultado persistido para esta sessão com
   // interpretação gerada, reutilizamos o que está no banco em vez de
-  // disparar nova chamada ao LLM. Isso previne condições de corrida em que
-  // React.StrictMode (dev) ou cliques duplicados disparam /analyze duas
-  // vezes concorrentemente.
+  // disparar nova chamada ao LLM.
   const existing = await getResultBySessionId(sessionId);
   if (existing && existing.llm_interpretation) {
     const profile = buildProfilePayloadFromRow(existing);

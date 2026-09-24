@@ -55,10 +55,14 @@ async function request(path, options = {}) {
   throw lastErr;
 }
 
-export async function createSession(nickname) {
+/**
+ * Cria uma sessão anônima. Não envia nenhum dado do usuário — o corpo é
+ * vazio de propósito (RNF012: anonimato por arquitetura).
+ */
+export async function createSession() {
   return request('/session', {
     method: 'POST',
-    body: JSON.stringify({ nickname }),
+    body: JSON.stringify({}),
   });
 }
 

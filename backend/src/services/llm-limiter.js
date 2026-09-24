@@ -21,11 +21,16 @@ import { supabase } from '../config/supabase.js';
 
 const DEFAULT_DAILY_LIMIT = 50;
 const MAX_REGEN_PER_SESSION = 3;
+// Detalhamento é mais barato que a geração completa (prompt menor, saída
+// menor) e é natural o usuário abrir mais de um — por isso o teto é o dobro
+// do de regeneração, e não o mesmo.
+const MAX_DETAIL_PER_SESSION = 6;
 
 // Fallback em memória — usado apenas quando o banco falha.
 let fallbackDailyCount = 0;
 let fallbackResetDate = todayKey();
 const fallbackRegenCounts = new Map();
+const fallbackDetailCounts = new Map();
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10); // "2026-03-01"
@@ -37,6 +42,7 @@ function resetFallbackIfNewDay() {
     fallbackDailyCount = 0;
     fallbackResetDate = today;
     fallbackRegenCounts.clear();
+    fallbackDetailCounts.clear();
   }
 }
 
@@ -151,6 +157,64 @@ export async function recordRegen(sessionId) {
     const count = fallbackRegenCounts.get(sessionId) || 0;
     fallbackRegenCounts.set(sessionId, count + 1);
     logger.warn('[LLM-Limiter] persistência da regeneração falhou; contando em memória', {
+      error: err.message,
+    });
+  }
+}
+
+/**
+ * Verifica se a sessão ainda pode pedir detalhamento de referência.
+ *
+ * O detalhamento (`POST /interpret/reference-detail`) também consome uma
+ * chamada ao LLM, mas só era limitado pelo orçamento diário GLOBAL — uma
+ * única sessão clicando em "mais detalhes" podia esgotar o dia para todos.
+ * Mesmo desenho da regeneração: contador atômico no banco, memória como
+ * degradação.
+ *
+ * @param {string} sessionId
+ * @returns {Promise<{ allowed: boolean, remaining: number, limit: number, used: number }>}
+ */
+export async function checkDetailBudget(sessionId) {
+  let used;
+
+  try {
+    const { data, error } = await supabase
+      .from('results')
+      .select('detail_count')
+      .eq('session_id', sessionId)
+      .maybeSingle();
+
+    if (error) throw error;
+    used = data?.detail_count ?? 0;
+  } catch (err) {
+    used = fallbackDetailCounts.get(sessionId) || 0;
+    logger.warn('[LLM-Limiter] leitura do contador de detalhamento falhou; usando memória', {
+      error: err.message,
+    });
+  }
+
+  return {
+    allowed: used < MAX_DETAIL_PER_SESSION,
+    remaining: Math.max(0, MAX_DETAIL_PER_SESSION - used),
+    limit: MAX_DETAIL_PER_SESSION,
+    used,
+  };
+}
+
+/**
+ * Registra um detalhamento de referência para a sessão.
+ * @param {string} sessionId
+ */
+export async function recordDetail(sessionId) {
+  try {
+    const { error } = await supabase.rpc('increment_session_detail', {
+      p_session_id: sessionId,
+    });
+    if (error) throw error;
+  } catch (err) {
+    const count = fallbackDetailCounts.get(sessionId) || 0;
+    fallbackDetailCounts.set(sessionId, count + 1);
+    logger.warn('[LLM-Limiter] persistência do detalhamento falhou; contando em memória', {
       error: err.message,
     });
   }

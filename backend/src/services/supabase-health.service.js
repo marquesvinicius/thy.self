@@ -71,7 +71,7 @@ export async function checkSupabaseHealth(options = {}) {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const started = Date.now();
 
-  let host = null;
+  let host;
   try {
     host = new URL(env.supabaseUrl).hostname;
   } catch {

@@ -98,13 +98,18 @@ export async function getAnsweredQuestionIds(sessionId) {
  * pode corrigir uma resposta dada por engano.
  *
  * Retorna `null` quando não há respostas para desfazer.
+ *
+ * A ordenação é por `id` (SERIAL, estritamente crescente) e não por
+ * `answered_at`: com o POST otimista da camada objetiva, duas respostas
+ * podem cair no mesmo milissegundo e o timestamp deixa de desempatar —
+ * o "voltar" apagaria uma resposta arbitrária entre as duas.
  */
 export async function deleteLastAnswer(sessionId) {
   const { data, error } = await supabase
     .from('answers')
     .select('id, question_id, answered_at')
     .eq('session_id', sessionId)
-    .order('answered_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(1);
 
   if (error) throw error;

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { corsOptions } from './config/cors.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { publicRateLimit } from './middleware/rateLimit.js';
 import routes from './routes/index.js';
 import { checkSupabaseHealth } from './services/supabase-health.service.js';
 import { logger } from './utils/logger.js';
@@ -48,8 +49,9 @@ app.get('/health', async (req, res) => {
   });
 });
 
-// API routes
-app.use('/api/v1', routes);
+// API routes — o limitador entra DEPOIS do /health (monitoramento externo
+// costuma bater de minuto em minuto e não deve competir com usuários).
+app.use('/api/v1', publicRateLimit, routes);
 
 // 404 handler
 app.use((req, res) => {

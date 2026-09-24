@@ -8,6 +8,7 @@ import { DIMENSIONS } from '../engine/dimensions.js';
 import { classifyScore } from '../engine/normalization.js';
 import { success } from '../utils/apiResponse.js';
 import { AppError } from '../utils/AppError.js';
+import { isUuid } from '../utils/uuid.js';
 
 /**
  * Maps a raw `results` row into the shape the frontend expects.
@@ -54,6 +55,9 @@ export async function handleGetResult(req, res, next) {
     if (!session_id) {
       throw new AppError('session_id is required', 400, 'MISSING_SESSION_ID');
     }
+    if (!isUuid(session_id)) {
+      throw new AppError('session_id must be a valid UUID', 400, 'VALIDATION_ERROR');
+    }
 
     const result = await getResultBySessionId(session_id);
 
@@ -98,6 +102,9 @@ export async function handleGetAnswerReview(req, res, next) {
     const { session_id } = req.params;
     if (!session_id) {
       throw new AppError('session_id is required', 400, 'MISSING_SESSION_ID');
+    }
+    if (!isUuid(session_id)) {
+      throw new AppError('session_id must be a valid UUID', 400, 'VALIDATION_ERROR');
     }
 
     const answers = await getAnswerReviewBySessionId(session_id);

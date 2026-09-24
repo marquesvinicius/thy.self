@@ -1,5 +1,3 @@
-const levels = { error: 0, warn: 1, info: 2, debug: 3 };
-
 function formatTimestamp() {
   return new Date().toISOString();
 }
