@@ -1,4 +1,4 @@
-import { DIMENSION_KEYS, QUESTION_KIND } from '../config/constants.js';
+import { readObjectiveLikert } from './likert.js';
 
 /**
  * Assinatura de estilo de resposta — sinais determinísticos sobre COMO o
@@ -21,17 +21,8 @@ const HESITATION_OUTLIER_FACTOR = 3; // delta > 3× mediana = hesitação
 const HESITATION_MIN_SAMPLES = 10;
 const HESITATION_MAX_REASONABLE_MS = 5 * 60 * 1000; // pausas > 5min são interrupção, não hesitação
 
-function likertValueOf(answer) {
-  const trait = answer?.questions?.trait;
-  if (!trait || !DIMENSION_KEYS.includes(trait)) return null;
-  const raw = Number(answer.alternatives?.[`impact_${trait.toLowerCase()}`]);
-  return Number.isFinite(raw) ? raw : null;
-}
-
 export function calculateResponseStyle(answers) {
-  const objective = (answers || []).filter(
-    a => a?.questions?.kind === QUESTION_KIND.OBJECTIVE
-  );
+  const likerts = (answers || []).map(readObjectiveLikert).filter(Boolean);
 
   let extreme = 0;
   let neutral = 0;
@@ -39,20 +30,16 @@ export function calculateResponseStyle(answers) {
   let totalDirect = 0;
   let agreeReverse = 0;
   let totalReverse = 0;
-  let counted = 0;
+  const counted = likerts.length;
 
-  for (const answer of objective) {
-    const value = likertValueOf(answer);
-    if (value === null) continue;
-    counted += 1;
-
+  for (const { value, reverse } of likerts) {
     if (Math.abs(value) === 2) extreme += 1;
     if (value === 0) neutral += 1;
 
     // Aquiescência: "concordar" = valor bruto positivo, ANTES do sinal do
     // reverse_key (queremos saber se a pessoa concorda com a afirmação como
     // escrita, independente da direção psicométrica do item).
-    if (answer.questions.reverse_key) {
+    if (reverse) {
       totalReverse += 1;
       if (value > 0) agreeReverse += 1;
     } else {
@@ -108,8 +95,8 @@ function calculateHesitation(answers) {
   if (deltas.length < HESITATION_MIN_SAMPLES) return null;
 
   const sorted = [...deltas].sort((a, b) => a.ms - b.ms);
+  // Só entram deltas > 0, então a mediana é sempre positiva.
   const median = sorted[Math.floor(sorted.length / 2)].ms;
-  if (median <= 0) return null;
 
   const slowest = sorted[sorted.length - 1];
   if (slowest.ms < median * HESITATION_OUTLIER_FACTOR) return null;

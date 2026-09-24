@@ -1,4 +1,5 @@
-import { DIMENSION_KEYS, QUESTION_KIND } from '../config/constants.js';
+import { DIMENSION_KEYS } from '../config/constants.js';
+import { readObjectiveLikert } from './likert.js';
 
 /**
  * Threshold for flagging a trait as "internal tension".
@@ -20,17 +21,8 @@ export function calculateConsistency(answers) {
   const buckets = Object.fromEntries(DIMENSION_KEYS.map(k => [k, []]));
 
   for (const answer of answers) {
-    if (answer?.questions?.kind !== QUESTION_KIND.OBJECTIVE) continue;
-
-    const trait = answer.questions.trait;
-    if (!trait || !DIMENSION_KEYS.includes(trait)) continue;
-
-    const col = `impact_${trait.toLowerCase()}`;
-    const likertValue = Number(answer.alternatives?.[col] ?? 0);
-    if (!Number.isFinite(likertValue)) continue;
-
-    const signed = answer.questions.reverse_key ? -likertValue : likertValue;
-    buckets[trait].push(signed);
+    const likert = readObjectiveLikert(answer);
+    if (likert) buckets[likert.trait].push(likert.signed);
   }
 
   const result = {};

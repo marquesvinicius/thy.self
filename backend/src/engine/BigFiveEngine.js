@@ -1,9 +1,6 @@
-import {
-  DIMENSION_KEYS,
-  ITEMS_PER_TRAIT,
-  QUESTION_KIND,
-} from '../config/constants.js';
+import { DIMENSION_KEYS, ITEMS_PER_TRAIT } from '../config/constants.js';
 import { DIMENSIONS } from './dimensions.js';
+import { readObjectiveLikert } from './likert.js';
 import { normalizeByTrait, classifyScore } from './normalization.js';
 
 /**
@@ -32,17 +29,10 @@ export function calculateProfile(answers) {
   let objectiveCount = 0;
 
   for (const answer of answers) {
-    if (answer?.questions?.kind !== QUESTION_KIND.OBJECTIVE) continue;
+    const likert = readObjectiveLikert(answer);
+    if (!likert) continue;
 
-    const trait = answer.questions.trait;
-    if (!trait || !DIMENSION_KEYS.includes(trait)) continue;
-
-    const col = `impact_${trait.toLowerCase()}`;
-    const likertValue = Number(answer.alternatives?.[col] ?? 0);
-    if (!Number.isFinite(likertValue)) continue;
-
-    const signed = answer.questions.reverse_key ? -likertValue : likertValue;
-
+    const { trait, signed } = likert;
     rawImpacts[trait] += signed;
     itemsPerTrait[trait] += 1;
     objectiveCount += 1;

@@ -21,8 +21,17 @@ test('normalizeByTrait clamps values outside the theoretical window', () => {
   assert.equal(normalizeByTrait(-999, 6), 0);
 });
 
-test('normalizeByTrait returns 50 when itemsForTrait is zero', () => {
+test('normalizeByTrait returns 50 when itemsForTrait is zero, negative or missing', () => {
   assert.equal(normalizeByTrait(5, 0), 50);
+  assert.equal(normalizeByTrait(5, -3), 50);
+  assert.equal(normalizeByTrait(5, undefined), 50);
+});
+
+test('normalizeByTrait é linear entre os limites e arredonda para 1 casa', () => {
+  assert.equal(normalizeByTrait(1, 6), 54.2);   // 13/24 = 54,1666…
+  assert.equal(normalizeByTrait(-5, 6), 29.2);  // 7/24  = 29,1666…
+  assert.equal(normalizeByTrait(4, 2), 100);    // limites dependem do nº de itens: [−4, +4]
+  assert.equal(normalizeByTrait(2, 2), 75);
 });
 
 test('normalizeScore is an alias of normalizeByTrait', () => {
