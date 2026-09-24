@@ -1,4 +1,5 @@
 import { supabase } from '../../config/supabase.js';
+import { toAnswerReview, toInterpretativeSignals } from '../../engine/answer-mappers.js';
 
 export async function createAnswer(sessionId, questionId, alternativeId, answerType = 'alternative_id', userObservation = null) {
   const { data, error } = await supabase
@@ -48,38 +49,7 @@ export async function getAnswersBySessionId(sessionId) {
  */
 export async function getAnswerReviewBySessionId(sessionId) {
   const rows = await getAnswersBySessionId(sessionId);
-  return (rows || []).map(row => {
-    const question = row.questions || {};
-    const alt = row.alternatives || {};
-    const trait = question.trait || null;
-    let likertValue = null;
-    let contribution = null;
-
-    if (question.kind === 'objective' && trait) {
-      const col = `impact_${trait.toLowerCase()}`;
-      const raw = Number(alt?.[col] ?? 0);
-      likertValue = Number.isFinite(raw) ? raw : 0;
-      const signed = question.reverse_key ? -likertValue : likertValue;
-      contribution = { trait, delta: signed };
-    }
-
-    return {
-      id: row.id,
-      question_id: row.question_id,
-      question_text: question.text || '',
-      kind: question.kind || 'interpretative',
-      type: question.type || null,
-      trait,
-      reverse_key: !!question.reverse_key,
-      category_slug: question.question_categories?.slug || null,
-      answered_at: row.answered_at,
-      answer_text: alt?.text ?? null,
-      user_observation: row.user_observation ?? null,
-      answer_type: row.answer_type,
-      likert_value: likertValue,
-      contribution,
-    };
-  });
+  return (rows || []).map(toAnswerReview);
 }
 
 export async function getAnsweredQuestionIds(sessionId) {
@@ -182,25 +152,5 @@ export async function getInterpretativeSignals(sessionId) {
     .eq('questions.kind', 'interpretative');
 
   if (error) throw error;
-
-  return (data || [])
-    .map(row => {
-      const questionType = row.questions?.type || null;
-      const alternativeText = row.alternatives?.text ?? null;
-      const userObservation = row.user_observation ?? null;
-      const isReflection = questionType === 'reflection'
-        || (!alternativeText && !!userObservation);
-
-      return {
-        category_slug: row.questions?.question_categories?.slug || 'unknown',
-        question_text: row.questions?.text || '',
-        question_context: row.questions?.context ?? null,
-        question_type: questionType,
-        is_reflection: isReflection,
-        alternative_text: alternativeText,
-        user_observation: userObservation,
-      };
-    })
-    .filter(sig => sig.alternative_text || sig.user_observation);
+  return toInterpretativeSignals(data);
 }
-

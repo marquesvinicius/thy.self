@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase.js';
+import { logger } from '../utils/logger.js';
 
 async function callArchetypeRpc(fnName, profileScores) {
     try {
@@ -16,7 +17,7 @@ async function callArchetypeRpc(fnName, profileScores) {
         return data && data.length > 0 ? data[0] : null;
 
     } catch (error) {
-        console.error(`[DEV] Erro ao buscar arquétipo no Supabase (${fnName}):`, error);
+        logger.error('Archetype RPC failed (graceful null)', { rpc: fnName, error: error.message });
         return null;
     }
 }
