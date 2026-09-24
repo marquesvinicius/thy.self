@@ -902,13 +902,14 @@ Retorne JSON com esta estrutura exata:
 function extractJsonCandidate(text) {
   const firstBrace = text.indexOf('{');
   const lastBrace = text.lastIndexOf('}');
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+  if (firstBrace === -1 || lastBrace < firstBrace) {
     throw new Error('No JSON object found in LLM response');
   }
 
+  // O recorte já começa em '{' e termina em '}' (cercas de markdown ficam de
+  // fora); resta corrigir aspas tipográficas e vírgulas finais.
   return text
     .slice(firstBrace, lastBrace + 1)
-    .replace(/^[`\s]+|[`]+$/g, '')
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'")
     .replace(/,\s*([}\]])/g, '$1');
@@ -1324,16 +1325,12 @@ async function enrichAndValidateReferences(referencias, parseContext = {}) {
     }
   }
 
-  const filled = normalizeReferences(pool, {
+  // Tudo que chega aqui já passou pela Wikipédia ou é fallback curado
+  // (wiki_found: true), então não há nova consulta a fazer.
+  return normalizeReferences(pool, {
     ...parseContext,
     excludedReferenceNames: [...alreadyExcluded, ...rejectedNames],
   });
-
-  // Re-fetch images only for items that still lack image_url / wiki_found
-  const needsLookup = filled.some(ref => ref.wiki_found === undefined);
-  if (!needsLookup) return filled;
-
-  return fetchReferenceImages(filled);
 }
 
 /**

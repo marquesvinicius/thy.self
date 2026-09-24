@@ -86,7 +86,8 @@ function payload(overrides = {}) {
   };
 }
 
-const httpError = (status, message = `HTTP ${status}`) => Object.assign(new Error(message), { status });
+// Mensagem neutra de propósito: o status deve decidir sozinho a retentativa.
+const httpError = (status, message = 'upstream error') => Object.assign(new Error(message), { status });
 
 /** Avança timers falsos (backoff entre tentativas) até a promessa assentar. */
 async function withFakeTimers(run) {
@@ -133,6 +134,21 @@ test('RNF019: parâmetros explícitos de geração', async () => {
   assert.ok(first.generationConfig.responseSchema, 'saída estruturada com schema');
   assert.match(first.systemInstruction, /\S/);
   assert.equal(regen.generationConfig.temperature, 1.2);
+});
+
+test('schema de saída: âncora e critério ANTES do nome (ordem é funcional)', async () => {
+  script = [payload()];
+  await generateInterpretation(PROFILE, null, [], null);
+  const schema = calls[0].config.generationConfig.responseSchema;
+  const reference = schema.properties.referencias;
+
+  assert.deepEqual(Object.keys(reference.items.properties), ['ancora', 'criterio', 'nome', 'categoria', 'motivo', 'wiki_query']);
+  assert.deepEqual(reference.items.required, ['ancora', 'criterio', 'nome', 'categoria', 'motivo', 'wiki_query']);
+  assert.deepEqual([reference.minItems, reference.maxItems], [2, 3]);
+  const works = schema.properties.obras_culturais;
+  assert.deepEqual([works.minItems, works.maxItems], [3, 3]);
+  assert.deepEqual(works.items.required, ['tipo', 'titulo', 'autor_ou_artista', 'motivo']);
+  assert.deepEqual(schema.required, ['schema_version', 'vibe_resumo', 'referencias', 'obras_culturais', 'interpretacao']);
 });
 
 // ── estrutura de blocos do prompt (Especificações técnicas / RNF018) ───────
@@ -236,6 +252,24 @@ test('referência alucinada (404 na Wikipedia) é trocada por substituta também
   assert.ok(!names.includes('Nome Inventado Dois'), 'substituta alucinada também é barrada');
 });
 
+test('mais de 3 referências válidas → só as 3 primeiras, sem chamada extra', async () => {
+  script = [payload({ referencias: ['A', 'B', 'C', 'D'].map(n => ref(n, `Cat ${n}`)) })];
+  const result = await generateInterpretation(PROFILE, null, [], null);
+  assert.deepEqual(result.referencias.map(r => r.nome), ['A', 'B', 'C']);
+  assert.equal(calls.length, 1);
+});
+
+test('rejeição sem substituta válida: ficam as reais (2), sem nome enlatado', async () => {
+  wiki.set('Inventado', 'missing');
+  script = [
+    payload({ referencias: [ref('A', 'X'), ref('Inventado', 'Y'), ref('B', 'Z')] }),
+    { referencias: [] },
+  ];
+  const result = await generateInterpretation(PROFILE, null, [], null);
+  assert.deepEqual(result.referencias.map(r => r.nome), ['A', 'B']);
+  assert.match(calls[1].prompt, /NÃO use nenhum destes nomes \(já usados ou rejeitados\): Inventado, A, B\./);
+});
+
 test('lookup incerto (timeout na Wikipedia) NÃO descarta a referência', async () => {
   wiki.set('Atticus Finch', 'unknown');
   script = [payload({ referencias: [ref('Atticus Finch', 'Personagem'), ref('Hannah Arendt', 'Filósofa'), ref('Frida Kahlo', 'Artista')] })];
@@ -255,8 +289,15 @@ test('erros transitórios são retentados com recuo; persistentes degradam para 
     { error: new Error('LLM timeout reached'), expectedCalls: 3 },
     { error: new Error('Service Unavailable'), expectedCalls: 3 },
     { error: new Error('rate limit exceeded'), expectedCalls: 3 },
+    { error: httpError(500), expectedCalls: 3 },
+    { error: Object.assign(new Error('upstream error'), { statusCode: 502 }), expectedCalls: 3 },
+    { error: new Error('request aborted'), expectedCalls: 3 },
+    { error: new Error('got 503 from upstream'), expectedCalls: 3 },
+    { error: new Error('got 429 from upstream'), expectedCalls: 3 },
     { error: httpError(400, 'bad request'), expectedCalls: 1 },
     { error: httpError(403, 'permission denied'), expectedCalls: 1 },
+    { error: httpError(499), expectedCalls: 1 },
+    { error: new Error(''), expectedCalls: 1 },
   ];
   for (const { error, expectedCalls } of cases) {
     calls.length = 0;

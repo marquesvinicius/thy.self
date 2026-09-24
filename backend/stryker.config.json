@@ -9,16 +9,34 @@
     "src/engine/**/*.js",
     "src/utils/**/*.js",
     "src/middleware/**/*.js",
-    "src/services/analyze.service.js",
-    "src/services/answer.service.js",
-    "src/services/question.service.js",
+    "src/controllers/**/*.js",
+    "src/services/**/*.js",
+    "src/config/cors.js",
+    "eval/metrics.js",
     "!src/utils/logger.js",
-    "!src/engine/dimensions.js"
+    "!src/engine/dimensions.js",
+    "!src/controllers/dev.controller.js",
+    "!src/services/archetype.service.js",
+    "!src/services/session.service.js",
+    "!src/services/llm-limiter.js"
   ],
-  "reporters": ["clear-text", "progress", "json", "html"],
-  "jsonReporter": { "fileName": "reports/mutation/mutation.json" },
-  "htmlReporter": { "fileName": "reports/mutation/mutation.html" },
-  "thresholds": { "high": 90, "low": 80, "break": 80 },
+  "reporters": [
+    "clear-text",
+    "progress",
+    "json",
+    "html"
+  ],
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  },
+  "htmlReporter": {
+    "fileName": "reports/mutation/mutation.html"
+  },
+  "thresholds": {
+    "high": 90,
+    "low": 80,
+    "break": 80
+  },
   "concurrency": 4,
   "timeoutMS": 20000,
   "tempDirName": ".stryker-tmp",

@@ -19,6 +19,9 @@ Project-level artifacts at the repo root: raw question CSVs (`questions.csv`, `q
 - `npm run seed` — reseed categories, BFI-2-S objective items, interpretative items, and cultural archetypes (`scripts/etl/thy_self_characters.json`) into Supabase. Fully idempotent: objective items upsert on `external_id` (`E1`…`O30`), interpretative items upsert on `external_id` (`INT_MD_01`…`INT_IN_08`), archetypes upsert on `id`.
 - `npm test` — run all Node built-in test-runner suites in `test/**/*.test.js` (includes `--experimental-test-module-mocks`, required by `question.service.test.js`).
 - Run a single test file: `node --experimental-test-module-mocks --test test/bigfive-engine.test.js`.
+- `npm run test:coverage` — honest coverage via c8 (`all: true`, so files no test imports still count; `scripts/quality/strip-mock-coverage.mjs` drops modules replaced by `mock.module`, which V8 otherwise reports as 100% covered).
+- `npm run quality:crap` — CRAP per function (ESLint `complexity` × c8 coverage). Gate: CRAP ≤ 30 per function and mean ≤ 6; `dev.controller.js` excluded. `npm run quality` runs coverage + CRAP.
+- `npm run test:mutation` — Stryker with the command runner over `node:test` (config in `stryker.config.json`, break threshold 80%). The full scope takes ~50 min; for one file use `npx stryker run --mutate src/engine/likert.js`.
 - SQL migrations in `sql/migration_00*.sql` are applied manually against the Supabase project in order (`migration_001` → `007_alternatives_unique`). `sql/schema.sql` is the canonical snapshot for a clean setup; `sql/maintenance_dedup_interpretative.sql` is a one-shot cleanup for databases seeded before the interpretative upsert existed.
 
 ### Frontend (`cd frontend`)
@@ -41,7 +44,7 @@ Questions live in two mutually-exclusive layers enforced at the DB level (`migra
 When touching the engine or seed, preserve this invariant: objective → scored (single-trait Likert in `[-2, +2]`, sign flipped when reverse-keyed), interpretative → LLM-only. The engine (`src/engine/BigFiveEngine.js`) explicitly `continue`s over any non-objective answer.
 
 ### Scoring pipeline
-`BigFiveEngine.calculateProfile(answers)` → per-trait raw sum of signed Likert values → `normalizeByTrait` (min-max onto 0–100, neutral = 50) → `classifyScore` bucketing (`muito_baixo` <20, `baixo` <40, `moderado` <60, `alto` <80, `muito_alto` ≥80) → `DIMENSIONS` metadata join.
+`BigFiveEngine.calculateProfile(answers)` → `readObjectiveLikert` (engine/likert.js — the single place that decides whether an answer is scored and with which signed value; also used by consistency, response style and the answer review) → per-trait raw sum of signed Likert values → `normalizeByTrait` (min-max onto 0–100, neutral = 50) → `classifyScore` bucketing (`muito_baixo` <20, `baixo` <40, `moderado` <60, `alto` <80, `muito_alto` ≥80) → `DIMENSIONS` metadata join.
 
 Theoretical bounds assume 6 items × Likert `[-2, +2]`; `normalization.js` falls back to `ITEMS_PER_TRAIT` when an item is missing so partial fixtures normalize deterministically.
 
