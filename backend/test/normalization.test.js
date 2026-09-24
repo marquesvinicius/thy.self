@@ -4,7 +4,7 @@ import test from 'node:test';
 process.env.SUPABASE_URL ||= 'http://localhost:54321';
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key';
 
-const { normalizeByTrait, normalizeScore, classifyScore } = await import('../src/engine/normalization.js');
+const { normalizeByTrait, classifyScore } = await import('../src/engine/normalization.js');
 
 test('normalizeByTrait returns 50 for a neutral per-trait sum', () => {
   assert.equal(normalizeByTrait(0, 6), 50);
@@ -32,11 +32,6 @@ test('normalizeByTrait é linear entre os limites e arredonda para 1 casa', () =
   assert.equal(normalizeByTrait(-5, 6), 29.2);  // 7/24  = 29,1666…
   assert.equal(normalizeByTrait(4, 2), 100);    // limites dependem do nº de itens: [−4, +4]
   assert.equal(normalizeByTrait(2, 2), 75);
-});
-
-test('normalizeScore is an alias of normalizeByTrait', () => {
-  assert.equal(normalizeScore(0, 6), normalizeByTrait(0, 6));
-  assert.equal(normalizeScore(12, 6), normalizeByTrait(12, 6));
 });
 
 test('classifyScore classifies threshold ranges correctly', () => {

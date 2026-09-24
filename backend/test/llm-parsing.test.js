@@ -129,6 +129,23 @@ test('normalizeReferences completa com fallbacks quando faltam itens', () => {
   assert.ok(result[1].motivo.length > 0);
 });
 
+test('fallback prefere categorias ainda não usadas (três ângulos distintos)', () => {
+  const result = normalizeReferences(
+    [{ categoria: 'Cientista', nome: 'Marie Curie', motivo: 'm' }],
+    { profile: PROFILE_FIXTURE },
+  );
+  // Alan Turing (também Cientista) é pulado em favor de outra categoria.
+  assert.deepEqual(result.map(r => r.categoria), ['Cientista', 'Escritora', 'Filósofa']);
+});
+
+test('fallback repete categoria só quando não resta alternativa', () => {
+  const result = normalizeReferences(
+    [{ categoria: 'Cientista', nome: 'Marie Curie', motivo: 'm' }],
+    { profile: PROFILE_FIXTURE, excludedCategories: ['Escritora', 'Filósofa', 'Diretor', 'Música', 'Personagem'] },
+  );
+  assert.deepEqual(result.map(r => r.nome), ['Marie Curie', 'Alan Turing']);
+});
+
 test('normalizeReferences lança quando nada sobra após filtros', () => {
   assert.throws(() => normalizeReferences([], {
     profile: PROFILE_FIXTURE,
@@ -237,6 +254,37 @@ test('formatInterpretativeBlock inclui cenário (context) da pergunta', () => {
 
   assert.match(block, /cenário: "Ele tem uma família para sustentar\."/);
   assert.match(block, /devolveria/i);
+});
+
+test('formatInterpretativeBlock: bloco [2] completo, agrupado e em ordem fixa de categorias', () => {
+  const block = formatInterpretativeBlock([
+    { category_slug: 'interest', question_text: 'Q'.repeat(85), alternative_text: 'Astronomia', user_observation: 'desde criança' },
+    '  Música  ',                // sinal legado (string) → interesse
+    '   ',                       // vazio: ignorado
+    null,                        // inválido: ignorado
+    { category_slug: 'custom_x', question_text: 'Extra?', alternative_text: null, user_observation: null },
+    { category_slug: 'moral_dilemma', question_text: 'Mentiria?', context: 'No trabalho', user_observation: 'Não sei dizer', alternative_text: '' },
+  ]);
+
+  assert.equal(block, [
+    'Dilemas morais:',
+    '- [Mentiria?] (reflexão do usuário)',
+    '  (cenário: "No trabalho")',
+    '  "Não sei dizer"',
+    '',
+    'Interesses manifestados:',
+    `- [${'Q'.repeat(80)}…] → "Astronomia"`,
+    '  (comentário do usuário: "desde criança")',
+    '- → "Música"',
+    '',
+    'custom_x:',
+    '- [Extra?] (sem resposta registrada)',
+  ].join('\n'));
+});
+
+test('formatInterpretativeBlock sem sinais declara a ausência', () => {
+  assert.equal(formatInterpretativeBlock([]), 'Nenhuma resposta interpretativa registrada pelo usuário.');
+  assert.equal(formatInterpretativeBlock(undefined), 'Nenhuma resposta interpretativa registrada pelo usuário.');
 });
 
 test('hasReflectionSignal e interpretationCitesReflection', () => {

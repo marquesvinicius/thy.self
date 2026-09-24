@@ -14,10 +14,14 @@
  * Pré-requisito: `npm run test:coverage` (gera coverage/coverage-final.json).
  *
  * Uso:
- *   node scripts/quality/crap.mjs [--threshold N] [--top N] [--gate glob,glob]
+ *   node scripts/quality/crap.mjs [--threshold N] [--max-mean N] [--top N]
+ *                                 [--gate glob,glob] [--exclude glob,glob]
  *
- * --gate restringe a verificação do limiar (exit 1) aos arquivos do núcleo;
- * o relatório continua listando o projeto inteiro.
+ * --threshold  CRAP máximo aceito por função (padrão 30, o limiar do crap4j).
+ * --max-mean   CRAP médio máximo aceito no conjunto verificado.
+ * --gate       restringe a verificação aos arquivos indicados;
+ * --exclude    retira arquivos da verificação (ex.: ferramentas de dev).
+ * O relatório lista o projeto inteiro; o exit 1 vale só para o gate.
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
@@ -28,13 +32,15 @@ const ROOT = resolve(import.meta.dirname, '../..');
 const COVERAGE_FILE = resolve(ROOT, 'coverage/coverage-final.json');
 
 function parseArgs(argv) {
-  const args = { threshold: 30, top: 25, gate: null };
+  const args = { threshold: 30, maxMean: Infinity, top: 25, gate: null, exclude: [] };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
     const value = argv[i + 1];
     if (flag === '--threshold') { args.threshold = Number(value); i += 1; }
     else if (flag === '--top') { args.top = Number(value); i += 1; }
+    else if (flag === '--max-mean') { args.maxMean = Number(value); i += 1; }
     else if (flag === '--gate') { args.gate = value.split(','); i += 1; }
+    else if (flag === '--exclude') { args.exclude = value.split(','); i += 1; }
   }
   return args;
 }
@@ -152,20 +158,21 @@ async function main() {
     };
   }).sort((a, b) => b.crap - a.crap);
 
-  const gated = args.gate
-    ? rows.filter(r => args.gate.some(g => globToRegExp(g).test(r.file)))
-    : rows;
+  const matches = (globs, file) => globs.some(g => globToRegExp(g).test(file));
+  const gated = rows
+    .filter(r => !args.gate || matches(args.gate, r.file))
+    .filter(r => !matches(args.exclude, r.file));
   const offenders = gated.filter(r => r.crap > args.threshold);
 
   console.log(`CRAP por função — ${rows.length} funções, limiar ${args.threshold}${args.gate ? ` (gate: ${args.gate.join(', ')})` : ''}\n`);
   console.log('  CRAP   comp  cov%   função (arquivo:linha)');
   for (const r of rows.slice(0, args.top)) {
-    const flag = gated.includes(r) && r.crap > args.threshold ? '✗' : ' ';
+    const flag = !gated.includes(r) ? '·' : r.crap > args.threshold ? '✗' : ' ';
     console.log(`${flag} ${r.crap.toFixed(1).padStart(6)} ${String(r.complexity).padStart(5)} ${(r.coverage * 100).toFixed(0).padStart(5)}   ${r.name} (${r.file}:${r.line})`);
   }
-  const sum = gated.reduce((acc, r) => acc + r.crap, 0);
-  console.log(`\nfunções no gate: ${gated.length} · acima do limiar: ${offenders.length} · CRAP máx: ${gated[0]?.crap.toFixed(1) ?? '-'} · CRAP médio: ${(sum / (gated.length || 1)).toFixed(2)}`);
-  if (offenders.length > 0) process.exit(1);
+  const mean = gated.reduce((acc, r) => acc + r.crap, 0) / (gated.length || 1);
+  console.log(`\nfunções no gate: ${gated.length} · acima do limiar: ${offenders.length} · CRAP máx: ${gated[0]?.crap.toFixed(1) ?? '-'} · CRAP médio: ${mean.toFixed(2)} (máx. aceito ${args.maxMean})`);
+  if (offenders.length > 0 || mean > args.maxMean) process.exit(1);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

@@ -27,7 +27,7 @@ Project-level artifacts at the repo root: raw question CSVs (`questions.csv`, `q
 - `npm run lint` — ESLint via `eslint.config.mjs` (next config).
 
 ### Required env (`backend/.env`)
-`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` are required — `src/config/environment.js` throws at import time if either is missing. Optional: `PORT`, `NODE_ENV`, `ALLOWED_ORIGINS` (comma-separated), `GEMINI_API_KEY`, `LLM_DAILY_LIMIT`, `MIN_ANSWERS_FOR_ANALYSIS`, `MAX_QUESTIONS_PER_SESSION`.
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` are required — `src/config/environment.js` throws at import time if either is missing. Optional: `PORT`, `NODE_ENV`, `ALLOWED_ORIGINS` (comma-separated), `GEMINI_API_KEY`, `LLM_DAILY_LIMIT`, `LLM_LOG_PROMPT`.
 
 ## Architecture
 
@@ -36,7 +36,7 @@ Project-level artifacts at the repo root: raw question CSVs (`questions.csv`, `q
 Questions live in two mutually-exclusive layers enforced at the DB level (`migration_004_dual_core.sql`, check constraint `questions_kind_trait_consistency`):
 
 1. **`kind = 'objective'`** — validated BFI-2-S items (Soto & John, 2017). Each item declares a single `trait` (`O|C|E|A|N`) and a `reverse_key` flag. **Only these answers feed the numeric OCEAN score.** There are exactly 30 items (6 per trait) — this is why `MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS = 30` is hard-coded in `src/config/constants.js`.
-2. **`kind = 'interpretative'`** — authorial items (moral dilemmas, paradoxes, interest probes). These **do not influence numeric scores**. They are consumed as qualitative context for the LLM narrative only. Categories are weighted by `INTERPRETATIVE_CATEGORY_WEIGHTS` (moral_dilemma 0.45, paradoxical 0.30, interest 0.25).
+2. **`kind = 'interpretative'`** — authorial items (moral dilemmas, paradoxes, interest probes). These **do not influence numeric scores**. They are consumed as qualitative context for the LLM narrative only. Their order follows the emotional rotation in `utils/questionOrder.js` (moral_dilemma → interest → paradoxical).
 
 When touching the engine or seed, preserve this invariant: objective → scored (single-trait Likert in `[-2, +2]`, sign flipped when reverse-keyed), interpretative → LLM-only. The engine (`src/engine/BigFiveEngine.js`) explicitly `continue`s over any non-objective answer.
 

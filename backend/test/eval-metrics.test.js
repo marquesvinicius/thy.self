@@ -16,6 +16,8 @@ const {
   worksShape,
   ancoraIsGrounded,
   groundedAncoraRate,
+  endsOnEvidence,
+  evaluateInterpretation,
 } = await import('../eval/metrics.js');
 
 const SIGNALS_FIXTURE = [
@@ -179,4 +181,48 @@ test('worksShape valida 1 série + 1 filme + 1 anime', () => {
   assert.equal(worksShape([
     { tipo: 'serie' }, { tipo: 'serie' }, { tipo: 'anime' },
   ]).ok, false);
+});
+
+test('endsOnEvidence: última frase com número, citação ou nome próprio', () => {
+  assert.equal(endsOnEvidence('Você hesita. Com abertura em 72%, decide só.'), true);
+  assert.equal(endsOnEvidence('Primeira frase. Você escreveu "deixei um amigo".'), true);
+  assert.equal(endsOnEvidence('Primeira frase. Como Feynman, você desmonta.'), true);
+  assert.equal(endsOnEvidence('Tudo certo. No fim, cada um segue seu caminho.'), false);
+  assert.equal(endsOnEvidence(''), false);
+  assert.equal(endsOnEvidence(null), false);
+});
+
+test('evaluateInterpretation agrega todos os contratos numa linha de relatório', () => {
+  const report = evaluateInterpretation({
+    vibe_resumo: 'Adia decisões difíceis e revisa em silêncio',
+    interpretacao: 'Com amabilidade em 80%, você escreveu "deixei um amigo levar a culpa". Isso pesa em 80%.',
+    referencias: [
+      { nome: 'Atticus Finch', categoria: 'Personagem', motivo: 'Defende quem ninguém defende.', ancora: 'deixei um amigo levar a culpa por um atraso' },
+      { nome: 'Hannah Arendt', categoria: 'Filósofa', motivo: 'Pensa antes de agir.', ancora: 'resposta inventada sem relação' },
+    ],
+    obras_culturais: [
+      { tipo: 'serie', titulo: 'Dark' }, { tipo: 'filme', titulo: 'A Chegada' }, { tipo: 'anime', titulo: 'Frieren' },
+    ],
+  }, { citesReflection: true, signals: SIGNALS_FIXTURE });
+
+  assert.equal(report.vibe_words, 7);
+  assert.equal(report.vibe_within_limit, true);
+  assert.equal(report.second_person, true);
+  assert.equal(report.score_evidence, true);
+  assert.equal(report.has_quote, true);
+  assert.equal(report.cites_reflection, true);
+  assert.equal(report.ends_on_evidence, true);
+  assert.equal(report.reference_count, 2);
+  assert.equal(report.grounded_ancora_rate, 0.5);
+  assert.equal(report.works_ok, true);
+  assert.deepEqual(report.reference_names, ['Atticus Finch', 'Hannah Arendt']);
+});
+
+test('evaluateInterpretation tolera saída vazia (geração que falhou)', () => {
+  const report = evaluateInterpretation(null);
+  assert.equal(report.reference_count, 0);
+  assert.equal(report.grounded_ancora_rate, null);
+  assert.equal(report.cites_reflection, null);
+  assert.equal(report.works_ok, false);
+  assert.deepEqual(report.reference_names, []);
 });

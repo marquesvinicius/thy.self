@@ -26,13 +26,6 @@ export function normalizeByTrait(rawScore, itemsForTrait) {
 }
 
 /**
- * Back-compat alias used by legacy callers. Delegates to normalizeByTrait.
- */
-export function normalizeScore(rawScore, itemsForTrait) {
-  return normalizeByTrait(rawScore, itemsForTrait);
-}
-
-/**
  * Classifies a normalized score (0-100) into a level label.
  */
 export function classifyScore(score) {
