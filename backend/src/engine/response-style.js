@@ -1,4 +1,4 @@
-import { DIMENSION_KEYS, QUESTION_KIND } from '../config/constants.js';
+import { readObjectiveLikert } from './likert.js';
 
 /**
  * Assinatura de estilo de resposta — sinais determinísticos sobre COMO o
@@ -21,62 +21,50 @@ const HESITATION_OUTLIER_FACTOR = 3; // delta > 3× mediana = hesitação
 const HESITATION_MIN_SAMPLES = 10;
 const HESITATION_MAX_REASONABLE_MS = 5 * 60 * 1000; // pausas > 5min são interrupção, não hesitação
 
-function likertValueOf(answer) {
-  const trait = answer?.questions?.trait;
-  if (!trait || !DIMENSION_KEYS.includes(trait)) return null;
-  const raw = Number(answer.alternatives?.[`impact_${trait.toLowerCase()}`]);
-  return Number.isFinite(raw) ? raw : null;
+/**
+ * Contagens sobre os valores Likert como respondidos. "Concordar" = valor
+ * bruto positivo, ANTES do reverse_key: queremos saber se a pessoa concorda
+ * com a afirmação como escrita, independente da direção psicométrica.
+ */
+function tally(likerts) {
+  const counts = { extreme: 0, neutral: 0, direct: 0, agreeDirect: 0, reverse: 0, agreeReverse: 0 };
+  for (const { value, reverse } of likerts) {
+    if (Math.abs(value) === 2) counts.extreme += 1;
+    if (value === 0) counts.neutral += 1;
+    if (reverse) {
+      counts.reverse += 1;
+      if (value > 0) counts.agreeReverse += 1;
+    } else {
+      counts.direct += 1;
+      if (value > 0) counts.agreeDirect += 1;
+    }
+  }
+  return counts;
+}
+
+const rate = (part, total) => (total > 0 ? part / total : 0);
+
+/** Aquiescente: concorda com quase tudo, inclusive itens que se contradizem. */
+function isAcquiescent(counts) {
+  return counts.direct >= 3 && counts.reverse >= 3
+    && rate(counts.agreeDirect, counts.direct) >= ACQUIESCENCE_MIN_RATE
+    && rate(counts.agreeReverse, counts.reverse) >= ACQUIESCENCE_MIN_RATE;
 }
 
 export function calculateResponseStyle(answers) {
-  const objective = (answers || []).filter(
-    a => a?.questions?.kind === QUESTION_KIND.OBJECTIVE
-  );
-
-  let extreme = 0;
-  let neutral = 0;
-  let agreeDirect = 0;
-  let totalDirect = 0;
-  let agreeReverse = 0;
-  let totalReverse = 0;
-  let counted = 0;
-
-  for (const answer of objective) {
-    const value = likertValueOf(answer);
-    if (value === null) continue;
-    counted += 1;
-
-    if (Math.abs(value) === 2) extreme += 1;
-    if (value === 0) neutral += 1;
-
-    // Aquiescência: "concordar" = valor bruto positivo, ANTES do sinal do
-    // reverse_key (queremos saber se a pessoa concorda com a afirmação como
-    // escrita, independente da direção psicométrica do item).
-    if (answer.questions.reverse_key) {
-      totalReverse += 1;
-      if (value > 0) agreeReverse += 1;
-    } else {
-      totalDirect += 1;
-      if (value > 0) agreeDirect += 1;
-    }
-  }
-
-  const agreeDirectRate = totalDirect > 0 ? agreeDirect / totalDirect : 0;
-  const agreeReverseRate = totalReverse > 0 ? agreeReverse / totalReverse : 0;
+  const likerts = (answers || []).map(readObjectiveLikert).filter(Boolean);
+  const counts = tally(likerts);
+  const answered = likerts.length;
 
   return {
-    answer_count: counted,
-    extreme_count: extreme,
-    extreme_rate: counted > 0 ? round2(extreme / counted) : 0,
-    neutral_count: neutral,
-    neutral_rate: counted > 0 ? round2(neutral / counted) : 0,
-    agree_direct_rate: round2(agreeDirectRate),
-    agree_reverse_rate: round2(agreeReverseRate),
-    // Aquiescente: concorda com quase tudo, inclusive itens que se contradizem.
-    acquiescence:
-      totalDirect >= 3 && totalReverse >= 3
-      && agreeDirectRate >= ACQUIESCENCE_MIN_RATE
-      && agreeReverseRate >= ACQUIESCENCE_MIN_RATE,
+    answer_count: answered,
+    extreme_count: counts.extreme,
+    extreme_rate: round2(rate(counts.extreme, answered)),
+    neutral_count: counts.neutral,
+    neutral_rate: round2(rate(counts.neutral, answered)),
+    agree_direct_rate: round2(rate(counts.agreeDirect, counts.direct)),
+    agree_reverse_rate: round2(rate(counts.agreeReverse, counts.reverse)),
+    acquiescence: isAcquiescent(counts),
     hesitation: calculateHesitation(answers),
   };
 }
@@ -96,8 +84,6 @@ function calculateHesitation(answers) {
     .filter(a => Number.isFinite(a.at))
     .sort((a, b) => a.at - b.at);
 
-  if (timed.length < HESITATION_MIN_SAMPLES + 1) return null;
-
   const deltas = [];
   for (let i = 1; i < timed.length; i += 1) {
     const ms = timed[i].at - timed[i - 1].at;
@@ -108,8 +94,8 @@ function calculateHesitation(answers) {
   if (deltas.length < HESITATION_MIN_SAMPLES) return null;
 
   const sorted = [...deltas].sort((a, b) => a.ms - b.ms);
+  // Só entram deltas > 0, então a mediana é sempre positiva.
   const median = sorted[Math.floor(sorted.length / 2)].ms;
-  if (median <= 0) return null;
 
   const slowest = sorted[sorted.length - 1];
   if (slowest.ms < median * HESITATION_OUTLIER_FACTOR) return null;

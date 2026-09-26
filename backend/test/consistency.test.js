@@ -89,3 +89,25 @@ test('valores não numéricos e traits inválidos são descartados', () => {
   assert.equal(result.A.n, 1);
   assert.equal(result.A.mean, 1);
 });
+
+test('limiar de tensão é estrito: stddev exatamente 1,2 não dispara', () => {
+  const result = calculateConsistency([objectiveAnswer('A', 1.2), objectiveAnswer('A', -1.2)]);
+  assert.equal(result.A.stddev, 1.2);
+  assert.equal(result.A.tension, false);
+});
+
+test('limiar sobre Likert real: 1,15 não é tensão, 1,21 é', () => {
+  const below = calculateConsistency([-1, 0, 1, 2, 2, 2].map(v => objectiveAnswer('O', v)));
+  const above = calculateConsistency([-1, 0, 2, 2, 2, 2].map(v => objectiveAnswer('O', v)));
+  assert.deepEqual(below.O, { mean: 1, stddev: 1.15, tension: false, n: 6 });
+  assert.deepEqual(above.O, { mean: 1.17, stddev: 1.21, tension: true, n: 6 });
+});
+
+test('interpretativa com traço e impacto não entra no bucket do traço', () => {
+  const leaked = {
+    questions: { kind: 'interpretative', trait: 'O', reverse_key: false },
+    alternatives: { impact_o: -2 },
+  };
+  const result = calculateConsistency([objectiveAnswer('O', 2), leaked]);
+  assert.deepEqual(result.O, { mean: 2, stddev: 0, tension: false, n: 1 });
+});

@@ -1,4 +1,5 @@
 import { env } from './environment.js';
+import { AppError } from '../utils/AppError.js';
 
 const isDev = env.nodeEnv !== 'production';
 
@@ -22,7 +23,8 @@ export const corsOptions = {
       return;
     }
 
-    callback(new Error('Not allowed by CORS'));
+    // AppError → o errorHandler responde 403, não um 500 genérico.
+    callback(new AppError('Origin not allowed by CORS.', 403, 'CORS_FORBIDDEN'));
   },
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type'],

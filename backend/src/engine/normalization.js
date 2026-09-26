@@ -14,23 +14,15 @@ import {
  * A perfectly neutral respondent (sum = 0) scores exactly 50.
  */
 export function normalizeByTrait(rawScore, itemsForTrait) {
-  if (!itemsForTrait || itemsForTrait <= 0) return 50;
+  // Uma comparação só cobre 0, negativos, undefined e NaN.
+  if (!(itemsForTrait > 0)) return 50;
 
   const theoreticalMin = itemsForTrait * LIKERT_MIN;
   const theoreticalMax = itemsForTrait * LIKERT_MAX;
+  // itemsForTrait > 0 e LIKERT_MAX > LIKERT_MIN ⇒ range > 0 sempre.
   const range = theoreticalMax - theoreticalMin;
-
-  if (range === 0) return 50;
-
   const normalized = ((rawScore - theoreticalMin) / range) * SCORE_SCALE_MAX;
   return Math.round(Math.min(Math.max(normalized, 0), SCORE_SCALE_MAX) * 10) / 10;
-}
-
-/**
- * Back-compat alias used by legacy callers. Delegates to normalizeByTrait.
- */
-export function normalizeScore(rawScore, itemsForTrait) {
-  return normalizeByTrait(rawScore, itemsForTrait);
 }
 
 /**

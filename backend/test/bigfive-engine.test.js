@@ -130,3 +130,61 @@ test('calculateConsistency ignores interpretative answers', () => {
     assert.equal(consistency[key].tension, false);
   }
 });
+
+test('interpretativa com traço preenchido continua fora do escore (Dual-Core)', () => {
+  const leaked = {
+    questions: { kind: 'interpretative', trait: 'O', reverse_key: false, type: 'binary' },
+    alternatives: { impact_o: 2, impact_c: 0, impact_e: 0, impact_a: 0, impact_n: 0 },
+  };
+  const profile = calculateProfile([...sixItems('O', -2), leaked, leaked]);
+
+  assert.equal(profile.answerCount, 6);
+  assert.equal(profile.rawImpacts.O, -12);
+  assert.equal(profile.scores.O, 0);
+});
+
+test('normaliza pelo nº real de itens do traço, não pelo canônico 6', () => {
+  // 3 itens em +2 → soma 6 sobre limites [−6, +6] → 100 (e não 75).
+  const profile = calculateProfile([
+    makeObjective({ trait: 'A', value: 2 }),
+    makeObjective({ trait: 'A', value: 2 }),
+    makeObjective({ trait: 'A', value: 2 }),
+  ]);
+  assert.deepEqual(profile.itemsPerTrait, { O: 0, C: 0, E: 0, A: 3, N: 0 });
+  assert.equal(profile.scores.A, 100);
+});
+
+test('respostas inválidas (traço desconhecido, Likert não numérico) são descartadas', () => {
+  const profile = calculateProfile([
+    makeObjective({ trait: 'E', value: 1 }),
+    { questions: { kind: 'objective', trait: 'Z', reverse_key: false }, alternatives: { impact_z: 2 } },
+    { questions: { kind: 'objective', trait: 'E', reverse_key: false }, alternatives: { impact_e: 'x' } },
+  ]);
+  assert.equal(profile.answerCount, 1);
+  assert.equal(profile.itemsPerTrait.E, 1);
+  assert.equal(profile.rawImpacts.E, 1);
+});
+
+test('dimensions traz os 5 traços em ordem OCEAN com nível e metadados de exibição', () => {
+  const profile = calculateProfile([
+    ...sixItems('O', 2),   // 100 → muito_alto
+    ...sixItems('C', 1),   // 75  → alto
+    ...sixItems('E', 0),   // 50  → moderado
+    ...sixItems('A', -1),  // 25  → baixo
+    ...sixItems('N', -2),  // 0   → muito_baixo
+  ]);
+
+  assert.deepEqual(
+    profile.dimensions.map(d => [d.key, d.score, d.level]),
+    [['O', 100, 'muito_alto'], ['C', 75, 'alto'], ['E', 50, 'moderado'], ['A', 25, 'baixo'], ['N', 0, 'muito_baixo']]
+  );
+  assert.deepEqual(profile.dimensions[4], {
+    key: 'N',
+    name: 'Neuroticismo',
+    score: 0,
+    level: 'muito_baixo',
+    description: 'Reflete a tendência a experimentar emoções negativas como ansiedade, raiva e tristeza.',
+    lowLabel: 'Estável / Calmo',
+    highLabel: 'Sensível / Reativo',
+  });
+});

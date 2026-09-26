@@ -4,6 +4,7 @@ import { analyzeSession } from '../services/analyze.service.js';
 import { AppError } from '../utils/AppError.js';
 import { success } from '../utils/apiResponse.js';
 import { logger } from '../utils/logger.js';
+import { shuffle } from '../utils/shuffle.js';
 
 /**
  * POST /api/v1/dev/quick-analyze
@@ -66,7 +67,6 @@ export async function handleQuickAnalyze(req, res, next) {
 
     const sessionId = session.id;
 
-    const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
     const selectedObjective = shuffle(objective).slice(0, MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS);
     const selectedInterpretative = shuffle(interpretative).slice(
       0,
