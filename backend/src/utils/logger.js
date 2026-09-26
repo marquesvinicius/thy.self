@@ -1,5 +1,3 @@
-const levels = { error: 0, warn: 1, info: 2, debug: 3 };
-
 function formatTimestamp() {
   return new Date().toISOString();
 }
@@ -14,6 +12,8 @@ function log(level, message, meta = {}) {
   if (level === 'error') {
     console.error(JSON.stringify(entry));
   } else {
+    // O logger é o único ponto de saída estruturada para stdout.
+    // eslint-disable-next-line no-console
     console.log(JSON.stringify(entry));
   }
 }

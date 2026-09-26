@@ -23,6 +23,9 @@ export default function CulturalCard({
       {/* Image area */}
       <div className="aspect-[4/3] bg-surface relative overflow-hidden">
         {image_url ? (
+          // Miniatura externa da Wikimedia (URL arbitrária por referência): next/image
+          // exigiria cadastrar domínios remotos e reprocessar a imagem no servidor.
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={image_url}
             alt={nome}

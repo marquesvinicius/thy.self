@@ -1,0 +1,50 @@
+# RNF021 — verificação automatizada a cada envio de código.
+# Análise estática (ESLint + auditoria de dependências), testes unitários
+# com cobertura e gate de CRAP no servidor; lint e build de produção no
+# cliente. A análise de mutação (npm run test:mutation, ~50 min) roda sob
+# demanda, fora do CI.
+name: CI
+
+on:
+  push:
+    branches: [master, 'docs/**']
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run audit:prod
+      - run: npm run test:coverage
+      - run: npm run quality:crap
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm audit --omit=dev
+      - run: npm run build
