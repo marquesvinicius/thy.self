@@ -16,10 +16,13 @@ import { test, expect } from '@playwright/test';
  *   RF006 — auditar a influência das respostas
  *   RF007 — exportar o resultado em PDF
  *
- * RF005 (arquétipo + interpretação da IA) é verificado de forma
- * tolerante: a camada de IA é declaradamente opcional (o sistema deve
- * degradar sem ela), então o teste exige o arquétipo, mas aceita tanto
- * a interpretação quanto a mensagem de indisponibilidade.
+ * RF005 (arquétipo + interpretação da IA) NÃO é verificado aqui, por
+ * escolha: o texto da IA muda a cada execução e a camada é opcional por
+ * definição, então não há o que conferir com segurança pelo navegador.
+ * Ele é coberto pelos testes de integração da camada de IA no backend.
+ *
+ * RN010 e RNF008 também são conferidos: o aviso de "não é diagnóstico"
+ * precisa aparecer antes do perfil, e a sessão é identificada só por UUID.
  */
 
 const OBJECTIVE_ITEMS = 30;
