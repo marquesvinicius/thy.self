@@ -24,7 +24,8 @@
  * O relatório lista o projeto inteiro; o exit 1 vale só para o gate.
  */
 import { readFileSync, existsSync } from 'node:fs';
-import { resolve, relative } from 'node:path';
+import { resolve, relative, sep } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { ESLint } from 'eslint';
 import { builtinRules } from 'eslint/use-at-your-own-risk';
 
@@ -149,7 +150,9 @@ async function main() {
     const buckets = attributeLines(byFile.get(fn.file), coverage[fn.file]);
     const cov = coverageOf(fn, buckets.get(fn), coverage[fn.file]);
     return {
-      file: relative(ROOT, fn.file),
+      // Normaliza para '/': no Windows `relative` devolve '\', e os padrões de
+      // --gate/--exclude (escritos com '/') nunca casavam.
+      file: relative(ROOT, fn.file).split(sep).join('/'),
       line: fn.start.line,
       name: fn.name,
       complexity: fn.complexity,
@@ -175,6 +178,9 @@ async function main() {
   if (offenders.length > 0 || mean > args.maxMean) process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// pathToFileURL em vez de montar `file://${argv[1]}` à mão: no Windows o argv
+// vem com barra invertida e sem a terceira barra, a comparação nunca batia e
+// o gate saía com código 0 sem calcular nada (passava em silêncio).
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   await main();
 }
