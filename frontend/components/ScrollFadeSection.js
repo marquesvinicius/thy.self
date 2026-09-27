@@ -56,7 +56,11 @@ export default function ScrollFadeSection({ as: Tag = 'section', className = '',
 
       const elCenter = rect.top + rect.height / 2;
       const viewportCenter = vh / 2;
-      const dist = Math.abs(elCenter - viewportCenter);
+      // Distância do centro da tela até a borda mais próxima da seção (zero
+      // enquanto o centro da tela está dentro dela). Medir a partir do centro
+      // da seção deixava seções altas esmaecidas justamente enquanto eram
+      // lidas — o título ficava abaixo do contraste mínimo (WCAG 1.4.3).
+      const dist = Math.max(0, rect.top - viewportCenter, viewportCenter - rect.bottom);
 
       const safeZone = vh * SAFE_ZONE_RATIO;
       const fadeRange = (vh * FADE_RANGE_RATIO) || 1;

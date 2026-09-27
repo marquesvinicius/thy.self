@@ -161,7 +161,7 @@ function ObjectiveTab({ byTrait, traitTotals }) {
   const traitKeys = Object.keys(TRAIT_META);
   return (
     <div className="space-y-7">
-      <p className="text-[11px] leading-relaxed text-muted/80">
+      <p className="text-[11px] leading-relaxed text-faint">
         As 30 perguntas do BFI-2-S agrupadas por traço. A marca à esquerda de
         cada resposta mostra a contribuição Likert assinada — o sinal já
         considera <em>reverse_key</em> (itens escritos no sentido oposto são
@@ -227,7 +227,7 @@ function InterpretativeTab({ answers }) {
 
   return (
     <div className="space-y-5">
-      <p className="text-[11px] leading-relaxed text-muted/80">
+      <p className="text-[11px] leading-relaxed text-faint">
         As respostas narrativas não alteram o escore do Big Five — servem
         apenas como contexto qualitativo para o texto de interpretação e para
         as referências culturais.
@@ -236,7 +236,7 @@ function InterpretativeTab({ answers }) {
         {answers.map((row, index) => (
           <li key={row.id} className="relative border border-border p-5 pt-6 space-y-2">
             <div className="absolute -top-2.5 left-4 px-2 bg-background flex items-baseline gap-2">
-              <span className="text-[10px] tabular-nums text-muted/60">
+              <span className="text-[10px] tabular-nums text-faint">
                 {String(index + 1).padStart(2, '0')}
               </span>
               <span className="text-[10px] uppercase tracking-[0.24em] text-foreground font-semibold">

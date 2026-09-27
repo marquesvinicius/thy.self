@@ -151,7 +151,7 @@ export default function AboutPage() {
                     {g.cons.map((c, i) => (
                       <div key={i} className="flex gap-2 text-[11px] leading-relaxed">
                         <span className="text-muted/50">−</span>
-                        <span className="text-muted/70">{c}</span>
+                        <span className="text-faint">{c}</span>
                       </div>
                     ))}
                   </div>

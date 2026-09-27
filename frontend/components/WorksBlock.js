@@ -24,7 +24,7 @@ export default function WorksBlock({ works = [], delay = 1200 }) {
         <p className="text-[10px] uppercase tracking-[0.4em] text-muted">
           sugestões para você assistir
         </p>
-        <p className="text-[11px] text-muted/70 leading-relaxed max-w-xl">
+        <p className="text-[11px] text-faint leading-relaxed max-w-xl">
           uma série, um filme e um anime em ressonância com o seu perfil — escolhidos para dialogar com as suas respostas.
         </p>
       </div>

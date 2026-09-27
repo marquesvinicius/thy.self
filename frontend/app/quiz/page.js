@@ -543,7 +543,7 @@ export default function Quiz() {
             {/* Indicador discreto da etapa atual. Referencia o mesmo texto
                 usado no card de transição (StageTransition) para reforçar
                 a separação entre camadas quantitativa e narrativa. */}
-            <span className="hidden sm:inline text-muted/60">
+            <span className="hidden sm:inline text-faint">
               <span className="text-muted/40">·</span>{' '}
               {stage === 'objective'
                 ? `etapa 1/2 — BFI-2-S${
@@ -560,7 +560,7 @@ export default function Quiz() {
             {/* Horizonte honesto: estimativa do ato atual, calibrada pelo
                 ritmo real do usuário (baseline → mediana móvel). */}
             {estimateRemainingMin() !== null && (
-              <span className="hidden md:inline text-muted/50">
+              <span className="hidden md:inline text-faint">
                 <span className="text-muted/40">·</span>{' '}
                 ~{estimateRemainingMin()} min restantes
               </span>
@@ -672,7 +672,7 @@ export default function Quiz() {
                       <button
                         onClick={() => handleSkipQuestion(q.id, q.type)}
                         disabled={submitting}
-                        className="text-[10px] uppercase tracking-[0.25em] text-muted/70 hover:text-foreground transition-colors underline underline-offset-4 disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="text-[10px] uppercase tracking-[0.25em] text-faint hover:text-foreground transition-colors underline underline-offset-4 disabled:opacity-30 disabled:cursor-not-allowed"
                         title="Não altera seu escore — mas é menos material seu na leitura final"
                       >
                         pular — não altera seu escore

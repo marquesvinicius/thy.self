@@ -69,7 +69,7 @@ export default function DimensionBar({ dimension, consistency = null, animate = 
         </div>
 
         {dimension.description && (
-          <p className="text-[11px] leading-relaxed text-muted/70 mt-3 pt-3 border-t border-border/50">
+          <p className="text-[11px] leading-relaxed text-faint mt-3 pt-3 border-t border-border/50">
             {dimension.description}
           </p>
         )}
@@ -81,7 +81,7 @@ export default function DimensionBar({ dimension, consistency = null, animate = 
             <span className="text-foreground/80 text-xs leading-none mt-[2px]">◆</span>
             <p className="text-[10px] uppercase tracking-[0.2em] text-foreground/70 leading-relaxed">
               tensão interna detectada
-              <span className="normal-case tracking-normal text-muted/80 block mt-1 text-[11px]">
+              <span className="normal-case tracking-normal text-faint block mt-1 text-[11px]">
                 suas respostas oscilaram entre extremos neste eixo
                 (desvio {consistency.stddev}) — o escore médio esconde uma ambivalência real.
               </span>

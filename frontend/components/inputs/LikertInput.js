@@ -136,9 +136,9 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
         })}
       </div>
 
-      <p className="text-center text-[10px] uppercase tracking-[0.22em] text-muted/70 pt-1">
+      <p className="text-center text-[10px] uppercase tracking-[0.22em] text-faint pt-1">
         toque em um círculo para confirmar
-        <span className="hidden md:inline text-muted/50"> · ou use as teclas 1–5</span>
+        <span className="hidden md:inline text-faint"> · ou use as teclas 1–5</span>
       </p>
     </div>
   );

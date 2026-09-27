@@ -3,7 +3,8 @@
 @theme inline {
   --color-background: #000000;
   --color-foreground: #ffffff;
-  --color-muted: #666666;
+  --color-muted: #999999;
+  --color-faint: #808080;
   --color-border: #222222;
   --color-surface: #0a0a0a;
   --color-accent: #ffffff;

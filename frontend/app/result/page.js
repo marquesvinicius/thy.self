@@ -361,7 +361,7 @@ function ResultContent() {
 
             {!hasNarrative && (
               <div className="text-center space-y-4">
-                <p className="text-[10px] uppercase tracking-[0.3em] text-muted/60">
+                <p className="text-[10px] uppercase tracking-[0.3em] text-faint">
                   interpretação narrativa indisponível no momento
                 </p>
                 <button
@@ -379,7 +379,7 @@ function ResultContent() {
                   )}
                 </button>
                 {retryError && (
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted/70">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-faint">
                     {retryError}
                   </p>
                 )}

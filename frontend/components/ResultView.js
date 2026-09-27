@@ -74,7 +74,7 @@ export default function ResultView({
               {profile.archetype.name}
             </p>
             {Number.isFinite(Number(profile.archetype.distance)) && (
-              <p className="text-[11px] text-muted/80 leading-relaxed max-w-md mx-auto">
+              <p className="text-[11px] text-faint leading-relaxed max-w-md mx-auto">
                 distância euclidiana de{' '}
                 <span className="text-foreground/80 tabular-nums">
                   {Number(profile.archetype.distance).toFixed(1)}
@@ -85,7 +85,7 @@ export default function ResultView({
               </p>
             )}
             {profile.anti_archetype?.name && (
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted/70">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-faint">
                 no extremo oposto: {profile.anti_archetype.name}
                 {profile.anti_archetype.universe ? ` (${profile.anti_archetype.universe})` : ''}
                 {Number.isFinite(Number(profile.anti_archetype.distance))
@@ -93,7 +93,7 @@ export default function ResultView({
                   : ''}
               </p>
             )}
-            <p className="text-[10px] uppercase tracking-[0.2em] text-muted/60 pt-2 border-t border-border/50">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-faint pt-2 border-t border-border/50">
               usado como calibrador de tom da narrativa — não é um rótulo
             </p>
           </div>
@@ -177,7 +177,7 @@ function SectionHeader({ label, sub }) {
     <div className="space-y-2 text-center">
       <p className="text-[10px] uppercase tracking-[0.4em] text-muted">{label}</p>
       {sub && (
-        <p className="text-[11px] text-muted/70 max-w-md mx-auto leading-relaxed">
+        <p className="text-[11px] text-faint max-w-md mx-auto leading-relaxed">
           {sub}
         </p>
       )}

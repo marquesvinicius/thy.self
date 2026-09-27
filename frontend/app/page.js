@@ -117,7 +117,7 @@ export default function Home() {
                 alimenta o cálculo dos cinco fatores OCEAN, e uma interpretativa que
                 apenas enriquece o resultado final. Leia calmamente e responda de forma autêntica.
               </p>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted/70 pt-1">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-faint pt-1">
                 parte 1: ~5 min · parte 2 (opcional): ~8 min
               </p>
             </div>
@@ -179,7 +179,7 @@ export default function Home() {
 
         {resumableSession && (
           <div className="pt-2 space-y-3 animate-fade-in">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-muted/80">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-faint">
               você tem uma avaliação em andamento
             </p>
             <div className="flex items-center justify-center gap-6">
@@ -203,7 +203,7 @@ export default function Home() {
 
         {lastResultSession && !resumableSession && (
           <div className="pt-2 space-y-3 animate-fade-in">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-muted/80">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-faint">
               você tem um resultado disponível
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">

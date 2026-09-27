@@ -102,7 +102,7 @@ export default function StageTransition({
             <div className="text-center pt-1">
               <button
                 onClick={onPause}
-                className="text-[10px] uppercase tracking-[0.25em] text-muted/70 hover:text-foreground transition-colors underline underline-offset-4"
+                className="text-[10px] uppercase tracking-[0.25em] text-faint hover:text-foreground transition-colors underline underline-offset-4"
               >
                 pausar — continuo depois
               </button>

@@ -85,13 +85,13 @@ export default function ImmersiveLoader() {
       >
         {stage ? (
           <>
-            <p className="text-[9px] uppercase tracking-[0.35em] text-muted/60">
+            <p className="text-[9px] uppercase tracking-[0.35em] text-faint">
               etapa {stageIndex + 1} de {PIPELINE_STAGES.length}
             </p>
             <p className="text-xs uppercase tracking-[0.3em] text-muted">
               {stage.label}
             </p>
-            <p className="text-[10px] tracking-[0.15em] text-muted/50">
+            <p className="text-[10px] tracking-[0.15em] text-faint">
               {stage.detail}
             </p>
           </>

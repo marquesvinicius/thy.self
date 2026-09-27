@@ -257,7 +257,7 @@ export default function MethodPage() {
                 </div>
               ))}
             </div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-muted/70 mt-3 text-center">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-faint mt-3 text-center">
               escala Likert de 5 pontos · mapeada ao intervalo [−2, +2]
             </p>
           </section>
@@ -345,7 +345,7 @@ export default function MethodPage() {
                     </span>
                     <div>
                       <div className="text-sm uppercase tracking-[0.2em]">{dim.name}</div>
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-muted/70 mt-0.5">
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-faint mt-0.5">
                         {dim.english}
                       </div>
                     </div>
@@ -578,7 +578,7 @@ export default function MethodPage() {
               </div>
             </div>
 
-            <p className="text-[11px] text-muted/70 leading-relaxed mt-6 italic">
+            <p className="text-[11px] text-faint leading-relaxed mt-6 italic">
               a intenção aqui é transparência, não editabilidade: você pode
               concordar ou discordar da leitura, mas o retrato do instante em
               que você respondeu permanece intacto.

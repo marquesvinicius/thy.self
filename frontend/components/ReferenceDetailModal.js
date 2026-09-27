@@ -90,7 +90,7 @@ export default function ReferenceDetailModal({
                 className="relative border border-border p-5 pt-6"
               >
                 <div className="absolute -top-2.5 left-4 px-2 bg-background flex items-baseline gap-2">
-                  <span className="text-[10px] tabular-nums text-muted/60">
+                  <span className="text-[10px] tabular-nums text-faint">
                     {String(index + 1).padStart(2, '0')}
                   </span>
                   <h3 className="text-[11px] uppercase tracking-[0.24em] text-foreground font-semibold">
