@@ -15,7 +15,7 @@ mock.module('../src/config/environment.js', {
 
 const { publicRateLimit } = await import('../src/middleware/rateLimit.js');
 
-test('RNF020: fora de produção o limitador não barra nem anuncia limite', async () => {
+test('limitação de taxa: fora de produção o limitador não barra nem anuncia limite', async () => {
   const app = express();
   app.use(publicRateLimit);
   app.get('/ping', (req, res) => res.json({ success: true }));

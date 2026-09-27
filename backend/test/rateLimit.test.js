@@ -4,7 +4,7 @@ import express from 'express';
 
 // Requer `--experimental-test-module-mocks` (já incluso no npm test).
 //
-// A limitação de taxa (RNF020) só liga em produção — em teste e
+// A limitação de taxa (protege a cota diária da IA, RNF019) só liga em produção — em teste e
 // desenvolvimento ela fica desligada para não barrar a suíte e os testes
 // ponta a ponta. Por isso nenhum outro teste chegava a exercitá-la. Aqui o
 // ambiente é simulado como produção, e cada arquivo de teste roda num
@@ -33,7 +33,7 @@ before(async () => {
 
 after(() => new Promise(resolve => server.close(resolve)));
 
-test('RNF020: aceita até 120 requisições por minuto do mesmo endereço', async () => {
+test('limitação de taxa: aceita até 120 requisições por minuto do mesmo endereço', async () => {
   // Todas do mesmo IP (127.0.0.1): é o teto que uma avaliação legítima
   // (~60 requisições) nunca atinge.
   for (let i = 1; i <= LIMIT; i += 1) {
@@ -43,7 +43,7 @@ test('RNF020: aceita até 120 requisições por minuto do mesmo endereço', asyn
   }
 });
 
-test('RNF020: a 121.ª requisição no minuto é recusada com 429 no envelope da API', async () => {
+test('limitação de taxa: a 121.ª requisição no minuto é recusada com 429 no envelope da API', async () => {
   const res = await fetch(`${baseUrl}/ping`);
   assert.equal(res.status, 429);
   assert.deepEqual(await res.json(), {
@@ -55,7 +55,7 @@ test('RNF020: a 121.ª requisição no minuto é recusada com 429 no envelope da
   });
 });
 
-test('RNF020: informa o limite nos cabeçalhos padronizados, sem os legados', async () => {
+test('limitação de taxa: informa o limite nos cabeçalhos padronizados, sem os legados', async () => {
   const res = await fetch(`${baseUrl}/ping`);
   await res.body?.cancel();
   // draft-7: um cabeçalho combinado "RateLimit" com limite, restante e janela.
