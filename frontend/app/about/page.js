@@ -7,7 +7,7 @@ import Link from 'next/link';
 const PRINCIPLES = [
   {
     title: 'rigor auditável',
-    desc: 'o cálculo é público, a fórmula está na página do método, o instrumento é de domínio público. qualquer pessoa pode reproduzir o resultado no papel.',
+    desc: 'o cálculo é público, a fórmula está na página do método, o instrumento é de uso livre para pesquisa não comercial. qualquer pessoa pode reproduzir o resultado no papel.',
   },
   {
     title: 'separação cálculo–interpretação',

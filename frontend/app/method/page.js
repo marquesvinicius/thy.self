@@ -75,7 +75,7 @@ const LEVELS = [
 const COMPARISON = [
   {
     column: 'camada objetiva',
-    subtitle: 'BFI-2-S · 30 itens · domínio público',
+    subtitle: 'BFI-2-S · 30 itens · uso não comercial',
     deterministic: true,
     rows: [
       'escala Likert de 5 pontos',
@@ -229,8 +229,8 @@ export default function MethodPage() {
               <p>
                 a camada objetiva reutiliza <strong className="text-foreground">integralmente</strong> os
                 30 itens do <em>Big Five Inventory 2 – Short Form</em>, publicado
-                por Soto e John (2017) no <em>Journal of Personality and Social Psychology</em>.
-                o instrumento é de domínio público, valida as cinco dimensões com
+                por Soto e John (2017) no <em>Journal of Research in Personality</em>.
+                o instrumento é de uso livre para pesquisa não comercial, mede as cinco dimensões com
                 seis itens cada e usa uma escala Likert de cinco pontos.
               </p>
               <p>
