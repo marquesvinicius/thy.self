@@ -232,7 +232,7 @@ function buildTraitHook(profile) {
 
 // Motivos de fallback: secos e honestos — são aproximações pelos traços
 // dominantes, não curadoria da LLM, e o texto não deve fingir o contrário.
-function buildWorkReason(workType, profile, archetype) {
+function buildWorkReason(workType, profile) {
   const traitHook = buildTraitHook(profile);
 
   if (workType === 'serie') {
@@ -352,7 +352,7 @@ export function normalizeWorks(works, context = {}) {
     if (!selectedByType.has(work.tipo)) {
       selectedByType.set(work.tipo, {
         ...work,
-        motivo: work.motivo || buildWorkReason(work.tipo, context.profile, context.archetype),
+        motivo: work.motivo || buildWorkReason(work.tipo, context.profile),
       });
     }
   }
@@ -369,7 +369,7 @@ export function normalizeWorks(works, context = {}) {
       tipo: missingType,
       titulo: fallback.titulo,
       autor_ou_artista: fallback.autor_ou_artista,
-      motivo: buildWorkReason(missingType, context.profile, context.archetype),
+      motivo: buildWorkReason(missingType, context.profile),
     });
     usedTitles.add(normalizeToken(fallback.titulo));
   }
@@ -1091,6 +1091,9 @@ function logPromptPayload(label, systemInstruction, prompt, temperature) {
     prompt_length: prompt.length,
   });
 
+  // Saída direta no console de propósito (ver comentário acima): o banner
+  // precisa das quebras de linha que o logger JSON escaparia.
+  /* eslint-disable no-console */
   const banner = '─'.repeat(72);
   console.log(`\n${banner}`);
   console.log(`[LLM PROMPT] ${label} · model=${MODEL_NAME} · temp=${temperature}`);
@@ -1100,6 +1103,7 @@ function logPromptPayload(label, systemInstruction, prompt, temperature) {
   console.log('--- user_prompt ---');
   console.log(prompt);
   console.log(`${banner}\n`);
+  /* eslint-enable no-console */
 }
 
 async function generateStructuredOutput({

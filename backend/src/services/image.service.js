@@ -104,18 +104,6 @@ async function lookupWikipediaCandidates(candidates) {
 }
 
 /**
- * Fetches a thumbnail image URL from Wikipedia for a given query.
- * Tries Portuguese Wikipedia first, falls back to English.
- *
- * @param {string} query - Wikipedia article title (e.g. "David Bowie")
- * @returns {Promise<string|null>} Image URL or null
- */
-async function fetchImage(query) {
-  const result = await lookupWikipedia(query);
-  return result.image_url;
-}
-
-/**
  * Enriches an array of LLM references with Wikipedia thumbnail images
  * and a `wiki_found` flag (true when a page exists in PT or EN).
  *
