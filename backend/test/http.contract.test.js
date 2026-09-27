@@ -24,6 +24,7 @@ const SID = {
   regenLimit: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
   detail: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
   detailOk: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+  detailLimit: '13131313-1313-4131-8131-131313131313',
   fresh: '12121212-1212-4121-8121-121212121212',
 };
 
@@ -456,6 +457,41 @@ test('POST /interpret/reference-detail informa à IA o texto já entregue e as o
   db.result = { ...RESULT_ROW, llm_interpretation: null };
   await call('POST', '/api/v1/interpret/reference-detail', { session_id: SID.detail, reference: { nome: 'X' } });
   assert.deepEqual(db.detailCalls[1][5], { priorInterpretation: '', otherReferences: [] });
+});
+
+test('POST /interpret/reference-detail: o 7º detalhamento da mesma sessão → 429', async () => {
+  // Cada detalhamento gasta uma chamada ao LLM; sem teto por sessão, uma
+  // única sessão poderia esgotar o orçamento diário de todos (RF005).
+  db.result = RESULT_ROW;
+  const body = { session_id: SID.detailLimit, reference: { nome: 'Arendt' } };
+  for (let i = 0; i < 6; i += 1) {
+    assert.equal((await call('POST', '/api/v1/interpret/reference-detail', body)).status, 200, `detalhamento ${i + 1}`);
+  }
+  const callsBefore = db.detailCalls.length;
+  const blocked = await call('POST', '/api/v1/interpret/reference-detail', body);
+  assert.equal(blocked.status, 429);
+  assert.equal(blocked.body.error.code, 'DETAIL_LIMIT_REACHED');
+  assert.match(blocked.body.error.message, /6\/6/);
+  assert.equal(db.detailCalls.length, callsBefore, 'bloqueado antes de chamar a IA');
+});
+
+test('identificador de sessão malformado → 400 antes de consultar o banco, em toda rota por id', async () => {
+  // Sem essa checagem, o Postgres recusa o texto como UUID (erro 22P02) e a
+  // API responderia 500 — erro do usuário virando falha interna.
+  db.result = RESULT_ROW;
+  const bad = 'nao-e-um-uuid';
+  const responses = [
+    await call('GET', `/api/v1/result/${bad}`),
+    await call('GET', `/api/v1/result/${bad}/review`),
+    await call('POST', '/api/v1/interpret', { session_id: bad }),
+    await call('POST', '/api/v1/interpret/reference-detail', { session_id: bad, reference: { nome: 'Arendt' } }),
+  ];
+  for (const res of responses) {
+    assert.equal(res.status, 400);
+    assert.deepEqual(res.body.error, { message: 'session_id must be a valid UUID', code: 'VALIDATION_ERROR' });
+  }
+  assert.equal(db.detailCalls.length, 0);
+  assert.equal(db.llmCalls.length, 0);
 });
 
 test('POST /interpret/reference-detail: 200 com detalhe; 503 com IA fora', async () => {

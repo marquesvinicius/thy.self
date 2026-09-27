@@ -12,7 +12,7 @@ const envFixture = { supabaseUrl: 'https://abc123.supabase.co' };
 
 // Cada teste define o que a consulta `head` do Supabase devolve (ou lança).
 let probeBehavior = async () => ({ error: null });
-const probeCalls = { signals: [] };
+const probeCalls = { signals: [], tables: [], selects: [] };
 
 mock.module('../src/config/environment.js', {
   namedExports: { env: envFixture },
@@ -21,9 +21,11 @@ mock.module('../src/config/environment.js', {
 mock.module('../src/config/supabase.js', {
   namedExports: {
     supabase: {
-      from() {
+      from(table) {
+        probeCalls.tables.push(table);
         return {
-          select() {
+          select(...args) {
+            probeCalls.selects.push(args);
             return {
               abortSignal(signal) {
                 probeCalls.signals.push(signal);
@@ -221,4 +223,48 @@ test('describeSupabaseRuntimeFailure stringifies non-Error inputs', () => {
   const result = describeSupabaseRuntimeFailure('falha crua');
   assert.equal(result.detail, 'falha crua');
   assert.equal(result.code, 'SUPABASE_ERROR');
+});
+
+test('checkSupabaseHealth mede a latência como tempo decorrido (não soma o relógio)', async () => {
+  envFixture.supabaseUrl = 'https://abc123.supabase.co';
+  probeBehavior = () => new Promise(resolve => setTimeout(() => resolve({ error: null }), 25));
+  const ok = await checkSupabaseHealth();
+  assert.ok(ok.latency_ms >= 20 && ok.latency_ms < 2000, `latência ${ok.latency_ms}`);
+
+  probeBehavior = async () => ({ error: { message: 'x' } });
+  const failed = await checkSupabaseHealth();
+  assert.ok(failed.latency_ms >= 0 && failed.latency_ms < 2000);
+
+  probeBehavior = async () => { throw new Error('fetch failed'); };
+  const thrown = await checkSupabaseHealth();
+  assert.ok(thrown.latency_ms >= 0 && thrown.latency_ms < 2000);
+});
+
+test('checkSupabaseHealth usa 6 s de limite quando nenhum é informado', async () => {
+  // Uma sonda de ~30 ms precisa passar com o limite padrão; se o padrão se
+  // perdesse, o temporizador dispararia imediatamente e abortaria a sonda.
+  probeCalls.signals.length = 0;
+  probeBehavior = () => new Promise((resolve, reject) => {
+    const signal = probeCalls.signals.at(-1);
+    const timer = setTimeout(() => resolve({ error: null }), 30);
+    signal.addEventListener('abort', () => { clearTimeout(timer); reject(new Error('aborted: timeout')); });
+  });
+  const result = await checkSupabaseHealth();
+  assert.equal(result.status, 'ok');
+});
+
+test('checkSupabaseHealth consulta só a contagem de perguntas, sem trazer linhas', async () => {
+  probeCalls.tables.length = 0;
+  probeCalls.selects.length = 0;
+  probeBehavior = async () => ({ error: null });
+  await checkSupabaseHealth();
+  assert.deepEqual(probeCalls.tables, ['questions']);
+  assert.deepEqual(probeCalls.selects, [['id', { count: 'exact', head: true }]]);
+});
+
+test('checkSupabaseHealth não quebra quando o cliente lança null', async () => {
+  probeBehavior = async () => { throw null; };
+  const result = await checkSupabaseHealth();
+  assert.equal(result.status, 'error');
+  assert.equal(result.detail, 'null');
 });

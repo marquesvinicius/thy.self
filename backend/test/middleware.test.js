@@ -98,6 +98,21 @@ test('validateRequest aplica maxLength no limite exato (5 passa, 6 não)', async
   assert.equal(tooLong.message, "Field 'note' must be 5 characters or fewer.");
 });
 
+test('validateRequest aplica a regra integer (POST /answer: question_id 1.5 é recusado)', async () => {
+  const schema = { question_id: { required: true, type: 'number', integer: true } };
+  assert.equal(await run(validateRequest(schema), { body: { question_id: 3 } }), undefined);
+
+  const fractional = await run(validateRequest(schema), { body: { question_id: 1.5 } });
+  assert.equal(fractional.statusCode, 400);
+  assert.equal(fractional.message, "Field 'question_id' must be an integer.");
+});
+
+test('validateRequest não soma erro de inteiro quando o tipo já está errado', async () => {
+  const schema = { question_id: { required: true, type: 'number', integer: true } };
+  const err = await run(validateRequest(schema), { body: { question_id: '1.5' } });
+  assert.equal(err.message, "Field 'question_id' must be of type number.");
+});
+
 test('validateRequest acumula todos os erros numa única mensagem', async () => {
   const err = await run(validateRequest(answerSchema), { body: {} });
   assert.equal(
@@ -199,4 +214,79 @@ test('errorHandler esconde a mensagem de erros inesperados (500 genérico)', () 
     success: false,
     error: { message: 'Internal server error', code: 'INTERNAL_ERROR' },
   });
+});
+
+// ── errorHandler: falha de transporte do Supabase ───────────────────────────
+// O supabase-js costuma relatar projeto pausado ou rede fora como um
+// `TypeError: fetch failed` opaco. Sem este mapeamento, o usuário via
+// "erro interno" (500); com ele, recebe 503 e a orientação de correção.
+
+function handleAndGet(err, path = '/api/v1/session') {
+  const res = fakeRes();
+  errorHandler(err, { path }, res, () => {});
+  return res;
+}
+
+test('errorHandler transforma "fetch failed" do Supabase em 503 com orientação', () => {
+  const res = handleAndGet(new TypeError('fetch failed'));
+  assert.equal(res.statusCode, 503);
+  assert.equal(res.body.success, false);
+  assert.equal(res.body.error.code, 'SUPABASE_UNREACHABLE');
+  assert.match(res.body.error.message, /pausado/i);
+});
+
+test('errorHandler reconhece falha de transporte pela mensagem', () => {
+  for (const message of ['connect ECONNREFUSED 127.0.0.1:443', 'getaddrinfo ENOTFOUND x.supabase.co', 'connect ETIMEDOUT']) {
+    const res = handleAndGet(new Error(message));
+    assert.equal(res.statusCode, 503, message);
+    assert.equal(res.body.error.code, 'SUPABASE_UNREACHABLE', message);
+  }
+});
+
+test('errorHandler reconhece falha de transporte pelo código da causa ou do próprio erro', () => {
+  for (const code of ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT']) {
+    const viaCause = new Error('request failed');
+    viaCause.cause = { code };
+    assert.equal(handleAndGet(viaCause).statusCode, 503, `cause.code ${code}`);
+
+    const viaOwn = new Error('request failed');
+    viaOwn.code = code;
+    assert.equal(handleAndGet(viaOwn).statusCode, 503, `code ${code}`);
+  }
+});
+
+test('errorHandler compara o código de causa sem diferenciar maiúsculas', () => {
+  const err = new Error('request failed');
+  err.cause = { code: 'econnrefused' };
+  assert.equal(handleAndGet(err).statusCode, 503);
+});
+
+test('errorHandler registra o mapeamento com código, caminho e detalhe', () => {
+  logged.length = 0;
+  handleAndGet(new TypeError('fetch failed'), '/api/v1/answer');
+  const mapped = logged.find(entry => entry.message === 'Mapped Supabase transport failure');
+  assert.deepEqual(mapped?.meta, {
+    code: 'SUPABASE_UNREACHABLE',
+    path: '/api/v1/answer',
+    detail: 'fetch failed',
+  });
+});
+
+test('errorHandler não confunde "timeout" genérico (ex.: da IA) com falha do banco', () => {
+  // O mapeamento é deliberadamente mais estreito que o do health check:
+  // um tempo esgotado na chamada ao modelo de linguagem não é o Supabase fora.
+  const res = handleAndGet(new Error('LLM timeout after 60000ms'));
+  assert.equal(res.statusCode, 500);
+  assert.equal(res.body.error.code, 'INTERNAL_ERROR');
+});
+
+test('errorHandler dá precedência ao status de um AppError, mesmo com mensagem de rede', () => {
+  const res = handleAndGet(new AppError('fetch failed', 409, 'CONFLICT'));
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.error.code, 'CONFLICT');
+});
+
+test('errorHandler tolera erro sem mensagem nem causa', () => {
+  const res = handleAndGet({});
+  assert.equal(res.statusCode, 500);
 });

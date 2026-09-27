@@ -240,3 +240,61 @@ test('sem calculated_at na linha salva, o payload usa o instante atual', async (
 
   assert.ok(stamped >= before && stamped <= Date.now());
 });
+
+// ── análise concorrente da mesma sessão ─────────────────────────────────────
+// Duplo clique, retry do cliente ou React.StrictMode disparam duas análises
+// da mesma sessão nova ao mesmo tempo. Sem compartilhar a promessa em voo,
+// as duas passavam pela checagem de idempotência e pagavam DUAS chamadas à IA.
+
+test('duas análises simultâneas da mesma sessão fazem uma só chamada à IA', async () => {
+  resetCalls();
+  answersFixture = thirtyObjectiveAnswers();
+  existingResultFixture = null;
+  llmFixture = { interpretacao: 'uma só' };
+
+  const [a, b] = await Promise.all([
+    analyzeSession('sess-concorrente'),
+    analyzeSession('sess-concorrente'),
+  ]);
+
+  assert.equal(calls.generateInterpretation, 1);
+  assert.equal(calls.createResult.length, 1);
+  assert.deepEqual(a, b);
+});
+
+test('terminada a análise, uma nova chamada volta a executar (a trava é liberada)', async () => {
+  resetCalls();
+  answersFixture = thirtyObjectiveAnswers();
+  existingResultFixture = null;
+  llmFixture = { interpretacao: 'x' };
+
+  await analyzeSession('sess-liberada');
+  await analyzeSession('sess-liberada');
+
+  // Sem resultado persistido na simulação, a segunda precisa rodar de novo:
+  // se a trava ficasse presa, ela devolveria a promessa antiga.
+  assert.equal(calls.generateInterpretation, 2);
+});
+
+test('análise que falha também libera a trava, para o usuário poder tentar de novo', async () => {
+  resetCalls();
+  answersFixture = [];
+  existingResultFixture = null;
+
+  await assert.rejects(() => analyzeSession('sess-falha'));
+  answersFixture = thirtyObjectiveAnswers();
+  llmFixture = { interpretacao: 'segunda tentativa' };
+
+  await analyzeSession('sess-falha');
+  assert.equal(calls.createResult.length, 1);
+});
+
+test('análises simultâneas de sessões diferentes não se misturam', async () => {
+  resetCalls();
+  answersFixture = thirtyObjectiveAnswers();
+  existingResultFixture = null;
+  llmFixture = { interpretacao: 'y' };
+
+  await Promise.all([analyzeSession('sess-a'), analyzeSession('sess-b')]);
+  assert.deepEqual(calls.createResult.map(c => c.sessionId).sort(), ['sess-a', 'sess-b']);
+});
