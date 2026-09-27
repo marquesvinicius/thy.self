@@ -1,0 +1,8 @@
+{
+  "all": true,
+  "include": ["src/**/*.js", "eval/metrics.js"],
+  "exclude": ["src/server.js"],
+  "reporter": ["text", "json", "json-summary", "html"],
+  "report-dir": "coverage",
+  "temp-directory": "coverage/tmp"
+}

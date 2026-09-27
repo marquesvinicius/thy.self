@@ -18,8 +18,10 @@ Project-level artifacts at the repo root: raw question CSVs (`questions.csv`, `q
 - `npm start` — production start.
 - `npm run seed` — reseed categories, BFI-2-S objective items, interpretative items, and cultural archetypes (`scripts/etl/thy_self_characters.json`) into Supabase. Fully idempotent: objective items upsert on `external_id` (`E1`…`O30`), interpretative items upsert on `external_id` (`INT_MD_01`…`INT_IN_08`), archetypes upsert on `id`.
 - `npm test` — run all Node built-in test-runner suites in `test/**/*.test.js` (includes `--experimental-test-module-mocks`, required by `question.service.test.js`).
-- `npm run test:coverage` — same suite with the native coverage report.
-- `npm run lint` — ESLint flat config (`eslint.config.mjs`). Keep it clean: it is enforced in CI.
+- `npm run lint` — ESLint flat config (`eslint.config.js`). Keep it clean: it is enforced in CI.
+- `npm run test:coverage` — honest coverage via c8 (`all: true`, so files no test imports still count; `scripts/quality/strip-mock-coverage.mjs` drops modules replaced by `mock.module`, which V8 otherwise reports as 100% covered).
+- `npm run quality:crap` — CRAP per function (ESLint `complexity` × c8 coverage). Gate: CRAP ≤ 30 per function and mean ≤ 6; `dev.controller.js` excluded. `npm run quality` runs coverage + CRAP.
+- `npm run test:mutation` — Stryker with the command runner over `node:test` (config in `stryker.config.json`, break threshold 80%). The full scope takes ~50 min; for one file use `npx stryker run --mutate src/engine/likert.js`.
 - Run a single test file: `node --experimental-test-module-mocks --test test/bigfive-engine.test.js`.
 - SQL migrations in `sql/migration_0*.sql` are applied manually against the Supabase project in order (`migration_001` → `011_anonymity_and_detail_budget`). `sql/schema.sql` is the canonical snapshot for a clean setup; `sql/maintenance_dedup_interpretative.sql` is a one-shot cleanup for databases seeded before the interpretative upsert existed.
 
@@ -41,12 +43,12 @@ The 30-item minimum is **not** env-configurable: it comes from the instrument (R
 Questions live in two mutually-exclusive layers enforced at the DB level (`migration_004_dual_core.sql`, check constraint `questions_kind_trait_consistency`):
 
 1. **`kind = 'objective'`** — validated BFI-2-S items (Soto & John, 2017). Each item declares a single `trait` (`O|C|E|A|N`) and a `reverse_key` flag. **Only these answers feed the numeric OCEAN score.** There are exactly 30 items (6 per trait) — this is why `MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS = 30` is hard-coded in `src/config/constants.js`.
-2. **`kind = 'interpretative'`** — authorial items (moral dilemmas, paradoxes, interest probes). These **do not influence numeric scores**. They are consumed as qualitative context for the LLM narrative only. Categories are weighted by `INTERPRETATIVE_CATEGORY_WEIGHTS` (moral_dilemma 0.45, paradoxical 0.30, interest 0.25).
+2. **`kind = 'interpretative'`** — authorial items (moral dilemmas, paradoxes, interest probes). These **do not influence numeric scores**. They are consumed as qualitative context for the LLM narrative only. Their order follows the emotional rotation in `utils/questionOrder.js` (moral_dilemma → interest → paradoxical).
 
 When touching the engine or seed, preserve this invariant: objective → scored (single-trait Likert in `[-2, +2]`, sign flipped when reverse-keyed), interpretative → LLM-only. The engine (`src/engine/BigFiveEngine.js`) explicitly `continue`s over any non-objective answer.
 
 ### Scoring pipeline
-`BigFiveEngine.calculateProfile(answers)` → per-trait raw sum of signed Likert values → `normalizeByTrait` (min-max onto 0–100, neutral = 50) → `classifyScore` bucketing (`muito_baixo` <20, `baixo` <40, `moderado` <60, `alto` <80, `muito_alto` ≥80) → `DIMENSIONS` metadata join.
+`BigFiveEngine.calculateProfile(answers)` → `readObjectiveLikert` (engine/likert.js — the single place that decides whether an answer is scored and with which signed value; also used by consistency, response style and the answer review) → per-trait raw sum of signed Likert values → `normalizeByTrait` (min-max onto 0–100, neutral = 50) → `classifyScore` bucketing (`muito_baixo` <20, `baixo` <40, `moderado` <60, `alto` <80, `muito_alto` ≥80) → `DIMENSIONS` metadata join.
 
 `classifyScore` is the **single** source of level labels (RN007). Do not add a second scale: `interpret.controller.js` used to carry its own (`scoreToLevel`, cutoffs 75/55/45/25), which meant the LLM saw different labels for the same score depending on the endpoint.
 

@@ -620,25 +620,45 @@ export function buildResponseStyleBlock(style) {
   return `\nAssinatura de estilo de resposta (COMO respondeu, não O QUE respondeu — use apenas se for marcante, como evidência verificável):\n${lines.join('\n')}\n`;
 }
 
-function buildUserPrompt(profile, consistency, interpretativeSignals, archetype, options = {}) {
-  const dimensionLines = DIMENSIONS.map(dim => {
-    const score = profile.scores[dim.key];
-    const level = profile.dimensions.find(d => d.key === dim.key)?.level || 'moderado';
+// ── Fragmentos de prompt compartilhados ────────────────────────────────────
+// Os três prompts (interpretação, detalhamento e substituição) descrevem o
+// perfil do mesmo jeito; antes cada um tinha a própria cópia destas linhas.
+
+function formatDimensionLines(profile) {
+  return DIMENSIONS.map(dim => {
+    const score = profile?.scores?.[dim.key];
+    const level = profile?.dimensions?.find(d => d.key === dim.key)?.level || 'moderado';
     return `- ${dim.name} (${dim.key}): ${score}% — ${level}`;
   }).join('\n');
+}
 
-  const tensionAxes = consistency
-    ? Object.entries(consistency)
-        .filter(([, val]) => val?.tension)
-        .map(([key, val]) => {
-          const dim = DIMENSIONS.find(d => d.key === key);
-          return `- ${dim?.name || key} (desvio: ${val.stddev}) — respostas oscilaram entre extremos.`;
-        })
-    : [];
+function formatTensionLines(consistency, description) {
+  return Object.entries(consistency || {})
+    .filter(([, val]) => val?.tension)
+    .map(([key, val]) => {
+      const name = DIMENSIONS.find(d => d.key === key)?.name || key;
+      return `- ${name} (desvio: ${val.stddev}) — ${description}`;
+    });
+}
+
+function formatArchetype(archetype, distanceLabel) {
+  const universe = archetype.universe ? ` (universo ${archetype.universe})` : '';
+  const distance = archetype.distance !== undefined
+    ? ` — ${distanceLabel} ${Number(archetype.distance).toFixed(2)}`
+    : '';
+  return `${archetype.name}${universe}${distance}`;
+}
+
+const NO_TENSION_TEXT = 'Sem tensões internas relevantes — respostas coerentes dentro de cada eixo.';
+const NO_ARCHETYPE_TEXT = 'Nenhum arquétipo identificado — calibre o tom livremente.';
+
+function buildUserPrompt(profile, consistency, interpretativeSignals, archetype, options = {}) {
+  const dimensionLines = formatDimensionLines(profile);
+  const tensionAxes = formatTensionLines(consistency, 'respostas oscilaram entre extremos.');
 
   const tensionsBlock = tensionAxes.length > 0
     ? `Tensões internas detectadas (desvio-padrão por eixo > 1.2):\n${tensionAxes.join('\n')}\nIMPORTANTE: estas tensões são o fio condutor da "interpretacao" — não um rodapé.`
-    : 'Sem tensões internas relevantes — respostas coerentes dentro de cada eixo.';
+    : NO_TENSION_TEXT;
 
   const styleBlock = buildResponseStyleBlock(options.responseStyle);
 
@@ -649,14 +669,10 @@ function buildUserPrompt(profile, consistency, interpretativeSignals, archetype,
   const antiArchetype = options.antiArchetype;
   const archetypeBlock = [
     archetype?.name
-      ? `Mais próximo: ${archetype.name}${archetype.universe ? ` (universo ${archetype.universe})` : ''}${
-          archetype.distance !== undefined ? ` — distância euclidiana ${Number(archetype.distance).toFixed(2)}` : ''
-        }.`
-      : 'Nenhum arquétipo identificado — calibre o tom livremente.',
+      ? `Mais próximo: ${formatArchetype(archetype, 'distância euclidiana')}.`
+      : NO_ARCHETYPE_TEXT,
     antiArchetype?.name
-      ? `Mais DISTANTE (anti-arquétipo): ${antiArchetype.name}${antiArchetype.universe ? ` (universo ${antiArchetype.universe})` : ''}${
-          antiArchetype.distance !== undefined ? ` — distância ${Number(antiArchetype.distance).toFixed(2)}` : ''
-        }. Contraste útil: o que essa pessoa NÃO é também diz quem ela é.`
+      ? `Mais DISTANTE (anti-arquétipo): ${formatArchetype(antiArchetype, 'distância')}. Contraste útil: o que essa pessoa NÃO é também diz quem ela é.`
       : null,
   ].filter(Boolean).join('\n');
 
@@ -794,33 +810,22 @@ function buildReferenceDetailPrompt(profile, consistency, interpretativeSignals,
         .filter(ref => ref.nome && ref.nome !== referenceName)
     : [];
 
-  const dimensionLines = DIMENSIONS.map(dim => {
-    const score = profile.scores[dim.key];
-    const level = profile.dimensions.find(d => d.key === dim.key)?.level || 'moderado';
-    return `- ${dim.name} (${dim.key}): ${score}% — ${level}`;
-  }).join('\n');
-
+  const dimensionLines = formatDimensionLines(profile);
   const interpretativeContext = formatInterpretativeBlock(interpretativeSignals);
 
+  // Sem objeto de consistência o bloco é omitido; com ele, lista as tensões
+  // ou declara a coerência.
+  const tensions = formatTensionLines(consistency, 'oscilação entre extremos dentro do eixo.');
   let tensionsBlock = '';
   if (consistency) {
-    const tensions = Object.entries(consistency)
-      .filter(([, val]) => val.tension)
-      .map(([key, val]) => {
-        const dim = DIMENSIONS.find(d => d.key === key);
-        return `- ${dim?.name || key} (desvio: ${val.stddev}) — oscilação entre extremos dentro do eixo.`;
-      });
-
     tensionsBlock = tensions.length > 0
       ? `Tensões internas detectadas (desvio-padrão por eixo > 1.2):\n${tensions.join('\n')}`
-      : 'Sem tensões internas relevantes — respostas coerentes dentro de cada eixo.';
+      : NO_TENSION_TEXT;
   }
 
   const archetypeBlock = archetype?.name
-    ? `${archetype.name}${archetype.universe ? ` (universo ${archetype.universe})` : ''}${
-        archetype.distance !== undefined ? ` — distância euclidiana ${Number(archetype.distance).toFixed(2)}` : ''
-      }.`
-    : 'Nenhum arquétipo identificado — calibre o tom livremente.';
+    ? `${formatArchetype(archetype, 'distância euclidiana')}.`
+    : NO_ARCHETYPE_TEXT;
 
   const priorInterpretationBlock = priorInterpretation
     ? `\n========================================\n[4] TEXTO INTERPRETATIVO JÁ ENTREGUE AO USUÁRIO\n(Você não deve REPETIR os argumentos abaixo nem parafraseá-los.)\n========================================\n${priorInterpretation}\n`
@@ -897,13 +902,14 @@ Retorne JSON com esta estrutura exata:
 function extractJsonCandidate(text) {
   const firstBrace = text.indexOf('{');
   const lastBrace = text.lastIndexOf('}');
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+  if (firstBrace === -1 || lastBrace < firstBrace) {
     throw new Error('No JSON object found in LLM response');
   }
 
+  // O recorte já começa em '{' e termina em '}' (cercas de markdown ficam de
+  // fora); resta corrigir aspas tipográficas e vírgulas finais.
   return text
     .slice(firstBrace, lastBrace + 1)
-    .replace(/^[`\s]+|[`]+$/g, '')
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'")
     .replace(/,\s*([}\]])/g, '$1');
@@ -994,18 +1000,25 @@ function shouldRetryError(err) {
 }
 
 async function callLLMWithTimeout(model, prompt) {
+  // Um único timer aborta a requisição e rejeita a corrida. Antes havia um
+  // segundo setTimeout de 60 s que nunca era limpo: cada chamada deixava um
+  // timer pendurado no event loop mesmo depois de responder.
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT);
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error('LLM timeout reached'));
+    }, LLM_TIMEOUT);
+  });
 
   try {
     return await Promise.race([
       model.generateContent(prompt, { signal: controller.signal }),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('LLM timeout reached')), LLM_TIMEOUT)
-      ),
+      timeout,
     ]);
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(timer);
   }
 }
 
@@ -1078,6 +1091,9 @@ function logPromptPayload(label, systemInstruction, prompt, temperature) {
     prompt_length: prompt.length,
   });
 
+  // Saída direta no console de propósito (ver comentário acima): o banner
+  // precisa das quebras de linha que o logger JSON escaparia.
+  /* eslint-disable no-console */
   const banner = '─'.repeat(72);
   console.log(`\n${banner}`);
   console.log(`[LLM PROMPT] ${label} · model=${MODEL_NAME} · temp=${temperature}`);
@@ -1087,6 +1103,7 @@ function logPromptPayload(label, systemInstruction, prompt, temperature) {
   console.log('--- user_prompt ---');
   console.log(prompt);
   console.log(`${banner}\n`);
+  /* eslint-enable no-console */
 }
 
 async function generateStructuredOutput({
@@ -1179,11 +1196,7 @@ async function generateReplacementReferences({
   excludedNames = [],
 }) {
   const count = Math.max(1, Math.min(3, needed));
-  const dimensionLines = DIMENSIONS.map(dim => {
-    const score = profile?.scores?.[dim.key];
-    const level = profile?.dimensions?.find(d => d.key === dim.key)?.level || 'moderado';
-    return `- ${dim.name} (${dim.key}): ${score}% — ${level}`;
-  }).join('\n');
+  const dimensionLines = formatDimensionLines(profile);
 
   const prompt = `Algumas referências da resposta anterior foram descartadas por não
 existirem (nome inventado ou incorreto). Gere ${count} substituta(s).
@@ -1316,16 +1329,12 @@ async function enrichAndValidateReferences(referencias, parseContext = {}) {
     }
   }
 
-  const filled = normalizeReferences(pool, {
+  // Tudo que chega aqui já passou pela Wikipédia ou é fallback curado
+  // (wiki_found: true), então não há nova consulta a fazer.
+  return normalizeReferences(pool, {
     ...parseContext,
     excludedReferenceNames: [...alreadyExcluded, ...rejectedNames],
   });
-
-  // Re-fetch images only for items that still lack image_url / wiki_found
-  const needsLookup = filled.some(ref => ref.wiki_found === undefined);
-  if (!needsLookup) return filled;
-
-  return fetchReferenceImages(filled);
 }
 
 /**

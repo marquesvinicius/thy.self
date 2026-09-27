@@ -12,6 +12,12 @@ const app = express();
 // Global middleware
 app.use(cors(corsOptions));
 app.use(express.json());
+// Express 5 deixa req.body undefined quando não há corpo JSON; os
+// controllers desestruturam req.body, então normalizamos aqui (senão: 500).
+app.use((req, res, next) => {
+  req.body ??= {};
+  next();
+});
 
 // Request logging
 app.use((req, res, next) => {

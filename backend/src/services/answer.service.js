@@ -14,47 +14,49 @@ import {
   QUESTION_KIND,
 } from '../config/constants.js';
 
-export async function recordAnswer(sessionId, questionId, alternativeId, answerType = 'alternative_id', userObservation = null) {
-  // Validate that the alternative belongs to the question only if using standard alternatives
-  if (answerType === 'alternative_id' && alternativeId) {
-    const alternative = await getAlternativeWithImpacts(alternativeId);
-
-    if (!alternative) {
-      throw new AppError('Alternative not found.', 404, 'NOT_FOUND');
-    }
-
-    if (alternative.question_id !== questionId) {
-      throw new AppError(
-        'Alternative does not belong to the specified question.',
-        400,
-        'VALIDATION_ERROR'
-      );
-    }
+/**
+ * Resposta com alternativa: a alternativa precisa existir e pertencer à
+ * pergunta respondida.
+ */
+async function assertAlternativeBelongsTo(questionId, alternativeId) {
+  const alternative = await getAlternativeWithImpacts(alternativeId);
+  if (!alternative) {
+    throw new AppError('Alternative not found.', 404, 'NOT_FOUND');
   }
-
-  // Respostas sem alternativa (pular narrativa / reflexão vazia) só são
-  // válidas na camada interpretativa. Um "skip" numa pergunta objetiva
-  // inflaria o contador do BFI-2-S com um item sem valor Likert,
-  // corrompendo o cálculo OCEAN — bloqueado na fonte.
-  if (!alternativeId) {
-    const question = await getQuestionKindById(questionId);
-    if (!question) {
-      throw new AppError('Question not found.', 404, 'NOT_FOUND');
-    }
-    if (question.kind !== QUESTION_KIND.INTERPRETATIVE) {
-      throw new AppError(
-        'Objective (BFI-2-S) questions cannot be skipped.',
-        400,
-        'VALIDATION_ERROR'
-      );
-    }
+  if (alternative.question_id !== questionId) {
+    throw new AppError(
+      'Alternative does not belong to the specified question.',
+      400,
+      'VALIDATION_ERROR'
+    );
   }
+}
 
-  // Try to insert the answer (UNIQUE constraint handles duplicates)
-  let answer;
+/**
+ * Respostas sem alternativa (pular narrativa / reflexão vazia) só são
+ * válidas na camada interpretativa. Um "skip" numa pergunta objetiva
+ * inflaria o contador do BFI-2-S com um item sem valor Likert,
+ * corrompendo o cálculo OCEAN — bloqueado na fonte.
+ */
+async function assertSkippable(questionId) {
+  const question = await getQuestionKindById(questionId);
+  if (!question) {
+    throw new AppError('Question not found.', 404, 'NOT_FOUND');
+  }
+  if (question.kind !== QUESTION_KIND.INTERPRETATIVE) {
+    throw new AppError(
+      'Objective (BFI-2-S) questions cannot be skipped.',
+      400,
+      'VALIDATION_ERROR'
+    );
+  }
+}
+
+async function insertAnswer(...args) {
   try {
-    answer = await createAnswerQuery(sessionId, questionId, alternativeId, answerType, userObservation);
+    return await createAnswerQuery(...args);
   } catch (err) {
+    // A constraint UNIQUE (sessão, pergunta) garante RN009.
     if (err.code === '23505') {
       throw new AppError(
         'This question has already been answered in this session.',
@@ -64,11 +66,30 @@ export async function recordAnswer(sessionId, questionId, alternativeId, answerT
     }
     throw err;
   }
+}
 
+/** Progresso da sessão após gravar ou desfazer uma resposta. */
+async function sessionProgress(sessionId) {
   const [totalAnswered, objectiveAnswered] = await Promise.all([
     countAnswersBySessionId(sessionId),
     countObjectiveAnswersBySessionId(sessionId),
   ]);
+  return {
+    answered: totalAnswered,
+    objective_answered: objectiveAnswered,
+    minimum_for_analysis: MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS,
+    can_analyze: objectiveAnswered >= MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS,
+  };
+}
+
+export async function recordAnswer(sessionId, questionId, alternativeId, answerType = 'alternative_id', userObservation = null) {
+  if (!alternativeId) {
+    await assertSkippable(questionId);
+  } else if (answerType === 'alternative_id') {
+    await assertAlternativeBelongsTo(questionId, alternativeId);
+  }
+
+  const answer = await insertAnswer(sessionId, questionId, alternativeId, answerType, userObservation);
 
   return {
     answer_id: answer.id,
@@ -77,12 +98,7 @@ export async function recordAnswer(sessionId, questionId, alternativeId, answerT
     alternative_id: alternativeId,
     answer_type: answerType,
     answered_at: answer.answered_at,
-    progress: {
-      answered: totalAnswered,
-      objective_answered: objectiveAnswered,
-      minimum_for_analysis: MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS,
-      can_analyze: objectiveAnswered >= MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS,
-    },
+    progress: await sessionProgress(sessionId),
   };
 }
 
@@ -97,18 +113,8 @@ export async function undoLastAnswer(sessionId) {
     throw new AppError('Não há respostas para desfazer.', 404, 'NOT_FOUND');
   }
 
-  const [totalAnswered, objectiveAnswered] = await Promise.all([
-    countAnswersBySessionId(sessionId),
-    countObjectiveAnswersBySessionId(sessionId),
-  ]);
-
   return {
     undone_question_id: undone.question_id,
-    progress: {
-      answered: totalAnswered,
-      objective_answered: objectiveAnswered,
-      minimum_for_analysis: MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS,
-      can_analyze: objectiveAnswered >= MIN_OBJECTIVE_ANSWERS_FOR_ANALYSIS,
-    },
+    progress: await sessionProgress(sessionId),
   };
 }

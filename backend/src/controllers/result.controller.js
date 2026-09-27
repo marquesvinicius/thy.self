@@ -4,44 +4,11 @@ import {
 import { getAnswerReviewBySessionId } from '../database/queries/answer.queries.js';
 import { checkRegenBudget } from '../services/llm-limiter.js';
 import { findClosestArchetype, findFarthestArchetype } from '../services/archetype.service.js';
-import { DIMENSIONS } from '../engine/dimensions.js';
-import { classifyScore } from '../engine/normalization.js';
+import { profilePayloadFromRow } from '../engine/profile-payload.js';
 import { success } from '../utils/apiResponse.js';
 import { AppError } from '../utils/AppError.js';
 import { isUuid } from '../utils/uuid.js';
-
-/**
- * Maps a raw `results` row into the shape the frontend expects.
- * @param {Object} row - Raw Supabase row from `results`.
- */
-function toProfilePayload(row) {
-  const scores = {
-    O: Number(row.score_o),
-    C: Number(row.score_c),
-    E: Number(row.score_e),
-    A: Number(row.score_a),
-    N: Number(row.score_n),
-  };
-
-  const dimensions = DIMENSIONS.map(dim => ({
-    key: dim.key,
-    name: dim.name,
-    description: dim.description,
-    lowLabel: dim.lowLabel,
-    highLabel: dim.highLabel,
-    score: scores[dim.key],
-    level: classifyScore(scores[dim.key]),
-  }));
-
-  return {
-    scores,
-    dimensions,
-    answer_count: row.answer_count,
-    calculated_at: row.calculated_at,
-    consistency: row.consistency || null,
-    llm_interpretation: row.llm_interpretation || null,
-  };
-}
+import { DIMENSION_KEYS } from '../config/constants.js';
 
 /**
  * GET /api/v1/result/:session_id
@@ -50,11 +17,9 @@ function toProfilePayload(row) {
  */
 export async function handleGetResult(req, res, next) {
   try {
+    // A rota /:session_id garante o parâmetro não vazio.
     const { session_id } = req.params;
 
-    if (!session_id) {
-      throw new AppError('session_id is required', 400, 'MISSING_SESSION_ID');
-    }
     if (!isUuid(session_id)) {
       throw new AppError('session_id must be a valid UUID', 400, 'VALIDATION_ERROR');
     }
@@ -70,7 +35,7 @@ export async function handleGetResult(req, res, next) {
     // (o estado local se perdia num reload da página).
     const regenBudget = await checkRegenBudget(session_id);
 
-    const profile = toProfilePayload(result);
+    const profile = profilePayloadFromRow(result);
     // RF005: arquétipos recomputados do escore salvo (funções determinísticas
     // no Postgres, desempate por id) — não são persistidos em `results`.
     profile.archetype = await findClosestArchetype(profile.scores);
@@ -100,9 +65,6 @@ export async function handleGetResult(req, res, next) {
 export async function handleGetAnswerReview(req, res, next) {
   try {
     const { session_id } = req.params;
-    if (!session_id) {
-      throw new AppError('session_id is required', 400, 'MISSING_SESSION_ID');
-    }
     if (!isUuid(session_id)) {
       throw new AppError('session_id must be a valid UUID', 400, 'VALIDATION_ERROR');
     }
@@ -112,7 +74,7 @@ export async function handleGetAnswerReview(req, res, next) {
     const interpretative = answers.filter(a => a.kind === 'interpretative');
 
     const byTrait = {};
-    for (const key of ['O', 'C', 'E', 'A', 'N']) byTrait[key] = [];
+    for (const key of DIMENSION_KEYS) byTrait[key] = [];
     for (const row of objective) {
       if (row.trait && byTrait[row.trait]) byTrait[row.trait].push(row);
     }

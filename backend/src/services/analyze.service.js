@@ -10,8 +10,7 @@ import { updateSessionStatus } from '../database/queries/session.queries.js';
 import { calculateProfile } from '../engine/BigFiveEngine.js';
 import { calculateConsistency } from '../engine/consistency.js';
 import { calculateResponseStyle } from '../engine/response-style.js';
-import { DIMENSIONS } from '../engine/dimensions.js';
-import { classifyScore } from '../engine/normalization.js';
+import { profilePayloadFromRow } from '../engine/profile-payload.js';
 import { findClosestArchetype, findFarthestArchetype } from './archetype.service.js';
 import { generateInterpretation } from './llm.service.js';
 import { AppError } from '../utils/AppError.js';
@@ -20,43 +19,6 @@ import {
   QUESTION_KIND,
   SESSION_STATUS,
 } from '../config/constants.js';
-
-/**
- * Reconstrói o payload canônico de resposta do /analyze a partir de uma
- * linha já persistida em `results`. Mantém o shape idêntico ao que o
- * frontend receberia na análise original — scores, dimensões com level,
- * consistency e llm_interpretation.
- */
-function buildProfilePayloadFromRow(row) {
-  const scores = {
-    O: Number(row.score_o),
-    C: Number(row.score_c),
-    E: Number(row.score_e),
-    A: Number(row.score_a),
-    N: Number(row.score_n),
-  };
-
-  const dimensions = DIMENSIONS.map(dim => ({
-    key: dim.key,
-    name: dim.name,
-    description: dim.description,
-    lowLabel: dim.lowLabel,
-    highLabel: dim.highLabel,
-    score: scores[dim.key],
-    level: classifyScore(scores[dim.key]),
-  }));
-
-  return {
-    scores,
-    dimensions,
-    answer_count: row.answer_count,
-    calculated_at: row.calculated_at,
-    consistency: row.consistency || null,
-    llm_interpretation: row.llm_interpretation || null,
-    archetype: row.archetype || null,
-    anti_archetype: row.anti_archetype || null,
-  };
-}
 
 /**
  * Análises em voo, por sessão.
@@ -92,7 +54,7 @@ async function runAnalysis(sessionId) {
   // disparar nova chamada ao LLM.
   const existing = await getResultBySessionId(sessionId);
   if (existing && existing.llm_interpretation) {
-    const profile = buildProfilePayloadFromRow(existing);
+    const profile = profilePayloadFromRow(existing);
     // Arquétipo não é persistido — a função no Postgres é determinística
     // (desempate por id), então recomputar do escore salvo dá sempre o
     // mesmo resultado. RF005 visível também em resultados reidratados.
@@ -156,7 +118,7 @@ async function runAnalysis(sessionId) {
   // 9. Return expanded response
   return {
     session_id: sessionId,
-    profile: buildProfilePayloadFromRow({
+    profile: profilePayloadFromRow({
       ...savedRow,
       score_o: profile.scores.O,
       score_c: profile.scores.C,

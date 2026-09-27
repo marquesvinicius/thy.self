@@ -29,6 +29,9 @@ export default function ReferenceDetailModal({
           <figure className="relative">
             <div className="aspect-[4/5] border border-foreground/40 bg-surface overflow-hidden">
               {reference.image_url ? (
+                // Miniatura externa da Wikimedia (URL arbitrária por referência): next/image
+                // exigiria cadastrar domínios remotos e reprocessar a imagem no servidor.
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={reference.image_url}
                   alt={reference.nome}

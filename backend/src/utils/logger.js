@@ -12,6 +12,8 @@ function log(level, message, meta = {}) {
   if (level === 'error') {
     console.error(JSON.stringify(entry));
   } else {
+    // O logger é o único ponto de saída estruturada para stdout.
+    // eslint-disable-next-line no-console
     console.log(JSON.stringify(entry));
   }
 }
