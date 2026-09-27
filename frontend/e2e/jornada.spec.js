@@ -32,57 +32,54 @@ const LIKERT_LABELS = [
   'Concordo totalmente',
 ];
 
+/** Lê o contador "respostas: N" da barra de status do quiz. */
+async function answeredCount(page) {
+  const text = await page.getByText(/^respostas:\s*\d+$/i).first().textContent();
+  return Number(text.match(/\d+/)[0]);
+}
+
 /**
- * Responde uma pergunta e só retorna quando o avanço realmente aconteceu.
+ * Responde a pergunta atual e só retorna quando o avanço foi registrado.
  *
- * Uma espera fixa não serve aqui: a transição entre perguntas é animada
- * e de duração variável, então um clique disparado cedo demais cai no
- * meio da animação e se perde — o efeito observado foi o teste
- * "responder 30 vezes" terminar com 28 respostas registradas. Por isso
- * o avanço é confirmado pelo contador anunciado na região aria-live.
+ * Duas armadilhas que este helper evita (ambas observadas):
+ *   - espera fixa entre cliques: a transição é animada e de duração
+ *     variável; um clique cedo demais se perde (30 cliques → 28 respostas);
+ *   - "corrida" entre pergunta e tela de decisão: depois da 30ª resposta o
+ *     modal de decisão aparece POR CIMA dos botões, que continuam no DOM.
+ *     O botão coberto parece visível e o clique fica esperando para sempre.
+ * Por isso o laço é guiado pelo contador da própria tela, e não por
+ * visibilidade: nunca se clica depois da 30ª resposta.
  */
-async function answerCurrentQuestion(page, labelIndex) {
-  const live = page.locator('[aria-live="polite"]');
-  const before = await live.textContent();
+/** Id do enunciado na tela (`question-<id>-text`), para detectar a troca. */
+async function currentQuestionId(page) {
+  return page.locator('h2[id^="question-"]').first().getAttribute('id').catch(() => null);
+}
 
-  // `exact: true` é obrigatório aqui: sem ele, "Discordo" também casa com
+async function answerNext(page, labelIndex) {
+  const before = await answeredCount(page);
+  const questionBefore = await currentQuestionId(page);
+
+  // `exact: true` é obrigatório: sem ele "Discordo" também casa com
   // "Discordo totalmente" e o clique vai para o alvo errado.
-  const option = page
+  await page
     .getByRole('button', { name: LIKERT_LABELS[labelIndex], exact: true })
-    .first();
+    .first()
+    .click();
 
-  // Duas coisas podem acontecer aqui: a próxima pergunta aparece (com
-  // fade-in, então não está visível de imediato) ou a etapa objetiva
-  // termina e a tela de decisão toma o lugar dela. Uma checagem
-  // instantânea de visibilidade erra os dois casos — dá falso negativo
-  // durante a animação. Por isso esperamos pelo primeiro dos dois.
-  const decisionButton = page.getByRole('button', { name: /encerrar agora/i });
-  const whatCameFirst = await Promise.race([
-    option.waitFor({ state: 'visible', timeout: 20_000 }).then(() => 'question', () => 'timeout'),
-    decisionButton.waitFor({ state: 'visible', timeout: 20_000 }).then(() => 'decision', () => 'timeout'),
-  ]);
-
-  if (whatCameFirst !== 'question') return 'decision';
-
-  await option.click();
-
-  // Avançou quando o anúncio muda — ou quando a etapa objetiva termina
-  // e a tela de decisão toma o lugar da pergunta.
   await expect
-    .poll(
-      async () => {
-        const decision = await page
-          .getByRole('button', { name: /encerrar agora/i })
-          .isVisible()
-          .catch(() => false);
-        if (decision) return 'decision';
-        return (await live.textContent()) !== before ? 'advanced' : 'same';
-      },
-      { timeout: 20_000, intervals: [100, 150, 250] }
-    )
-    .not.toBe('same');
+    .poll(() => answeredCount(page), { timeout: 20_000, intervals: [100, 200, 400] })
+    .toBeGreaterThan(before);
 
-  return 'advanced';
+  // O contador sobe com a resposta do servidor, mas quando não há pergunta
+  // pré-carregada a próxima só aparece depois de uma nova busca. Clicar nesse
+  // intervalo acerta a pergunta antiga (já respondida) e o app descarta o
+  // clique — foi o que travou o teste na 3ª resposta. Então, exceto na
+  // última (depois dela vem a tela de decisão), espera a pergunta trocar.
+  if (before + 1 < OBJECTIVE_ITEMS) {
+    await expect
+      .poll(() => currentQuestionId(page), { timeout: 20_000, intervals: [100, 200, 400] })
+      .not.toBe(questionBefore);
+  }
 }
 
 async function startSession(page) {
@@ -115,18 +112,10 @@ test.describe('jornada completa', () => {
     // ---- RF002: responder os 30 itens objetivos ----
     // Varia a resposta para não gerar um perfil degenerado (tudo neutro
     // produziria 50 em todos os eixos e esconderia erros de sinal).
-    // A margem extra de iterações cobre a possibilidade de o catálogo
-    // servir alguma pergunta a mais antes da tela de decisão.
-    for (let i = 0; i < OBJECTIVE_ITEMS + 4; i += 1) {
-      const decisionReached = await page
-        .getByRole('button', { name: /encerrar agora/i })
-        .isVisible()
-        .catch(() => false);
-      if (decisionReached) break;
-
-      const outcome = await answerCurrentQuestion(page, i % 5);
-      if (outcome === 'decision') break;
+    for (let i = 0; (await answeredCount(page)) < OBJECTIVE_ITEMS; i += 1) {
+      await answerNext(page, i % 5);
     }
+    expect(await answeredCount(page)).toBe(OBJECTIVE_ITEMS);
 
     // ---- RF002: tela de decisão ao fim da camada objetiva ----
     const encerrar = page.getByRole('button', { name: /encerrar agora/i });
@@ -141,19 +130,27 @@ test.describe('jornada completa', () => {
     // ---- RF003: dispara o cálculo ----
     await encerrar.click();
 
-    // ---- RF004: perfil OCEAN visível ----
     await expect(page).toHaveURL(/\/result/, { timeout: 90_000 });
+
+    // ---- RN010: isenção de responsabilidade ANTES do perfil ----
+    // A regra exige que o aviso venha antes da revelação: o perfil só
+    // aparece depois que a pessoa confirma ter lido que não é diagnóstico.
+    await expect(
+      page.getByText(/não é um diagnóstico/i).first(),
+      'RN010: o aviso deve aparecer antes do perfil'
+    ).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.getByText(/Conscienciosidade/i),
+      'RN010: o perfil não pode estar visível antes do aceite'
+    ).toHaveCount(0);
+    await page.getByRole('button', { name: /revelar meu perfil/i }).click();
+
+    // ---- RF004: perfil OCEAN visível ----
     for (const trait of ['Abertura', 'Conscienciosidade', 'Extroversão', 'Amabilidade', 'Neuroticismo']) {
       await expect(page.getByText(new RegExp(trait, 'i')).first()).toBeVisible({
         timeout: 30_000,
       });
     }
-
-    // RN010: a isenção de responsabilidade precisa estar na tela.
-    await expect(
-      page.getByText(/não.*(clínic|diagnóstic)/i).first(),
-      'RN010 exige isenção de responsabilidade visível'
-    ).toBeVisible();
 
     // ---- RF006: auditabilidade por resposta ----
     const revisar = page.getByRole('button', { name: /revisar respostas/i });
