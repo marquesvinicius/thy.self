@@ -21,9 +21,10 @@ import {
 } from '@/lib/narrativeMode';
 
 const BLOCK_SIZE = 1;
-// Pedimos 1 pergunta a mais que o bloco: a próxima já fica em memória
-// (prefetch), eliminando a espera de rede entre perguntas objetivas.
-const FETCH_SIZE = BLOCK_SIZE + 1;
+// Pedimos 3 perguntas a mais que o bloco: ficam em memória (prefetch). Com
+// só 1, quem respondia rápido pelo teclado esvaziava a fila antes de o
+// servidor devolver a próxima, e a tela ficava vazia por um instante.
+const FETCH_SIZE = BLOCK_SIZE + 3;
 
 // Baselines de ritmo (segundos por pergunta) — ponto de partida da estimativa
 // de tempo restante, substituídas pela mediana do ritmo real do usuário
@@ -73,6 +74,10 @@ export default function Quiz() {
 
   // 3-phase transition: 'visible' | 'exiting' | 'entering'
   const [phase, setPhase] = useState('entering');
+  // Espelho síncrono da fase: o teclado dispara mais rápido que o re-render,
+  // então a trava de entrada precisa de um valor atualizado na hora.
+  const phaseRef = useRef('entering');
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   // ── Fast lane (camada objetiva) ──
   // Fila de prefetch: a próxima pergunta já buscada, pronta para entrar sem
@@ -206,6 +211,9 @@ export default function Quiz() {
   const handleSelect = (questionId, alternativeId) => {
     if (submitting) return;
     if (submittedRef.current.has(questionId)) return;
+    // Enquanto a pergunta anterior sai de cena, nenhuma resposta vale: sem
+    // isso, uma tecla apertada rápido demais caía na troca de pergunta.
+    if (phaseRef.current === 'exiting') return;
 
     setAnswers(prev => ({ ...prev, [questionId]: alternativeId }));
 
@@ -247,8 +255,20 @@ export default function Quiz() {
     recordPace('objective');
     setInFlight(n => n + 1);
 
-    const next = queueRef.current.shift() || null;
+    // Reabastecimentos disparados por respostas rápidas podem chegar fora de
+    // ordem e trazer de volta uma pergunta já respondida (ou a que está na
+    // tela). Mostrá-la de novo travava o quiz, porque o clique nela é
+    // ignorado. Por isso a fila é conferida na hora de tirar a próxima.
+    let next = null;
+    while (queueRef.current.length > 0) {
+      const candidate = queueRef.current.shift();
+      if (candidate.id !== question.id && !submittedRef.current.has(candidate.id)) {
+        next = candidate;
+        break;
+      }
+    }
 
+    phaseRef.current = 'exiting';
     setPhase('exiting');
     setTimeout(() => {
       if (next) {
@@ -300,7 +320,6 @@ export default function Quiz() {
       const data = await getQuestions(
         sessionId,
         FETCH_SIZE,
-        null,
         narrativeLimitFor(sessionId),
       );
       setProgress({
