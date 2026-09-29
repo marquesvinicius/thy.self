@@ -86,7 +86,7 @@ const QUIZ_PERIPHERAL_ZONES = [
   { x: 92, y: 87, size: ZONE_TALL },
 ];
 
-const MAX_VISIBLE_EYES = 3;
+const MAX_VISIBLE_EYES = 2;
 
 function almondPath(cx, cy, rx, ry) {
   return `M ${cx - rx},${cy} Q ${cx},${cy - ry} ${cx + rx},${cy} Q ${cx},${cy + ry} ${cx - rx},${cy} Z`;
@@ -207,6 +207,20 @@ const LID_POSES = {
 const GAZE_MAX_X = 12;
 const GAZE_MAX_Y = 3.8;
 
+// Ritmo contemplativo: o olho observa, não vigia. Tudo aqui é lento de
+// propósito — olhar que desliza, piscada preguiçosa, saída como quem adormece.
+const EYE_FADE_IN_MS = 1600;
+const EYE_FADE_OUT_MS = 1400;
+const EYE_VISIBLE_MIN_MS = 7000;
+const EYE_VISIBLE_JITTER_MS = 4000;
+const GAZE_IDLE_TRANSITION = 'transform 1400ms cubic-bezier(.45,.05,.25,1)';
+const GAZE_ATTEND_TRANSITION = 'transform 800ms cubic-bezier(.4,.1,.3,1)';
+const LID_TRANSITIONS = {
+  fast: 'transform 170ms cubic-bezier(.55,0,.8,.4)',     // piscada: fecha
+  slow: 'transform 420ms cubic-bezier(.2,.65,.3,1)',     // piscada: reabre
+  drowsy: 'transform 1100ms cubic-bezier(.45,0,.55,1)',  // abrir/fechar de vez
+};
+
 function prefersReducedMotion() {
   if (typeof window === 'undefined' || !window.matchMedia) return false;
   try {
@@ -226,7 +240,9 @@ function QuizEye({ x, y, size, uid, onDone }) {
   // 'fast' ao fechar, 'slow' ao reabrir — assimetria anatômica da piscada.
   const [lidSpeed, setLidSpeed] = useState('slow');
   const [gaze, setGaze] = useState({ dx: 0, dy: 0 });
+  const [gazeAttending, setGazeAttending] = useState(false);
   const [pupilScale, setPupilScale] = useState(1);
+  const [exiting, setExiting] = useState(false);
 
   const timersRef = useRef([]);
   const exitingRef = useRef(false);
@@ -235,11 +251,11 @@ function QuizEye({ x, y, size, uid, onDone }) {
   const attendUntilRef = useRef(0);
 
   // Muda a pose escolhendo a velocidade certa pela direção do movimento
-  // (fechar = rápido, abrir = lento).
-  const poseTo = useCallback((next) => {
+  // (fechar = rápido, abrir = lento), a menos que uma velocidade seja pedida.
+  const poseTo = useCallback((next, speed) => {
     setLidPose((prev) => {
       const closing = LID_POSES[next].upper > LID_POSES[prev].upper;
-      setLidSpeed(closing ? 'fast' : 'slow');
+      setLidSpeed(speed || (closing ? 'fast' : 'slow'));
       return next;
     });
   }, []);
@@ -253,52 +269,50 @@ function QuizEye({ x, y, size, uid, onDone }) {
       return t;
     };
 
-    const openAt = 260;                                // pálpebras se partem
-    const visibleMs = 2400 + Math.random() * 1400;     // 2.4s – 3.8s de observação
-    const closeAt = openAt + 420 + visibleMs;          // início do fechamento
-    const goneAt = closeAt + 700;
+    const openAt = 500;                                // surge de olhos fechados e abre devagar
+    const settledAt = openAt + 1100;                   // pálpebras terminaram de abrir
+    const visibleMs = EYE_VISIBLE_MIN_MS + Math.random() * EYE_VISIBLE_JITTER_MS;
+    const closeAt = settledAt + visibleMs;             // início do adormecer
+    const goneAt = closeAt + 400 + EYE_FADE_OUT_MS + 100;
 
     schedule(() => setVisible(true), 30);
-    schedule(() => poseTo('open'), openAt);
+    schedule(() => poseTo('open', 'drowsy'), openAt);
 
     if (!reduced) {
-      // 1 piscada (55%) ou 2 (45%); 20% de chance de a primeira ser dupla.
-      const blinkCount = Math.random() < 0.55 ? 1 : 2;
-      const doubleBlink = Math.random() < 0.2;
+      // 1 piscada (60%) ou 2 (40%), sempre espaçadas — nada de piscar nervoso.
+      const blinkCount = Math.random() < 0.6 ? 1 : 2;
       const step = visibleMs / (blinkCount + 1);
 
-      const doBlink = (at) => {
+      for (let i = 0; i < blinkCount; i++) {
+        const jitter = (Math.random() - 0.5) * step * 0.3;
         schedule(() => {
           if (exitingRef.current) return;
           poseTo('blink');
-          schedule(() => poseTo('open'), 130 + Math.random() * 90);
-        }, at);
-      };
-
-      for (let i = 0; i < blinkCount; i++) {
-        const jitter = (Math.random() - 0.5) * step * 0.4;
-        const at = openAt + 420 + step * (i + 1) + jitter;
-        doBlink(at);
-        if (i === 0 && doubleBlink) doBlink(at + 380);
+          schedule(() => { if (!exitingRef.current) poseTo('open'); }, 200 + Math.random() * 120);
+        }, settledAt + step * (i + 1) + jitter);
       }
 
-      // Squint ocasional (25%): segura o olhar meio-fechado por 1.1–1.8s.
-      if (Math.random() < 0.25) {
-        const at = openAt + 420 + visibleMs * (0.3 + Math.random() * 0.35);
+      // Olhar semicerrado ocasional (20%), lento e demorado (1.6–2.4s).
+      if (Math.random() < 0.2) {
+        const at = settledAt + visibleMs * (0.35 + Math.random() * 0.3);
         schedule(() => {
           if (exitingRef.current) return;
-          poseTo('squint');
+          poseTo('squint', 'drowsy');
           schedule(() => {
-            if (!exitingRef.current) poseTo('open');
-          }, 1100 + Math.random() * 700);
+            if (!exitingRef.current) poseTo('open', 'drowsy');
+          }, 1600 + Math.random() * 800);
         }, at);
       }
     }
 
+    // Saída: as pálpebras descem devagar e, no meio do caminho, o olho começa
+    // a se dissolver e a recuar um pouco. Assim não sobra o contorno vazio
+    // piscando sozinho, que era o que deixava a saída feia.
     schedule(() => {
       exitingRef.current = true;
-      poseTo('closed');
-      schedule(() => setVisible(false), 300);
+      setGaze({ dx: 0, dy: 0 });
+      poseTo('closed', 'drowsy');
+      schedule(() => { setExiting(true); setVisible(false); }, 400);
     }, closeAt);
     schedule(() => onDone?.(), goneAt);
 
@@ -321,23 +335,25 @@ function QuizEye({ x, y, size, uid, onDone }) {
 
       if (gazeModeRef.current === 'attend' && now < attendUntilRef.current) {
         // Cursor mandou recentemente — não briga com a atenção.
-      } else {
+      } else if (!exitingRef.current) {
         gazeModeRef.current = 'idle';
+        setGazeAttending(false);
         const r = Math.random();
-        if (r < 0.28) {
+        if (r < 0.35) {
           setGaze({ dx: 0, dy: 0 }); // volta ao centro
         } else {
           setGaze({
-            dx: (Math.random() * 2 - 1) * GAZE_MAX_X * (r < 0.85 ? 0.7 : 1),
-            dy: (Math.random() * 2 - 1) * GAZE_MAX_Y * 0.8,
+            dx: (Math.random() * 2 - 1) * GAZE_MAX_X * 0.6,
+            dy: (Math.random() * 2 - 1) * GAZE_MAX_Y * 0.6,
           });
         }
       }
 
-      timer = window.setTimeout(tick, 850 + Math.random() * 1600);
+      // O olhar desliza e fica: um novo ponto a cada 3 – 6.5 s.
+      timer = window.setTimeout(tick, 3000 + Math.random() * 3500);
     };
 
-    timer = window.setTimeout(tick, 500 + Math.random() * 800);
+    timer = window.setTimeout(tick, 2200 + Math.random() * 1500);
     return () => {
       cancelled = true;
       if (timer) window.clearTimeout(timer);
@@ -352,36 +368,43 @@ function QuizEye({ x, y, size, uid, onDone }) {
     let rafPending = false;
 
     const lookToward = (targetX, targetY) => {
+      if (exitingRef.current) return;
       const ex = (x / 100) * window.innerWidth;
       const ey = (y / 100) * window.innerHeight;
       const vx = targetX - ex;
       const vy = targetY - ey;
       const len = Math.hypot(vx, vy) || 1;
+      setGazeAttending(true);
       setGaze({
-        dx: (vx / len) * GAZE_MAX_X,
-        dy: (vy / len) * GAZE_MAX_Y,
+        dx: (vx / len) * GAZE_MAX_X * 0.85,
+        dy: (vy / len) * GAZE_MAX_Y * 0.85,
       });
     };
 
+    // Segue o cursor com calma: no máximo uma atualização a cada 250 ms,
+    // e a íris leva 800 ms para chegar — acompanha, não persegue.
+    let lastMove = 0;
     const onMove = (e) => {
-      if (rafPending) return;
+      const now = Date.now();
+      if (rafPending || now - lastMove < 250) return;
+      lastMove = now;
       rafPending = true;
       window.requestAnimationFrame(() => {
         rafPending = false;
         gazeModeRef.current = 'attend';
-        attendUntilRef.current = Date.now() + 2500 + Math.random() * 1500;
+        attendUntilRef.current = Date.now() + 4000 + Math.random() * 2000;
         lookToward(e.clientX, e.clientY);
       });
     };
 
-    // Evento do quiz: o usuário respondeu — todos os olhos visíveis dão uma
-    // sacada ao centro da tela e contraem a pupila junto do flash oracular.
+    // Evento do quiz: o usuário respondeu — os olhos visíveis se voltam
+    // devagar para o centro e a pupila se contrai de leve.
     const onAnswered = () => {
       gazeModeRef.current = 'attend';
-      attendUntilRef.current = Date.now() + 1400;
+      attendUntilRef.current = Date.now() + 2500;
       lookToward(window.innerWidth / 2, window.innerHeight / 2);
-      setPupilScale(0.8);
-      const t = window.setTimeout(() => setPupilScale(1), 650);
+      setPupilScale(0.88);
+      const t = window.setTimeout(() => setPupilScale(1), 1100);
       timersRef.current.push(t);
     };
 
@@ -394,10 +417,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
   }, [x, y, reduced]);
 
   const pose = LID_POSES[lidPose];
-  const lidTransition =
-    lidSpeed === 'fast'
-      ? 'transform 110ms cubic-bezier(.55,0,.8,.4)'   // fechar: queda rápida
-      : 'transform 240ms cubic-bezier(.2,.65,.3,1)';  // abrir: reabertura suave
+  const lidTransition = LID_TRANSITIONS[lidSpeed] || LID_TRANSITIONS.slow;
 
   const clipId = `quiz-eye-clip-${uid}`;
 
@@ -410,16 +430,17 @@ function QuizEye({ x, y, size, uid, onDone }) {
         top: `${y}%`,
         width: size,
         aspectRatio: '100 / 42',
-        transform: 'translate(-50%, -50%)',
+        // Ao sair, recua um pouco (scale 0.94) enquanto se dissolve.
+        transform: `translate(-50%, -50%) scale(${exiting ? 0.94 : 1})`,
         opacity: visible ? 0.22 : 0,
         transition: reduced
           ? 'opacity 900ms ease-in-out'
           : visible
-            ? 'opacity 420ms ease-out'
-            : 'opacity 600ms ease-in',
+            ? `opacity ${EYE_FADE_IN_MS}ms ease-out`
+            : `opacity ${EYE_FADE_OUT_MS}ms ease-in-out, transform ${EYE_FADE_OUT_MS}ms ease-in-out`,
         pointerEvents: 'none',
         filter: 'blur(0.35px)',
-        willChange: 'opacity',
+        willChange: 'opacity, transform',
       }}
     >
       <svg
@@ -440,7 +461,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
           <g
             style={{
               transform: `translate(${gaze.dx}px, ${gaze.dy}px)`,
-              transition: 'transform 90ms cubic-bezier(.3,.1,.3,1)',
+              transition: gazeAttending ? GAZE_ATTEND_TRANSITION : GAZE_IDLE_TRANSITION,
             }}
           >
             <circle cx="50" cy="21" r="14" fill="none" stroke="white" strokeWidth="0.9" />
@@ -450,7 +471,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
                 transform: `scale(${pupilScale})`,
                 transformBox: 'fill-box',
                 transformOrigin: 'center',
-                transition: 'transform 220ms ease-out',
+                transition: 'transform 600ms ease-in-out',
               }}
             >
               {/* Respiração lenta da pupila (±12% em 8s) */}
@@ -498,16 +519,14 @@ function QuizEye({ x, y, size, uid, onDone }) {
    MysticEyesOverlay: quiz-screen peripheral-eye manager.
 
    The number of eyes on screen is NOT fixed — at each spawn decision we
-   pick a "desired" target weighted as: 1 eye (55%), 2 eyes (35%),
-   3 eyes (10%). A spawn only happens if the current count is below the
-   desired target, which makes the scene naturally breathe: mostly one
-   calm observer, sometimes two, rarely three.
+   pick a "desired" target weighted as: 1 eye (80%), 2 eyes (20%). A spawn
+   only happens if the current count is below the desired target, and
+   decisions come every 5–10 s, so the scene breathes slowly: mostly one
+   calm observer, sometimes two, often a few seconds with none.
    -------------------------------------------------------------------------- */
+// Quase sempre um único observador; às vezes dois. Três deixava a cena agitada.
 function pickDesiredCount() {
-  const r = Math.random();
-  if (r < 0.55) return 1;
-  if (r < 0.9) return 2;
-  return 3;
+  return Math.random() < 0.8 ? 1 : 2;
 }
 
 export function MysticEyesOverlay() {
@@ -585,19 +604,19 @@ export function MysticEyesOverlay() {
         timers.delete(t);
         spawnEye();
         // Re-enfileira para a cena continuar respirando mesmo quando esta
-        // chamada decidiu não spawnar (alvo já atingido). Jitter evita
-        // sensação de polling.
-        schedule(900, 3200);
+        // chamada decidiu não spawnar (alvo já atingido). Intervalos longos:
+        // entre um olho e outro, a tela fica vazia por alguns segundos.
+        schedule(5000, 10000);
       }, delay);
       timers.add(t);
     };
 
-    // First eye arrives quickly so the scene isn't empty at mount.
-    const t0 = window.setTimeout(spawnEye, 600);
+    // O primeiro olho chega sem pressa, depois que a pergunta assentou.
+    const t0 = window.setTimeout(spawnEye, 2000);
     timers.add(t0);
 
-    // Independent poll that makes spawn decisions at irregular intervals.
-    schedule(1800, 3600);
+    // Decisões de surgimento em intervalos longos e irregulares.
+    schedule(6000, 10000);
 
     return () => {
       timers.forEach((t) => window.clearTimeout(t));

@@ -7,7 +7,10 @@ import Logo from '@/components/Logo';
 const NAV_ITEMS = [
   { href: '/', label: 'início' },
   { href: '/about', label: 'sobre' },
-  { href: '/method', label: 'método' },
+  // Sem pré-carga: a página Método importa o CSS do KaTeX (fórmulas), e o
+  // prefetch baixava esse CSS em todas as telas sem usá-lo — o navegador
+  // avisava "preloaded but not used" no console.
+  { href: '/method', label: 'método', prefetch: false },
 ];
 
 export default function Header() {
@@ -31,6 +34,7 @@ export default function Header() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={item.prefetch}
               aria-current={active ? 'page' : undefined}
               className={`relative inline-flex items-center min-h-11 px-2.5 md:min-h-0 md:px-0 md:pb-1 transition-colors ${
                 active ? 'text-foreground' : 'text-muted hover:text-foreground'
