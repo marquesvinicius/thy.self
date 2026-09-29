@@ -6,7 +6,7 @@ services:
     name: thyself-api
     runtime: node
     rootDir: backend
-    plan: free          # o plano gratuito dorme após 15 min sem acesso; "starter" fica sempre ligado
+    plan: free          # dorme após 15 min sem acesso; a migration_013 chama /health a cada 10 min
     buildCommand: npm ci --omit=dev
     startCommand: npm start
     healthCheckPath: /health

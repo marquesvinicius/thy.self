@@ -136,9 +136,13 @@ da sua pasta deste repositório. O banco já está no Supabase.
    `ALLOWED_ORIGINS` no Render por ela (sem barra no fim) e salve; o Render
    reinicia sozinho.
 
-No plano gratuito do Render o servidor dorme após 15 minutos sem acesso e o
-primeiro pedido depois disso demora cerca de um minuto. Antes de uma
-apresentação ou de um teste com usuários, abra o site alguns minutos antes.
+4. **Manter o servidor acordado.** No plano gratuito do Render o servidor
+   dorme após 15 minutos sem acesso, e o primeiro pedido depois disso demora
+   cerca de um minuto. Troque a URL em `backend/sql/migration_013_keepalive.sql`
+   pela do seu serviço e rode o arquivo no SQL Editor do Supabase: o próprio
+   banco passa a chamar `/health?deep=1` a cada 10 minutos. Ligado o mês
+   inteiro, o serviço usa até 744 das 750 horas gratuitas do Render, então ele
+   deve ser o único serviço gratuito da conta.
 
 ## Testes
 
