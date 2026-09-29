@@ -28,6 +28,11 @@ export const env = {
     : [],
   geminiApiKey: process.env.GEMINI_API_KEY || null,
   llmDailyLimit: parseInt(process.env.LLM_DAILY_LIMIT, 10) || 50,
+  // Quantos proxies à frente do servidor são confiáveis para ler o IP real
+  // (X-Forwarded-For). Render: 1. Local e testes: 0, nenhum.
+  trustProxyHops: Number.isInteger(parseInt(process.env.TRUST_PROXY_HOPS, 10))
+    ? parseInt(process.env.TRUST_PROXY_HOPS, 10)
+    : (process.env.NODE_ENV === 'production' ? 1 : 0),
 };
 
 // RNF009 (controle de acesso à API): em produção, a política de CORS só

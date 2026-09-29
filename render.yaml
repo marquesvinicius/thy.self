@@ -1,0 +1,30 @@
+# Blueprint do Render para o servidor (backend/). O site (frontend/) vai na Vercel.
+# Os valores marcados com sync: false são pedidos pelo painel na criação e
+# nunca ficam no repositório.
+services:
+  - type: web
+    name: thyself-api
+    runtime: node
+    rootDir: backend
+    plan: free          # o plano gratuito dorme após 15 min sem acesso; "starter" fica sempre ligado
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: LLM_DAILY_LIMIT
+        value: "50"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS   # URL do site na Vercel, ex.: https://thyself.vercel.app
+        sync: false

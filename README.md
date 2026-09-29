@@ -119,6 +119,27 @@ npm run dev               # http://localhost:3001
 O mínimo de 30 itens para liberar o cálculo **não** é configurável por
 ambiente: vem do instrumento (RN002), não da operação.
 
+## Publicação
+
+O servidor vai para o **Render** e o site para a **Vercel**, cada um a partir
+da sua pasta deste repositório. O banco já está no Supabase.
+
+1. **Servidor (Render).** Em *New > Blueprint*, aponte para este repositório;
+   o `render.yaml` da raiz cria o serviço `thyself-api` com a pasta `backend/`.
+   Preencha `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY` e,
+   por enquanto, `ALLOWED_ORIGINS=https://exemplo.vercel.app`. Confira em
+   `https://<serviço>.onrender.com/health?deep=1` (deve responder `ok`).
+2. **Site (Vercel).** Em *Add New > Project*, importe o repositório, defina
+   **Root Directory** = `frontend` e a variável
+   `NEXT_PUBLIC_API_URL=https://<serviço>.onrender.com/api/v1`.
+3. **Ligar os dois.** Com a URL final da Vercel em mãos, troque
+   `ALLOWED_ORIGINS` no Render por ela (sem barra no fim) e salve; o Render
+   reinicia sozinho.
+
+No plano gratuito do Render o servidor dorme após 15 minutos sem acesso e o
+primeiro pedido depois disso demora cerca de um minuto. Antes de uma
+apresentação ou de um teste com usuários, abra o site alguns minutos antes.
+
 ## Testes
 
 ```bash

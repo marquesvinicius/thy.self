@@ -73,7 +73,7 @@ export default function Home() {
       const msg = err?.message || '';
       setStartError(
         /failed to fetch|networkerror|load failed/i.test(msg)
-          ? 'Não foi possível conectar à API. Confirme que o backend está em http://localhost:3000 e tente de novo.'
+          ? 'Não foi possível conectar ao servidor. Aguarde alguns segundos e tente de novo.'
           : (msg || 'Falha ao iniciar a sessão. Tente novamente.'),
       );
       setLoading(false);

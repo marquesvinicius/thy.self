@@ -6,8 +6,14 @@ import { publicRateLimit } from './middleware/rateLimit.js';
 import routes from './routes/index.js';
 import { checkSupabaseHealth } from './services/supabase-health.service.js';
 import { logger } from './utils/logger.js';
+import { env } from './config/environment.js';
 
 const app = express();
+
+// Em produção o servidor fica atrás do proxy da hospedagem (Render). Sem
+// confiar nesse salto, req.ip seria o IP do proxy e a limitação de taxa
+// contaria todos os visitantes como um só endereço.
+app.set('trust proxy', env.trustProxyHops);
 
 // Global middleware
 app.use(cors(corsOptions));
