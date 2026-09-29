@@ -174,6 +174,10 @@ export default function Home() {
             >
               {loading ? '...' : 'começar'}
             </button>
+            {/* RN015: recomendação declarada, sem verificação — verificar idade exigiria coletar dados */}
+            <p className="mt-6 max-w-sm mx-auto text-[10px] uppercase tracking-[0.2em] leading-relaxed text-muted">
+              recomendado para adultos · use com responsabilidade · não é diagnóstico
+            </p>
           </div>
         )}
 

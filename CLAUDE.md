@@ -23,7 +23,7 @@ Project-level artifacts at the repo root: raw question CSVs (`questions.csv`, `q
 - `npm run quality:crap` — CRAP per function (ESLint `complexity` × c8 coverage). Gate: CRAP ≤ 30 per function and mean ≤ 6; `dev.controller.js` excluded. `npm run quality` runs coverage + CRAP.
 - `npm run test:mutation` — Stryker with the command runner over `node:test` (config in `stryker.config.json`, break threshold 80%). The full scope takes ~50 min; for one file use `npx stryker run --mutate src/engine/likert.js`.
 - Run a single test file: `node --experimental-test-module-mocks --test test/bigfive-engine.test.js`.
-- SQL migrations in `sql/migration_0*.sql` are applied manually against the Supabase project in order (`migration_001` → `011_anonymity_and_detail_budget`). `sql/schema.sql` is the canonical snapshot for a clean setup; `sql/maintenance_dedup_interpretative.sql` is a one-shot cleanup for databases seeded before the interpretative upsert existed.
+- SQL migrations in `sql/migration_0*.sql` are applied manually against the Supabase project in order (`migration_001` → `012_retention`; 012 also schedules the daily data purge with pg_cron — RN016). `sql/schema.sql` is the canonical snapshot for a clean setup; `sql/maintenance_dedup_interpretative.sql` is a one-shot cleanup for databases seeded before the interpretative upsert existed.
 
 ### Frontend (`cd frontend`)
 - `npm run dev` — Next dev server on **port 3001** (not 3000).
@@ -84,7 +84,7 @@ Public share endpoints were removed (aligned with current DERS RF001–RF007; se
 - `jsconfig.json` aliases `@/*` to the frontend root (use `@/services/api`, `@/components/...`).
 
 ### Key DB tables (see `backend/sql/schema.sql` + migrations)
-`question_categories`, `questions` (+ `kind`, `trait`, `reverse_key`, `external_id`), `alternatives` (carry per-trait `impact_o|c|e|a|n` for objective items), `sessions` (status: `active|completed`; **no personal-data column** — `nickname` was dropped in `migration_011` so RNF012's anonymity is a property of the schema), `answers` (+ `answer_type`, `user_observation`; `alternative_id` nullable for reflections), `results`, `archetypes`. `schema.sql` is the consolidated snapshot of migrations `001`–`011` — use it for a clean setup; use the numbered migrations for existing databases.
+`question_categories`, `questions` (+ `kind`, `trait`, `reverse_key`, `external_id`), `alternatives` (carry per-trait `impact_o|c|e|a|n` for objective items), `sessions` (status: `active|completed`; **no personal-data column** — `nickname` was dropped in `migration_011` so RNF012's anonymity is a property of the schema), `answers` (+ `answer_type`, `user_observation`; `alternative_id` nullable for reflections), `results`, `archetypes`. `schema.sql` is the consolidated snapshot of migrations `001`–`012` (the pg_cron schedule lives only in `migration_012`) — use it for a clean setup; use the numbered migrations for existing databases.
 
 ## Conventions worth knowing
 
