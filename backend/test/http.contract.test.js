@@ -280,6 +280,15 @@ test('POST /answer grava (201), recusa duplicata (409) e recusa skip objetivo (4
   assert.equal(skip.body.error.message, 'Objective (BFI-2-S) questions cannot be skipped.');
 });
 
+test('POST /answer recusa texto livre acima de 1000 caracteres (400, RNF011)', async () => {
+  const res = await call('POST', '/api/v1/answer', {
+    session_id: SID.active, question_id: 3, answer_type: 'reflection', user_observation: 'a'.repeat(1001),
+  });
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error.code, 'VALIDATION_ERROR');
+  assert.match(res.body.error.message, /user_observation.*1000 characters or fewer/);
+});
+
 test('POST /answer recusa alternativa de outra pergunta (400)', async () => {
   const res = await call('POST', '/api/v1/answer', { session_id: SID.active, question_id: 1, alternative_id: 21 });
   assert.equal(res.status, 400);

@@ -30,7 +30,7 @@ const QUESTION_TYPE_GUIDE = [
   {
     key: 'binary',
     title: 'Escolha binária',
-    desc: 'Em alguns paradoxos, você escolhe entre dois polos (ex.: amado ou temido?). Clique no que mais te representa e depois em “confirmar”.',
+    desc: 'Em alguns paradoxos, você escolhe entre dois polos (ex.: amado ou temido?). Clique no que mais te representa: a escolha vale na hora, e “voltar” desfaz.',
   },
   {
     key: 'reflection',
