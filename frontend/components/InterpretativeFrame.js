@@ -1,5 +1,7 @@
 'use client';
 
+import { categoryLabel } from '@/lib/categoryLabel';
+
 /**
  * InterpretativeFrame
  *
@@ -9,20 +11,11 @@
  * generous padding — the UI equivalent of "slow down, read this one".
  */
 export default function InterpretativeFrame({ question, children }) {
-  const categoryLabel = (() => {
-    switch (question?.category) {
-      case 'moral_dilemma': return 'dilema moral';
-      case 'paradoxical':   return 'paradoxo';
-      case 'interest':      return 'preferência';
-      default:              return 'reflexão';
-    }
-  })();
-
   return (
     <div className="w-full flex flex-col items-center">
       <div className="w-full max-w-3xl space-y-6">
         <span className="block text-[10px] uppercase tracking-[0.35em] text-muted text-center">
-          {categoryLabel}
+          {categoryLabel(question?.category)}
         </span>
       </div>
 

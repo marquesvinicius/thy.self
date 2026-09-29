@@ -10,6 +10,7 @@ import MicroFeedback from '@/components/MicroFeedback';
 import TutorialPopup from '@/components/TutorialPopup';
 import StageTransition from '@/components/StageTransition';
 import QuestionRenderer from '@/components/QuestionRenderer';
+import { categoryLabel } from '@/lib/categoryLabel';
 import {
   clearActiveSession,
 } from '@/lib/activeSession';
@@ -610,7 +611,7 @@ export default function Quiz() {
                     q.kind === 'interpretative' ? 'md:pr-14' : ''
                   }`}>
                     <span className="text-[10px] uppercase tracking-widest text-muted">
-                      {q.kind === 'objective' ? 'BFI-2-S' : q.category}
+                      {q.kind === 'objective' ? 'BFI-2-S' : categoryLabel(q.category)}
                     </span>
                     <h2
                       id={`question-${q.id}-text`}
