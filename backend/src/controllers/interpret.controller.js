@@ -9,6 +9,7 @@ import {
   getRegenLens,
 } from '../services/llm.service.js';
 import { findClosestArchetype } from '../services/archetype.service.js';
+import { backfillReferenceImages } from '../services/image.service.js';
 import {
   checkRegenBudget,
   recordRegen,
@@ -83,6 +84,10 @@ export async function handleInterpret(req, res, next) {
     }
 
     const mergedInterpretation = mergeInterpretation(persistedInterpretation, llmInterpretation);
+    // As referências antigas que ficaram sem foto ganham a imagem agora.
+    mergedInterpretation.referencias = (
+      await backfillReferenceImages(mergedInterpretation.referencias)
+    ).referencias;
 
     // Persiste o estado acumulado no banco para que o PDF e qualquer
     // /result/:session_id subsequente enxerguem a mesma coisa.

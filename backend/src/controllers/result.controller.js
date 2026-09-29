@@ -1,14 +1,37 @@
 import {
   getResultBySessionId,
+  updateResultInterpretation,
 } from '../database/queries/result.queries.js';
 import { getAnswerReviewBySessionId } from '../database/queries/answer.queries.js';
 import { checkRegenBudget } from '../services/llm-limiter.js';
 import { findClosestArchetype, findFarthestArchetype } from '../services/archetype.service.js';
+import { backfillReferenceImages } from '../services/image.service.js';
+import { logger } from '../utils/logger.js';
 import { profilePayloadFromRow } from '../engine/profile-payload.js';
 import { success } from '../utils/apiResponse.js';
 import { AppError } from '../utils/AppError.js';
 import { isUuid } from '../utils/uuid.js';
 import { DIMENSION_KEYS } from '../config/constants.js';
+
+/**
+ * Referências salvas sem foto ganham a imagem ao reabrir o resultado, e a
+ * correção fica gravada. Falha aqui nunca derruba a leitura do resultado.
+ */
+async function withReferenceImages(sessionId, interpretation) {
+  if (!interpretation?.referencias) return interpretation;
+  try {
+    const { referencias, changed } = await backfillReferenceImages(interpretation.referencias);
+    if (!changed) return interpretation;
+    const updated = { ...interpretation, referencias };
+    await updateResultInterpretation(sessionId, updated).catch(err => {
+      logger.warn('Failed to persist backfilled reference images', { error: err.message, session_id: sessionId });
+    });
+    return updated;
+  } catch (err) {
+    logger.warn('Reference image backfill failed', { error: err.message, session_id: sessionId });
+    return interpretation;
+  }
+}
 
 /**
  * GET /api/v1/result/:session_id
@@ -40,6 +63,7 @@ export async function handleGetResult(req, res, next) {
     // no Postgres, desempate por id) — não são persistidos em `results`.
     profile.archetype = await findClosestArchetype(profile.scores);
     profile.anti_archetype = await findFarthestArchetype(profile.scores);
+    profile.llm_interpretation = await withReferenceImages(session_id, profile.llm_interpretation);
 
     return success(res, {
       session_id,

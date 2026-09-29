@@ -9,7 +9,7 @@ import test, { afterEach, mock } from 'node:test';
 mock.module('../src/utils/logger.js', {
   namedExports: { logger: { error() {}, warn() {}, info() {}, debug() {} } },
 });
-const { fetchReferenceImages, clearImageCache } = await import('../src/services/image.service.js');
+const { fetchReferenceImages, clearImageCache, backfillReferenceImages } = await import('../src/services/image.service.js');
 
 /**
  * Wikimedia falsa.
@@ -189,4 +189,30 @@ test('preserva a ordem; entrada que não é lista volta intacta', async () => {
 
   assert.equal(await fetchReferenceImages(null), null);
   assert.equal(await fetchReferenceImages('x'), 'x');
+});
+
+test('backfill: só consulta as referências sem foto e diz se algo mudou', async () => {
+  const requests = fakeWikimedia({ wiki: { 'pt:Marie Curie': { image: 'https://img/curie.jpg' } } });
+  const saved = [
+    { nome: 'Arendt', image_url: 'https://img/arendt.jpg' },
+    { nome: 'Marie Curie', image_url: null },
+    { nome: 'Ninguém Existe' },
+  ];
+  const { referencias, changed } = await backfillReferenceImages(saved);
+  assert.equal(changed, true);
+  assert.deepEqual(referencias.map(r => r.image_url), ['https://img/arendt.jpg', 'https://img/curie.jpg', undefined]);
+  // Só os campos da foto mudam: nada de wiki_status novo no que já foi salvo.
+  assert.deepEqual(referencias[1], { nome: 'Marie Curie', image_url: 'https://img/curie.jpg' });
+  assert.ok(requests.every(r => !r.params.titles.includes('Arendt')));
+});
+
+test('backfill: nada a completar não faz requisição; lista inválida volta como veio', async () => {
+  const requests = fakeWikimedia();
+  const full = [{ nome: 'A', image_url: 'x' }];
+  assert.deepEqual(await backfillReferenceImages(full), { referencias: full, changed: false });
+  assert.deepEqual(await backfillReferenceImages(null), { referencias: null, changed: false });
+  assert.equal(requests.length, 0);
+
+  const { changed } = await backfillReferenceImages([{ nome: 'Sem Pagina' }]);
+  assert.equal(changed, false);
 });

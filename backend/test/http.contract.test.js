@@ -53,6 +53,7 @@ function resetDb() {
     llmCalls: [],
     detailCalls: [],
     lensCalls: [],
+    backfill: null,
   });
 }
 resetDb();
@@ -123,6 +124,13 @@ mock.module('../src/services/archetype.service.js', {
   namedExports: {
     findClosestArchetype: async () => ({ id: 'near', name: 'Perto' }),
     findFarthestArchetype: async () => ({ id: 'far', name: 'Longe' }),
+  },
+});
+mock.module('../src/services/image.service.js', {
+  namedExports: {
+    backfillReferenceImages: async referencias => (db.backfill
+      ? db.backfill(referencias)
+      : { referencias, changed: false }),
   },
 });
 mock.module('../src/services/llm.service.js', {
@@ -323,6 +331,26 @@ test('GET /result/:id → 404 sem resultado; 200 com perfil, arquétipos e orça
   assert.equal(body.data.profile.archetype.id, 'near');
   assert.equal(body.data.profile.anti_archetype.id, 'far');
   assert.deepEqual(body.data._regen, { used: 0, remaining: 3, limit: 3 });
+});
+
+test('GET /result/:id completa e grava a foto de referência salva sem imagem', async () => {
+  db.result = { ...RESULT_ROW, llm_interpretation: { ...RESULT_ROW.llm_interpretation, referencias: [{ nome: 'Marie Curie', image_url: null }] } };
+  db.backfill = refs => ({ referencias: refs.map(r => ({ ...r, image_url: 'https://img/curie.jpg' })), changed: true });
+  const { status, body } = await call('GET', `/api/v1/result/${SID.fresh}`);
+  assert.equal(status, 200);
+  assert.equal(body.data.profile.llm_interpretation.referencias[0].image_url, 'https://img/curie.jpg');
+  assert.equal(db.persistedInterpretation.referencias[0].image_url, 'https://img/curie.jpg');
+
+  // Busca de imagem ou gravação com erro nunca derrubam a leitura do resultado.
+  db.persistedInterpretation = null;
+  db.failPersist = new Error('db fora');
+  assert.equal((await call('GET', `/api/v1/result/${SID.fresh}`)).status, 200);
+  db.failPersist = null;
+  db.backfill = () => { throw new Error('wikipedia fora'); };
+  const fallback = await call('GET', `/api/v1/result/${SID.fresh}`);
+  assert.equal(fallback.status, 200);
+  assert.equal(fallback.body.data.profile.llm_interpretation.referencias[0].image_url, null);
+  assert.equal(db.persistedInterpretation, null);
 });
 
 test('GET /result/:id/review agrupa as objetivas por traço', async () => {

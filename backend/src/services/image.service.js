@@ -249,3 +249,30 @@ export async function fetchReferenceImages(referencias) {
     };
   });
 }
+
+/**
+ * Completa a foto das referências já salvas que ficaram sem imagem — as
+ * geradas antes da busca em lote, ou numa hora em que a Wikipédia não
+ * respondeu. Só consulta as que estão sem `image_url` (com cache, então um
+ * resultado já completo não custa nenhuma requisição).
+ *
+ * @returns {Promise<{ referencias: Array, changed: boolean }>}
+ */
+export async function backfillReferenceImages(referencias) {
+  if (!Array.isArray(referencias)) return { referencias, changed: false };
+  const missing = referencias
+    .map((ref, i) => (ref && typeof ref === 'object' && ref.nome && !ref.image_url ? i : -1))
+    .filter(i => i >= 0);
+  if (missing.length === 0) return { referencias, changed: false };
+
+  const looked = await fetchReferenceImages(missing.map(i => referencias[i]));
+  const out = [...referencias];
+  let changed = false;
+  missing.forEach((i, k) => {
+    if (looked[k]?.image_url) {
+      out[i] = { ...referencias[i], image_url: looked[k].image_url };
+      changed = true;
+    }
+  });
+  return { referencias: out, changed };
+}
