@@ -120,6 +120,11 @@ export default function Home() {
               <p className="text-[10px] uppercase tracking-[0.2em] text-faint pt-1">
                 parte 1: ~5 min · parte 2 (opcional): ~8 min
               </p>
+              {/* RN015: recomendação declarada, sem verificação — verificar idade exigiria coletar dados.
+                  Fica neste guia, que só aparece ao começar uma sessão do zero. */}
+              <p className="text-[10px] uppercase tracking-[0.2em] text-faint">
+                recomendado para adultos · use com responsabilidade · não é diagnóstico
+              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -174,10 +179,6 @@ export default function Home() {
             >
               {loading ? '...' : 'começar'}
             </button>
-            {/* RN015: recomendação declarada, sem verificação — verificar idade exigiria coletar dados */}
-            <p className="mt-6 max-w-sm mx-auto text-[10px] uppercase tracking-[0.2em] leading-relaxed text-muted">
-              recomendado para adultos · use com responsabilidade · não é diagnóstico
-            </p>
           </div>
         )}
 
