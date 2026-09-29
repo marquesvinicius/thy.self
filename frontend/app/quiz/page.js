@@ -648,14 +648,9 @@ export default function Quiz() {
                         (reflection). Pós teste de usabilidade de abril/2026,
                         todos os outros widgets commitam diretamente no clique. */}
                     {q.type === 'reflection' && (
-                      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full">
-                        <button
-                          onClick={() => handleSubmitBlock()}
-                          disabled={!isBlockComplete || submitting}
-                          className="border border-foreground px-10 py-4 text-xs uppercase tracking-[0.3em] transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-foreground hover:text-background"
-                        >
-                          {submitting ? 'Enviando...' : 'Confirmar'}
-                        </button>
+                      /* Pular à esquerda e confirmar à direita (ação principal no
+                         fim da leitura). No celular, em coluna, confirmar fica em cima. */
+                      <div className="flex flex-col-reverse sm:flex-row items-center justify-center gap-3 sm:gap-6 w-full">
                         <button
                           onClick={() => handleSkipQuestion(q.id, 'reflection')}
                           disabled={submitting}
@@ -663,6 +658,13 @@ export default function Quiz() {
                           title="Pule quando não se lembrar de uma situação específica"
                         >
                           pular pergunta
+                        </button>
+                        <button
+                          onClick={() => handleSubmitBlock()}
+                          disabled={!isBlockComplete || submitting}
+                          className="border border-foreground px-10 py-4 text-xs uppercase tracking-[0.3em] transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-foreground hover:text-background"
+                        >
+                          {submitting ? 'Enviando...' : 'Confirmar'}
                         </button>
                       </div>
                     )}

@@ -76,12 +76,22 @@ export default function Result() {
         <MysticBackground readingFocus />
         <Header />
         <main className="flex-1 flex flex-col items-center pt-24 pb-16 px-6 relative z-[1]">
-          <ImmersiveLoader />
+          <OpeningResult />
         </main>
       </div>
     }>
       <ResultContent />
     </Suspense>
+  );
+}
+
+function OpeningResult() {
+  return (
+    <div className="flex-1 flex items-center justify-center" role="status" aria-live="polite">
+      <p className="text-[10px] uppercase tracking-[0.3em] text-muted animate-pulse">
+        abrindo seu resultado…
+      </p>
+    </div>
   );
 }
 
@@ -322,7 +332,11 @@ function ResultContent() {
       <Header />
 
       <main className="flex-1 flex flex-col items-center pt-24 pb-16 px-6 relative z-[1]">
-        {loading && <ImmersiveLoader />}
+        {/* A animação de etapas só faz sentido quando o perfil está sendo
+            calculado agora. Ao reabrir um resultado pronto (botão "ver
+            resultado" da tela inicial), é só uma leitura: mostrar "calculando
+            seus traços" daria a impressão de que tudo foi refeito. */}
+        {loading && (analyzeFresh || isTestMode ? <ImmersiveLoader /> : <OpeningResult />)}
 
         {error && !profile && (
           <div className="flex-1 flex items-center justify-center">

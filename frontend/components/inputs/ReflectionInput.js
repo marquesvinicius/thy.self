@@ -25,10 +25,10 @@ export default function ReflectionInput({ question, onSelect, disabled }) {
                 maxLength={MAX_CHARS}
                 className="w-full min-h-[150px] bg-background border border-border p-4 text-sm resize-none focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
             />
-            <div className="flex justify-between gap-4 mt-2 text-[10px] text-muted tracking-widest uppercase">
+            <div className="flex items-baseline justify-between gap-4 mt-2 text-[10px] text-muted tracking-[0.2em] uppercase">
                 {/* RN016: o texto livre é o único lugar onde a pessoa poderia se identificar */}
-                <span>não escreva nome, contato ou outros dados pessoais</span>
-                <span className="shrink-0 whitespace-nowrap">{text.length} / {MAX_CHARS}</span>
+                <span className="truncate">sem nome ou dados pessoais</span>
+                <span className="shrink-0 tabular-nums">{text.length}/{MAX_CHARS}</span>
             </div>
         </div>
     );
