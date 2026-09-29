@@ -175,4 +175,22 @@ test.describe('jornada completa', () => {
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.pdf$/);
   });
+
+  test('voltar desfaz a última resposta e a pergunta pode ser respondida de novo', async ({ page }) => {
+    await startSession(page);
+    for (let i = 0; i < 3; i += 1) await answerNext(page, i);
+    expect(await answeredCount(page)).toBe(3);
+
+    await page.getByRole('button', { name: /voltar/i }).click();
+    await expect
+      .poll(() => answeredCount(page), { timeout: 20_000 })
+      .toBe(2);
+
+    // Regressão: a pergunta desfeita continuava marcada como respondida no
+    // navegador, o clique era ignorado e o quiz travava.
+    await answerNext(page, 4);
+    expect(await answeredCount(page)).toBe(3);
+    await answerNext(page, 0);
+    expect(await answeredCount(page)).toBe(4);
+  });
 });

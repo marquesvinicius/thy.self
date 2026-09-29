@@ -415,6 +415,12 @@ export default function Quiz() {
     setUndoing(true);
     try {
       await undoLastAnswer(sessionId);
+      // A pergunta desfeita volta à tela e precisa aceitar resposta de novo:
+      // sem limpar a marca local de "já respondida", o clique era ignorado e o
+      // quiz travava. Limpar tudo é seguro — o voltar só funciona sem envio
+      // em andamento, e a recarga abaixo traz o estado real do servidor.
+      submittedRef.current.clear();
+      queueRef.current = [];
       // A ordem persistida no servidor faz a pergunta desfeita voltar
       // naturalmente ao topo do próximo trecho.
       setAnswers({});
