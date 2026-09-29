@@ -12,7 +12,7 @@ const RETRY_BASE_MS = 800;
 const INTERPRETATION_SCHEMA_VERSION = '1.3.0';
 const DETAIL_SCHEMA_VERSION = '1.0.0';
 /** Bump when system/user prompt text changes materially (not JSON shape). */
-export const PROMPT_VERSION = '2.2.0';
+export const PROMPT_VERSION = '2.3.0';
 const TARGET_WORK_TYPES = ['serie', 'filme', 'anime'];
 /** Abaixo disso, completamos com fallback só para não exibir seção vazia. */
 const MIN_REAL_REFERENCES = 2;
@@ -206,6 +206,47 @@ function normalizeStringList(values) {
       .filter(Boolean),
     item => item
   );
+}
+
+// Categorias que tornam uma referência imprópria como espelho de quem lê o
+// resultado. A regra também está no prompt; aqui é a rede de segurança, porque
+// o modelo às vezes ignora (caso real: "Serial Killer — Tsutomu Miyazaki").
+const HARMFUL_CATEGORY_PATTERN = new RegExp(
+  [
+    'serial\\s*killer', 'assassin[oa]', 'homicida', 'criminos[oa]', 'terrorista',
+    'genocida', 'ditador', 'estuprador', 'ped[oó]fil[oa]', 'traficante',
+    'l[ií]der de seita', 'murderer', 'killer', 'terrorist', 'dictator', 'criminal',
+  ].join('|'),
+  'i'
+);
+
+export function isHarmfulReference(ref) {
+  return HARMFUL_CATEGORY_PATTERN.test(`${ref?.categoria || ''}`);
+}
+
+/**
+ * Tira da lista, antes da checagem na Wikipédia, as referências que não podem
+ * ser mostradas: nomes já exibidos ao usuário (o modelo às vezes repete apesar
+ * da lista de exclusão) e categorias impróprias. Elas contam como recusadas,
+ * para o sistema pedir substitutas em vez de devolver menos de três.
+ */
+function screenReferences(referencias, excludedNames) {
+  const excluded = new Set(excludedNames.map(name => normalizeToken(name)));
+  const accepted = [];
+  const refused = [];
+  for (const ref of Array.isArray(referencias) ? referencias : []) {
+    const name = sanitizeString(ref?.nome);
+    if (name && excluded.has(normalizeToken(name))) {
+      refused.push(name);
+      logger.info('Reference refused: already shown to the user', { nome: name });
+    } else if (name && isHarmfulReference(ref)) {
+      refused.push(name);
+      logger.info('Reference refused: harmful category', { nome: name, categoria: ref.categoria });
+    } else {
+      accepted.push(ref);
+    }
+  }
+  return { accepted, refused };
 }
 
 function normalizeWorkType(value) {
@@ -417,6 +458,12 @@ Regras obrigatórias (respeite sempre):
 - O campo "vibe_resumo" NUNCA pode exceder 10 palavras — conte antes de responder.
 - Evite repetir pessoas/títulos dentro da mesma resposta e evite sugestões obscuras.
 - Varie a categoria das referências (ex.: não três atores seguidos).
+- NUNCA cite pessoas conhecidas principalmente por crimes ou violência contra
+  outros: assassinos (inclusive em série), terroristas, genocidas, ditadores,
+  abusadores, traficantes ou líderes de seitas. A comparação é um espelho que a
+  pessoa vai ler sobre si mesma; ninguém deve se ver comparado a um criminoso.
+  Personagens de ficção que são vilões só entram se forem figuras culturais
+  amplamente conhecidas e a conexão for com uma conduta não criminosa.
 - As obras devem ser EXATAMENTE destes tipos: 1 série, 1 filme e 1 anime (uma de cada).
 
 NÃO CAIA NA CARICATURA (REGRA CRÍTICA):
@@ -1296,30 +1343,38 @@ async function partitionByWikipedia(referencias) {
  * O fallback determinístico vira último recurso.
  */
 async function enrichAndValidateReferences(referencias, parseContext = {}) {
-  const { valid, rejectedNames } = await partitionByWikipedia(referencias);
+  const alreadyExcluded = normalizeStringList(parseContext.excludedReferenceNames);
+  const screened = screenReferences(referencias, alreadyExcluded);
+  const { valid, rejectedNames: missingNames } = await partitionByWikipedia(screened.accepted);
+  const rejectedNames = [...screened.refused, ...missingNames];
 
   if (valid.length >= 3) {
     return valid.slice(0, 3);
   }
 
-  const alreadyExcluded = normalizeStringList(parseContext.excludedReferenceNames);
   let pool = valid;
 
-  if (rejectedNames.length > 0 && parseContext.replacementContext) {
+  // Menos de 3 por qualquer motivo — nome inventado, impróprio, repetido ou o
+  // modelo simplesmente devolveu menos (repetidos já saem na leitura da
+  // resposta, sem virar "recusa") — pede as que faltam.
+  if (parseContext.replacementContext) {
     const missing = 3 - pool.length;
+    const excludedNames = [
+      ...alreadyExcluded,
+      ...rejectedNames,
+      ...pool.map(ref => ref.nome),
+    ];
     const replacements = await generateReplacementReferences({
       ...parseContext.replacementContext,
       needed: missing,
-      excludedNames: [
-        ...alreadyExcluded,
-        ...rejectedNames,
-        ...pool.map(ref => ref.nome),
-      ],
+      excludedNames,
     });
 
     if (replacements?.length) {
-      // As substitutas passam pela MESMA validação — nada entra sem verbete.
-      const checked = await partitionByWikipedia(replacements);
+      // As substitutas passam pela MESMA triagem e validação — nada entra
+      // repetido, impróprio ou sem verbete.
+      const again = screenReferences(replacements, excludedNames);
+      const checked = await partitionByWikipedia(again.accepted);
       pool = [...pool, ...checked.valid];
       logger.info('Reference replacement round finished', {
         requested: missing,

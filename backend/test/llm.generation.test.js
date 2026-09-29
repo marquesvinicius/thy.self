@@ -280,6 +280,38 @@ test('rejeição sem substituta válida: ficam as reais (2), sem nome enlatado',
   assert.match(calls[1].prompt, /NÃO use nenhum destes nomes \(já usados ou rejeitados\): Inventado, A, B\./);
 });
 
+test('referência de categoria imprópria (serial killer) é recusada e substituída', async () => {
+  script = [
+    payload({ referencias: [ref('A', 'Escritor'), ref('Tsutomu Miyazaki', 'Serial Killer'), ref('B', 'Cientista')] }),
+    { referencias: [ref('Ted Bundy', 'Assassino em série'), ref('Frida Kahlo', 'Artista')] },
+  ];
+  const result = await generateInterpretation(PROFILE, null, [], null);
+
+  assert.equal(calls.length, 2, 'uma chamada extra de substituição');
+  assert.match(calls[1].prompt, /NÃO use nenhum destes nomes \(já usados ou rejeitados\): .*Tsutomu Miyazaki/);
+  assert.deepEqual(result.referencias.map(r => r.nome), ['A', 'B', 'Frida Kahlo'], 'substituta imprópria também é barrada');
+});
+
+test('regeneração: nome já mostrado que o modelo repete é substituído, não some', async () => {
+  script = [
+    payload({ referencias: [ref('Richard Feynman', 'Cientista'), ref('Hannah Arendt', 'Filósofa'), ref('Nova Pessoa', 'Atriz')] }),
+    { referencias: [ref('Frida Kahlo', 'Artista')] },
+  ];
+  const result = await generateInterpretation(PROFILE, null, [], null, { excludedReferenceNames: ['Hannah Arendt'] });
+
+  assert.equal(calls.length, 2);
+  assert.deepEqual(result.referencias.map(r => r.nome), ['Richard Feynman', 'Nova Pessoa', 'Frida Kahlo']);
+});
+
+test('isHarmfulReference olha a categoria, em português e em inglês', () => {
+  assert.equal(llm.isHarmfulReference({ categoria: 'Serial Killer' }), true);
+  assert.equal(llm.isHarmfulReference({ categoria: 'Ditador' }), true);
+  assert.equal(llm.isHarmfulReference({ categoria: 'war criminal' }), true);
+  assert.equal(llm.isHarmfulReference({ categoria: 'Filósofo político' }), false);
+  assert.equal(llm.isHarmfulReference({ categoria: 'Personagem de ficção' }), false);
+  assert.equal(llm.isHarmfulReference({}), false);
+});
+
 test('lookup incerto (timeout na Wikipedia) NÃO descarta a referência', async () => {
   wiki.set('Atticus Finch', 'unknown');
   script = [payload({ referencias: [ref('Atticus Finch', 'Personagem'), ref('Hannah Arendt', 'Filósofa'), ref('Frida Kahlo', 'Artista')] })];
