@@ -105,13 +105,36 @@ function almondPath(cx, cy, rx, ry, closure = 0) {
     + `C ${f(cx + kx)},${f(lo)} ${f(cx - kx)},${f(lo)} ${f(cx - rx)},${f(cy)} Z`;
 }
 
-// Piscada dos olhos de fundo, em frações do MESMO ciclo do olhar
-// (AMBIENT_GAZE): ela cai na janela 76–100%, quando o olhar está parado no
-// centro — nunca pisca enquanto a íris se desloca. Fecha rápido, segura um
-// instante, reabre com um meio-fechado breve.
-const AMBIENT_BLINK = [
-  [0, 0], [0.86, 0], [0.868, 1], [0.876, 1], [0.886, 0.4], [0.894, 0.4], [0.902, 0], [1, 0],
-];
+// Tempos de uma piscada humana: fecha em ~100 ms acelerando, fica fechado
+// um instante e reabre em ~200 ms desacelerando — um movimento contínuo,
+// sem paradas no meio (as paradas apareciam como "degraus").
+const BLINK_CLOSE_MS = 100;
+const BLINK_CLOSED_MS = 40;
+const BLINK_OPEN_MS = 200;
+
+// Piscada dos olhos de fundo. Começa em 86% do MESMO ciclo do olhar
+// (AMBIENT_GAZE), dentro da janela 76–100% em que o olhar está parado no
+// centro — nunca pisca enquanto a íris se desloca. As durações são fixas em
+// ms, então a piscada tem a mesma velocidade em olhos de ciclo curto ou longo.
+function ambientBlinkProps(e, durS, begin) {
+  const total = durS * 1000;
+  const t1 = 0.86;
+  const t2 = t1 + BLINK_CLOSE_MS / total;
+  const t3 = t2 + BLINK_CLOSED_MS / total;
+  const t4 = t3 + BLINK_OPEN_MS / total;
+  const steps = [[0, 0], [t1, 0], [t2, 1], [t3, 1], [t4, 0], [1, 0]];
+  return {
+    attributeName: 'd',
+    values: steps.map(([, c]) => almondPath(e.cx, e.cy, e.rx, e.ry, c)).join(';'),
+    keyTimes: steps.map(([t]) => t.toFixed(5)).join(';'),
+    calcMode: 'spline',
+    // parado · fecha acelerando · fechado · abre desacelerando · parado
+    keySplines: '0 0 1 1; 0.5 0 0.9 0.6; 0 0 1 1; 0.1 0.4 0.3 1; 0 0 1 1',
+    dur: `${durS}s`,
+    begin,
+    repeatCount: 'indefinite',
+  };
+}
 // Olhar dos olhos de fundo: dardo rápido (~2% do ciclo), fixação longa.
 const AMBIENT_GAZE = [
   [0, '0 0'], [0.16, '0 0'], [0.18, '1.5 0.25'], [0.38, '1.5 0.25'], [0.40, '0 0'],
@@ -135,7 +158,7 @@ function CornerSigil({ x, y }) {
    Cada olho tem um ciclo próprio (duração e atraso diferentes, para nunca
    olharem juntos) com animação nativa do SVG: a íris dardeja para um lado,
    fixa, volta ao centro, dardeja para o outro (AMBIENT_GAZE), e a piscada
-   fecha o próprio contorno (AMBIENT_BLINK) só na fase em que o olhar está
+   fecha o próprio contorno (ambientBlinkProps) só na fase em que o olhar está
    parado. A pupila respira (classe global .pupil-breath). Zero JavaScript
    por olho.
    -------------------------------------------------------------------------- */
@@ -157,11 +180,8 @@ function AmbientEyeNodes({ prefix, eyes, readingFocus = false, reduced = false }
 
     // Olhar e piscada no mesmo relógio (SMIL), com a piscada só quando o
     // olhar está parado. Lendo (readingFocus): olhar lento e sem piscar.
-    const blinkValues = AMBIENT_BLINK.map(([, c]) => almondPath(e.cx, e.cy, e.rx, e.ry, c)).join(';');
-    const blinkTimes = AMBIENT_BLINK.map(([t]) => t).join(';');
     const blink = !reduced && !readingFocus ? (
-      <animate attributeName="d" values={blinkValues} keyTimes={blinkTimes}
-        dur={`${gazeDur}s`} begin={gazeDelay} repeatCount="indefinite" />
+      <animate {...ambientBlinkProps(e, gazeDur, gazeDelay)} />
     ) : null;
 
     return (
@@ -242,8 +262,8 @@ const POINTER_QUIET_MS = 900;
 const EXIT_CLOSED_HOLD_MS = 350;
 // Duração e curva de cada tipo de movimento de pálpebra.
 const LID_MOTION = {
-  fast: { ms: 170, ease: t => t * t },                              // piscada: fecha
-  slow: { ms: 420, ease: t => 1 - (1 - t) * (1 - t) },              // piscada: reabre
+  fast: { ms: BLINK_CLOSE_MS, ease: t => t * t },                   // piscada: fecha
+  slow: { ms: BLINK_OPEN_MS, ease: t => 1 - (1 - t) ** 3 },         // piscada: reabre
   drowsy: { ms: 1100, ease: t => (t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2) },
 };
 
@@ -368,9 +388,9 @@ function QuizEye({ x, y, size, uid, onDone }) {
       if (exitingRef.current || lidsBusyRef.current) return;
       lidsBusyRef.current = true;
       poseTo('blink');
-      const reopenAt = 200 + Math.random() * 120;
+      const reopenAt = BLINK_CLOSE_MS + BLINK_CLOSED_MS + Math.random() * 30;
       schedule(() => { if (!exitingRef.current) poseTo('open'); }, reopenAt);
-      schedule(() => { if (!exitingRef.current) lidsBusyRef.current = false; }, reopenAt + 420);
+      schedule(() => { if (!exitingRef.current) lidsBusyRef.current = false; }, reopenAt + BLINK_OPEN_MS + 20);
     };
 
     schedule(() => setVisible(true), 30);
@@ -406,8 +426,8 @@ function QuizEye({ x, y, size, uid, onDone }) {
       whenGazeQuiet(() => {
         lidsBusyRef.current = true;
         poseTo('closed', 'fast');
-        schedule(() => { setExiting(true); setVisible(false); }, 170 + EXIT_CLOSED_HOLD_MS);
-        schedule(() => onDone?.(), 170 + EXIT_CLOSED_HOLD_MS + EYE_FADE_OUT_MS + 100);
+        schedule(() => { setExiting(true); setVisible(false); }, BLINK_CLOSE_MS + EXIT_CLOSED_HOLD_MS);
+        schedule(() => onDone?.(), BLINK_CLOSE_MS + EXIT_CLOSED_HOLD_MS + EYE_FADE_OUT_MS + 100);
       }, { ignorePointer: true });
     }, closeAt);
 
@@ -752,10 +772,7 @@ export default function MysticBackground({ showEyes = true, readingFocus = false
                   <clipPath key={i} id={`${prefix}-${i}`}>
                     <path d={almondPath(e.cx, e.cy, e.rx, e.ry)}>
                       {!reducedMotion && !readingFocus && (
-                        <animate attributeName="d"
-                          values={AMBIENT_BLINK.map(([, c]) => almondPath(e.cx, e.cy, e.rx, e.ry, c)).join(';')}
-                          keyTimes={AMBIENT_BLINK.map(([t]) => t).join(';')}
-                          dur={`${gazeDur}s`} begin={gazeDelay} repeatCount="indefinite" />
+                        <animate {...ambientBlinkProps(e, gazeDur, gazeDelay)} />
                       )}
                     </path>
                   </clipPath>
