@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useSyncExternalStore } from 'react';
 
 /* =========================================================================
    MysticBackground
@@ -88,13 +88,35 @@ const QUIZ_PERIPHERAL_ZONES = [
 
 const MAX_VISIBLE_EYES = 2;
 
-/* Amêndoa com curvas cúbicas, no desenho do ícone do site: mais aberta e
-   cheia que a quadrática. A meia-altura visível é 0,75·ry. */
-function almondPath(cx, cy, rx, ry) {
+/* Amêndoa com curvas cúbicas, no desenho do ícone do site. A meia-altura
+   visível é 0,75·ry.
+
+   `closure` (0 = aberto, 1 = fechado) é a pálpebra: é o PRÓPRIO contorno que
+   se fecha, como num olho real. A borda de cima desce quase tudo, a de baixo
+   sobe pouco, e as duas se encontram numa linha levemente curvada para
+   baixo. A íris some porque o recorte (clipPath) usa esta mesma forma. */
+function almondPath(cx, cy, rx, ry, closure = 0) {
   const kx = rx * 0.42;
-  return `M ${cx - rx},${cy} C ${cx - kx},${cy - ry} ${cx + kx},${cy - ry} ${cx + rx},${cy} `
-    + `C ${cx + kx},${cy + ry} ${cx - kx},${cy + ry} ${cx - rx},${cy} Z`;
+  const meet = cy + ry * 0.35;                     // linha da pálpebra fechada
+  const up = (cy - ry) + (meet - (cy - ry)) * closure;
+  const lo = (cy + ry) + (meet - (cy + ry)) * closure;
+  const f = n => Math.round(n * 1000) / 1000;
+  return `M ${f(cx - rx)},${f(cy)} C ${f(cx - kx)},${f(up)} ${f(cx + kx)},${f(up)} ${f(cx + rx)},${f(cy)} `
+    + `C ${f(cx + kx)},${f(lo)} ${f(cx - kx)},${f(lo)} ${f(cx - rx)},${f(cy)} Z`;
 }
+
+// Piscada dos olhos de fundo, em frações do MESMO ciclo do olhar
+// (AMBIENT_GAZE): ela cai na janela 76–100%, quando o olhar está parado no
+// centro — nunca pisca enquanto a íris se desloca. Fecha rápido, segura um
+// instante, reabre com um meio-fechado breve.
+const AMBIENT_BLINK = [
+  [0, 0], [0.86, 0], [0.868, 1], [0.876, 1], [0.886, 0.4], [0.894, 0.4], [0.902, 0], [1, 0],
+];
+// Olhar dos olhos de fundo: dardo rápido (~2% do ciclo), fixação longa.
+const AMBIENT_GAZE = [
+  [0, '0 0'], [0.16, '0 0'], [0.18, '1.5 0.25'], [0.38, '1.5 0.25'], [0.40, '0 0'],
+  [0.55, '0 0'], [0.57, '-1.2 -0.2'], [0.74, '-1.2 -0.2'], [0.76, '0 0'], [1, '0 0'],
+];
 
 function CornerSigil({ x, y }) {
   return (
@@ -110,13 +132,14 @@ function CornerSigil({ x, y }) {
 /* --------------------------------------------------------------------------
    AmbientEyeNodes: eyes that blink organically at fixed positions.
 
-   Além das piscadas, cada olho tem um drift de olhar em CSS puro
-   (`ambientGaze`): a íris dardeja para um lado, fixa, volta ao centro,
-   dardeja para o outro — durações e delays diferentes por olho para que
-   nunca olhem todos juntos. A pupila respira (dilatação lenta, classe
-   global .pupil-breath). Zero JavaScript por olho.
+   Cada olho tem um ciclo próprio (duração e atraso diferentes, para nunca
+   olharem juntos) com animação nativa do SVG: a íris dardeja para um lado,
+   fixa, volta ao centro, dardeja para o outro (AMBIENT_GAZE), e a piscada
+   fecha o próprio contorno (AMBIENT_BLINK) só na fase em que o olhar está
+   parado. A pupila respira (classe global .pupil-breath). Zero JavaScript
+   por olho.
    -------------------------------------------------------------------------- */
-function AmbientEyeNodes({ prefix, eyes, readingFocus = false }) {
+function AmbientEyeNodes({ prefix, eyes, readingFocus = false, reduced = false }) {
   return eyes.map((e, i) => {
     const path = almondPath(e.cx, e.cy, e.rx, e.ry);
     const irisR = e.ry * 0.84;
@@ -132,49 +155,31 @@ function AmbientEyeNodes({ prefix, eyes, readingFocus = false }) {
       ? `${(i * 5.5) % 22}s`
       : `${(i * 1.9) % 8}s`;
 
+    // Olhar e piscada no mesmo relógio (SMIL), com a piscada só quando o
+    // olhar está parado. Lendo (readingFocus): olhar lento e sem piscar.
+    const blinkValues = AMBIENT_BLINK.map(([, c]) => almondPath(e.cx, e.cy, e.rx, e.ry, c)).join(';');
+    const blinkTimes = AMBIENT_BLINK.map(([t]) => t).join(';');
+    const blink = !reduced && !readingFocus ? (
+      <animate attributeName="d" values={blinkValues} keyTimes={blinkTimes}
+        dur={`${gazeDur}s`} begin={gazeDelay} repeatCount="indefinite" />
+    ) : null;
+
     return (
       <g key={`${prefix}-${i}`} opacity={e.op}>
         <g clipPath={`url(#${prefix}-${i})`}>
-          <g
-            style={{
-              animation: `ambientGaze ${gazeDur}s ${gazeDelay} ease-in-out infinite`,
-            }}
-          >
+          <g>
+            {!reduced && (
+              <animateTransform attributeName="transform" type="translate"
+                values={AMBIENT_GAZE.map(([, v]) => v).join(';')}
+                keyTimes={AMBIENT_GAZE.map(([t]) => t).join(';')}
+                dur={`${gazeDur}s`} begin={gazeDelay} repeatCount="indefinite" />
+            )}
             <circle cx={e.cx} cy={e.cy} r={irisR} fill="none" stroke="white" strokeWidth={stroke} />
             <circle className="pupil-breath" cx={e.cx} cy={e.cy} r={pupilR} fill="white" />
           </g>
 
-          {/* Upper + lower lids closing toward the middle */}
-          <rect
-            x={e.cx - e.rx}
-            y={e.cy - e.ry}
-            width={e.rx * 2}
-            height={e.ry}
-            fill="black"
-            style={{
-              transform: 'scaleY(0)',
-              transformOrigin: '50% 0%',
-              animation: readingFocus
-                ? 'none'
-                : `ambientBlinkTop ${e.dur} ${e.delay} ease-in-out infinite`,
-            }}
-          />
-          <rect
-            x={e.cx - e.rx}
-            y={e.cy}
-            width={e.rx * 2}
-            height={e.ry}
-            fill="black"
-            style={{
-              transform: 'scaleY(0)',
-              transformOrigin: '50% 100%',
-              animation: readingFocus
-                ? 'none'
-                : `ambientBlinkBottom ${e.dur} ${e.delay} ease-in-out infinite`,
-            }}
-          />
         </g>
-        <path d={path} fill="none" stroke="white" strokeWidth={stroke} />
+        <path d={path} fill="none" stroke="white" strokeWidth={stroke}>{blink}</path>
       </g>
     );
   });
@@ -209,10 +214,10 @@ function AmbientEyeNodes({ prefix, eyes, readingFocus = false }) {
 // amendoado corta o excesso) — é ela quem faz ~80% do percurso, como na
 // anatomia real; a inferior sobe pouco.
 const LID_POSES = {
-  closed: { upper: 1.7, lower: 0.5 },
-  open: { upper: 0, lower: 0 },
-  blink: { upper: 1.7, lower: 0.45 },
-  squint: { upper: 1.05, lower: 0.25 },
+  closed: 1,
+  open: 0,
+  blink: 1,
+  squint: 0.45,
 };
 
 // Limites de deslocamento da íris dentro da amêndoa (unidades do viewBox).
@@ -235,11 +240,24 @@ const GAZE_SETTLE_MS = 350;
 const POINTER_QUIET_MS = 900;
 // Quanto o olho fica fechado na saída antes de se esconder.
 const EXIT_CLOSED_HOLD_MS = 350;
-const LID_TRANSITIONS = {
-  fast: 'transform 170ms cubic-bezier(.55,0,.8,.4)',     // piscada: fecha
-  slow: 'transform 420ms cubic-bezier(.2,.65,.3,1)',     // piscada: reabre
-  drowsy: 'transform 1100ms cubic-bezier(.45,0,.55,1)',  // abrir/fechar de vez
+// Duração e curva de cada tipo de movimento de pálpebra.
+const LID_MOTION = {
+  fast: { ms: 170, ease: t => t * t },                              // piscada: fecha
+  slow: { ms: 420, ease: t => 1 - (1 - t) * (1 - t) },              // piscada: reabre
+  drowsy: { ms: 1100, ease: t => (t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2) },
 };
+
+// Preferência de reduzir movimento, segura para SSR: o servidor assume
+// "sem redução" e o navegador lê a mídia real (e acompanha mudanças).
+function subscribeReducedMotion(onChange) {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+  media.addEventListener?.('change', onChange);
+  return () => media.removeEventListener?.('change', onChange);
+}
+function usePrefersReducedMotion() {
+  return useSyncExternalStore(subscribeReducedMotion, prefersReducedMotion, () => false);
+}
 
 function prefersReducedMotion() {
   if (typeof window === 'undefined' || !window.matchMedia) return false;
@@ -276,6 +294,28 @@ function QuizEye({ x, y, size, uid, onDone }) {
   // Pálpebras em movimento: o olhar fica parado até terminar.
   const lidsBusyRef = useRef(false);
 
+  // Fechamento atual das pálpebras (0 aberto, 1 fechado), animado até a
+  // pose pedida. É ele que desenha o contorno e o recorte da íris.
+  const [closure, setClosure] = useState(reduced ? 0 : 1);
+  const closureRef = useRef(reduced ? 0 : 1);
+  useEffect(() => {
+    const target = LID_POSES[lidPose];
+    const motion = LID_MOTION[lidSpeed] || LID_MOTION.slow;
+    const from = closureRef.current;
+    if (from === target) return undefined;
+    let raf = 0;
+    const start = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / motion.ms);
+      const value = from + (target - from) * motion.ease(t);
+      closureRef.current = value;
+      setClosure(value);
+      if (t < 1) raf = window.requestAnimationFrame(step);
+    };
+    raf = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(raf);
+  }, [lidPose, lidSpeed]);
+
   // Move o olhar, a menos que as pálpebras estejam em movimento.
   const moveGaze = useCallback((next, attending) => {
     if (lidsBusyRef.current) return false;
@@ -290,7 +330,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
   // (fechar = rápido, abrir = lento), a menos que uma velocidade seja pedida.
   const poseTo = useCallback((next, speed) => {
     setLidPose((prev) => {
-      const closing = LID_POSES[next].upper > LID_POSES[prev].upper;
+      const closing = LID_POSES[next] > LID_POSES[prev];
       setLidSpeed(speed || (closing ? 'fast' : 'slow'));
       return next;
     });
@@ -470,8 +510,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
     };
   }, [x, y, reduced, moveGaze]);
 
-  const pose = LID_POSES[lidPose];
-  const lidTransition = LID_TRANSITIONS[lidSpeed] || LID_TRANSITIONS.slow;
+  const eyeD = almondPath(50, 21, 48, 21, closure);
 
   const clipId = `quiz-eye-clip-${uid}`;
 
@@ -498,6 +537,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
       }}
     >
       <svg
+        data-closure={closure.toFixed(3)}
         viewBox="0 0 100 42"
         width="100%"
         height="100%"
@@ -506,7 +546,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
       >
         <defs>
           <clipPath id={clipId}>
-            <path d="M 2,21 C 30,0 70,0 98,21 C 70,42 30,42 2,21 Z" />
+            <path d={eyeD} />
           </clipPath>
         </defs>
 
@@ -533,31 +573,11 @@ function QuizEye({ x, y, size, uid, onDone }) {
             </g>
           </g>
 
-          {/* Pálpebra superior (faz a maior parte do percurso) */}
-          <rect
-            x="0" y="0" width="100" height="21"
-            fill="black"
-            style={{
-              transform: `scaleY(${pose.upper})`,
-              transformOrigin: '50% 0%',
-              transition: lidTransition,
-            }}
-          />
-          {/* Pálpebra inferior (sobe pouco — anatomia real) */}
-          <rect
-            x="0" y="21" width="100" height="21"
-            fill="black"
-            style={{
-              transform: `scaleY(${pose.lower})`,
-              transformOrigin: '50% 100%',
-              transition: lidTransition,
-            }}
-          />
         </g>
 
-        {/* Contorno amendoado */}
+        {/* Contorno: é ele que se fecha (pálpebra) */}
         <path
-          d="M 2,21 C 30,0 70,0 98,21 C 70,42 30,42 2,21 Z"
+          d={eyeD}
           fill="none"
           stroke="white"
           strokeWidth="1.4"
@@ -704,6 +724,7 @@ export function MysticEyesOverlay() {
    -------------------------------------------------------------------------- */
 export default function MysticBackground({ showEyes = true, readingFocus = false }) {
   const prefix = 'ambient-eye';
+  const reducedMotion = usePrefersReducedMotion();
 
   return (
     <div
@@ -724,11 +745,22 @@ export default function MysticBackground({ showEyes = true, readingFocus = false
             xmlns="http://www.w3.org/2000/svg"
           >
             <defs>
-              {AMBIENT_EYES.map((e, i) => (
-                <clipPath key={i} id={`${prefix}-${i}`}>
-                  <path d={almondPath(e.cx, e.cy, e.rx, e.ry)} />
-                </clipPath>
-              ))}
+              {AMBIENT_EYES.map((e, i) => {
+                const gazeDur = readingFocus ? 42 + ((i * 7.5) % 24) : 13 + ((i * 3.7) % 11);
+                const gazeDelay = readingFocus ? `${(i * 5.5) % 22}s` : `${(i * 1.9) % 8}s`;
+                return (
+                  <clipPath key={i} id={`${prefix}-${i}`}>
+                    <path d={almondPath(e.cx, e.cy, e.rx, e.ry)}>
+                      {!reducedMotion && !readingFocus && (
+                        <animate attributeName="d"
+                          values={AMBIENT_BLINK.map(([, c]) => almondPath(e.cx, e.cy, e.rx, e.ry, c)).join(';')}
+                          keyTimes={AMBIENT_BLINK.map(([t]) => t).join(';')}
+                          dur={`${gazeDur}s`} begin={gazeDelay} repeatCount="indefinite" />
+                      )}
+                    </path>
+                  </clipPath>
+                );
+              })}
             </defs>
 
             <CornerSigil x={3.5} y={3.5} />
@@ -740,6 +772,7 @@ export default function MysticBackground({ showEyes = true, readingFocus = false
                 prefix={prefix}
                 eyes={AMBIENT_EYES}
                 readingFocus={readingFocus}
+                reduced={reducedMotion}
               />
           </svg>
 
@@ -799,39 +832,6 @@ const sharedStyles = `
     background-image: radial-gradient(rgba(255, 255, 255, 0.22) 0.55px, transparent 0.55px);
     background-size: 3px 3px;
     animation: grainMove 12s linear infinite;
-  }
-
-  /* Ambient blink — anatomia assimétrica: a pálpebra superior fecha RÁPIDO
-     (86% → 87.2% do ciclo) e reabre mais devagar, com um "hang" de meia
-     pálpebra antes de abrir de vez (o segundo olhar). A inferior acompanha
-     com percurso menor (máx 0.45) — pálpebras reais não são simétricas. */
-  @keyframes ambientBlinkTop {
-    0%, 86%, 100%  { transform: scaleY(0); }
-    87.2%, 90%     { transform: scaleY(1.7); }   /* fecha rápido (cruza a linha média), segura */
-    92.5%          { transform: scaleY(0.9); }   /* reabre com peso */
-    94%, 95.5%     { transform: scaleY(0.6); }   /* hang de meia pálpebra */
-  }
-
-  @keyframes ambientBlinkBottom {
-    0%, 86%, 100%  { transform: scaleY(0); }
-    87.2%, 90%     { transform: scaleY(0.5); }
-    92.5%, 95.5%   { transform: scaleY(0.15); }
-  }
-
-  /* Drift de olhar dos olhos ambient — sacadas: dardo rápido (janela de ~2%
-     do ciclo), fixação longa, retorno ao centro, dardo para o outro lado.
-     Deslocamentos pequenos (unidades do viewBox 100×100) para a íris nunca
-     escapar da amêndoa nem no menor olho. Respeita prefers-reduced-motion. */
-  @keyframes ambientGaze {
-    0%, 16%        { transform: translate(0px, 0px); }
-    18%, 38%       { transform: translate(1.5px, 0.25px); }
-    40%, 55%       { transform: translate(0px, 0px); }
-    57%, 74%       { transform: translate(-1.2px, -0.2px); }
-    76%, 100%      { transform: translate(0px, 0px); }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    g[style*="ambientGaze"] { animation: none !important; }
   }
 
   @keyframes floatParticle {
