@@ -145,6 +145,11 @@ export default function ResultView({
                   <>✦ gerar novas referências ({Math.max(0, (regen.max ?? 3) - (regen.count ?? 0))} restantes)</>
                 )}
               </button>
+              {regen.error && (
+                <p role="alert" className="text-xs text-muted mt-3">
+                  Não foi possível gerar novas referências agora. Tente de novo em instantes.
+                </p>
+              )}
             </div>
           )}
         </ScrollFadeSection>
