@@ -193,6 +193,13 @@ function AmbientEyeNodes({ prefix, eyes, readingFocus = false }) {
    a pálpebra superior faz a maior parte do percurso. Squint ocasional segura
    meio-fechado por 1–2 s — o "olhar avaliador".
 
+   Piscar e mover não se misturam: piscar durante a perseguição de um alvo
+   atrapalha o próprio movimento do olho (Rambold et al., Exp. Brain Res.,
+   2004/2005), e na tela isso parece falso. Por isso a piscada espera o olhar
+   ficar quieto (sem movimento em curso e sem cursor se mexendo), e o olhar
+   não se move enquanto as pálpebras estão em movimento. Na saída, o olho
+   para, pisca até fechar e só então se esconde.
+
    `prefers-reduced-motion`: pupila estática, sem sacadas/gaze/squint; a
    entrada/saída vira fade simples e as piscadas continuam discretas.
    -------------------------------------------------------------------------- */
@@ -218,8 +225,16 @@ const EYE_FADE_IN_MS = 1600;
 const EYE_FADE_OUT_MS = 1400;
 const EYE_VISIBLE_MIN_MS = 7000;
 const EYE_VISIBLE_JITTER_MS = 4000;
-const GAZE_IDLE_TRANSITION = 'transform 1400ms cubic-bezier(.45,.05,.25,1)';
-const GAZE_ATTEND_TRANSITION = 'transform 800ms cubic-bezier(.4,.1,.3,1)';
+const GAZE_IDLE_MS = 1400;
+const GAZE_ATTEND_MS = 800;
+const GAZE_IDLE_TRANSITION = `transform ${GAZE_IDLE_MS}ms cubic-bezier(.45,.05,.25,1)`;
+const GAZE_ATTEND_TRANSITION = `transform ${GAZE_ATTEND_MS}ms cubic-bezier(.4,.1,.3,1)`;
+// Margem depois do fim do movimento antes de o olhar contar como "quieto".
+const GAZE_SETTLE_MS = 350;
+// Cursor parado há pelo menos isto para o olho poder piscar.
+const POINTER_QUIET_MS = 900;
+// Quanto o olho fica fechado na saída antes de se esconder.
+const EXIT_CLOSED_HOLD_MS = 350;
 const LID_TRANSITIONS = {
   fast: 'transform 170ms cubic-bezier(.55,0,.8,.4)',     // piscada: fecha
   slow: 'transform 420ms cubic-bezier(.2,.65,.3,1)',     // piscada: reabre
@@ -254,6 +269,22 @@ function QuizEye({ x, y, size, uid, onDone }) {
   // 'idle' (sacadas aleatórias) | 'attend' (seguindo cursor / evento)
   const gazeModeRef = useRef('idle');
   const attendUntilRef = useRef(0);
+  // Quando o movimento de olhar atual termina (mais a margem de assentar).
+  const gazeSettledAtRef = useRef(0);
+  // Último movimento do cursor (olho acompanhando = não pisca).
+  const lastPointerRef = useRef(0);
+  // Pálpebras em movimento: o olhar fica parado até terminar.
+  const lidsBusyRef = useRef(false);
+
+  // Move o olhar, a menos que as pálpebras estejam em movimento.
+  const moveGaze = useCallback((next, attending) => {
+    if (lidsBusyRef.current) return false;
+    setGazeAttending(attending);
+    setGaze(next);
+    gazeSettledAtRef.current = Date.now()
+      + (attending ? GAZE_ATTEND_MS : GAZE_IDLE_MS) + GAZE_SETTLE_MS;
+    return true;
+  }, []);
 
   // Muda a pose escolhendo a velocidade certa pela direção do movimento
   // (fechar = rápido, abrir = lento), a menos que uma velocidade seja pedida.
@@ -277,8 +308,30 @@ function QuizEye({ x, y, size, uid, onDone }) {
     const openAt = 500;                                // surge de olhos fechados e abre devagar
     const settledAt = openAt + 1100;                   // pálpebras terminaram de abrir
     const visibleMs = EYE_VISIBLE_MIN_MS + Math.random() * EYE_VISIBLE_JITTER_MS;
-    const closeAt = settledAt + visibleMs;             // início do adormecer
-    const goneAt = closeAt + 400 + EYE_FADE_OUT_MS + 100;
+    const closeAt = settledAt + visibleMs;             // início da despedida
+
+    // Roda `fn` quando o olhar estiver quieto. `ignorePointer` vale para a
+    // saída: o cursor pode não parar nunca, mas o movimento em curso termina.
+    const whenGazeQuiet = (fn, { ignorePointer = false, tries = 0 } = {}) => {
+      const now = Date.now();
+      const moving = now < gazeSettledAtRef.current;
+      const tracking = !ignorePointer && now - lastPointerRef.current < POINTER_QUIET_MS;
+      if ((moving || tracking) && tries < 20) {
+        schedule(() => whenGazeQuiet(fn, { ignorePointer, tries: tries + 1 }), 300);
+        return;
+      }
+      fn();
+    };
+
+    // Piscada: fecha rápido, reabre devagar; o olhar fica parado o tempo todo.
+    const blink = () => {
+      if (exitingRef.current || lidsBusyRef.current) return;
+      lidsBusyRef.current = true;
+      poseTo('blink');
+      const reopenAt = 200 + Math.random() * 120;
+      schedule(() => { if (!exitingRef.current) poseTo('open'); }, reopenAt);
+      schedule(() => { if (!exitingRef.current) lidsBusyRef.current = false; }, reopenAt + 420);
+    };
 
     schedule(() => setVisible(true), 30);
     schedule(() => poseTo('open', 'drowsy'), openAt);
@@ -290,36 +343,33 @@ function QuizEye({ x, y, size, uid, onDone }) {
 
       for (let i = 0; i < blinkCount; i++) {
         const jitter = (Math.random() - 0.5) * step * 0.3;
-        schedule(() => {
-          if (exitingRef.current) return;
-          poseTo('blink');
-          schedule(() => { if (!exitingRef.current) poseTo('open'); }, 200 + Math.random() * 120);
-        }, settledAt + step * (i + 1) + jitter);
+        schedule(() => whenGazeQuiet(blink), settledAt + step * (i + 1) + jitter);
       }
 
       // Olhar semicerrado ocasional (20%), lento e demorado (1.6–2.4s).
       if (Math.random() < 0.2) {
         const at = settledAt + visibleMs * (0.35 + Math.random() * 0.3);
-        schedule(() => {
-          if (exitingRef.current) return;
+        schedule(() => whenGazeQuiet(() => {
+          if (exitingRef.current || lidsBusyRef.current) return;
           poseTo('squint', 'drowsy');
           schedule(() => {
             if (!exitingRef.current) poseTo('open', 'drowsy');
           }, 1600 + Math.random() * 800);
-        }, at);
+        }), at);
       }
     }
 
-    // Saída: as pálpebras descem devagar e, no meio do caminho, o olho começa
-    // a se dissolver e a recuar um pouco. Assim não sobra o contorno vazio
-    // piscando sozinho, que era o que deixava a saída feia.
+    // Saída: o olhar congela onde está, termina o movimento em curso, o olho
+    // pisca até fechar e, já fechado, se esconde (some e recua um pouco).
     schedule(() => {
       exitingRef.current = true;
-      setGaze({ dx: 0, dy: 0 });
-      poseTo('closed', 'drowsy');
-      schedule(() => { setExiting(true); setVisible(false); }, 400);
+      whenGazeQuiet(() => {
+        lidsBusyRef.current = true;
+        poseTo('closed', 'fast');
+        schedule(() => { setExiting(true); setVisible(false); }, 170 + EXIT_CLOSED_HOLD_MS);
+        schedule(() => onDone?.(), 170 + EXIT_CLOSED_HOLD_MS + EYE_FADE_OUT_MS + 100);
+      }, { ignorePointer: true });
     }, closeAt);
-    schedule(() => onDone?.(), goneAt);
 
     return () => {
       timers.forEach((t) => window.clearTimeout(t));
@@ -342,15 +392,14 @@ function QuizEye({ x, y, size, uid, onDone }) {
         // Cursor mandou recentemente — não briga com a atenção.
       } else if (!exitingRef.current) {
         gazeModeRef.current = 'idle';
-        setGazeAttending(false);
         const r = Math.random();
         if (r < 0.35) {
-          setGaze({ dx: 0, dy: 0 }); // volta ao centro
+          moveGaze({ dx: 0, dy: 0 }, false); // volta ao centro
         } else {
-          setGaze({
+          moveGaze({
             dx: (Math.random() * 2 - 1) * GAZE_MAX_X * 0.6,
             dy: (Math.random() * 2 - 1) * GAZE_MAX_Y * 0.6,
-          });
+          }, false);
         }
       }
 
@@ -363,7 +412,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
       cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [reduced]);
+  }, [reduced, moveGaze]);
 
   // ── Perseguição do cursor: olha na direção do mouse, depois "perde o
   //    interesse" e volta às sacadas ──
@@ -379,11 +428,10 @@ function QuizEye({ x, y, size, uid, onDone }) {
       const vx = targetX - ex;
       const vy = targetY - ey;
       const len = Math.hypot(vx, vy) || 1;
-      setGazeAttending(true);
-      setGaze({
+      moveGaze({
         dx: (vx / len) * GAZE_MAX_X * 0.85,
         dy: (vy / len) * GAZE_MAX_Y * 0.85,
-      });
+      }, true);
     };
 
     // Segue o cursor com calma: no máximo uma atualização a cada 250 ms,
@@ -391,6 +439,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
     let lastMove = 0;
     const onMove = (e) => {
       const now = Date.now();
+      lastPointerRef.current = now;
       if (rafPending || now - lastMove < 250) return;
       lastMove = now;
       rafPending = true;
@@ -419,7 +468,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('thyself:answered', onAnswered);
     };
-  }, [x, y, reduced]);
+  }, [x, y, reduced, moveGaze]);
 
   const pose = LID_POSES[lidPose];
   const lidTransition = LID_TRANSITIONS[lidSpeed] || LID_TRANSITIONS.slow;
