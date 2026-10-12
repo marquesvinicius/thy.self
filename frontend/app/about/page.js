@@ -50,7 +50,7 @@ function SectionTitle({ eyebrow, title }) {
   return (
     <div className="space-y-2 mb-8">
       {eyebrow && (
-        <p className="text-[10px] uppercase tracking-[0.3em] text-muted">{eyebrow}</p>
+        <p className="text-xs uppercase tracking-[0.3em] text-muted">{eyebrow}</p>
       )}
       <h2 className="text-xl md:text-2xl font-bold tracking-tight">{title}</h2>
     </div>
@@ -68,7 +68,7 @@ export default function AboutPage() {
 
           {/* Hero */}
           <section className="pt-8 space-y-6 animate-fade-in">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-muted">sobre</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-muted">sobre</p>
             <h1 className="text-4xl md:text-6xl font-bold tracking-tighter leading-none">
               γνῶθι σεαυτόν<br />
               <span className="text-muted">—</span>
@@ -143,13 +143,13 @@ export default function AboutPage() {
                   </h3>
                   <div className="space-y-2">
                     {g.pros.map((p, i) => (
-                      <div key={i} className="flex gap-2 text-[11px] leading-relaxed">
+                      <div key={i} className="flex gap-2 text-xs leading-relaxed">
                         <span className="text-foreground/70">+</span>
                         <span className={g.highlight ? 'text-foreground' : 'text-muted'}>{p}</span>
                       </div>
                     ))}
                     {g.cons.map((c, i) => (
-                      <div key={i} className="flex gap-2 text-[11px] leading-relaxed">
+                      <div key={i} className="flex gap-2 text-xs leading-relaxed">
                         <span className="text-muted/50">−</span>
                         <span className="text-faint">{c}</span>
                       </div>
@@ -213,7 +213,7 @@ export default function AboutPage() {
           <section>
             <div className="relative border-2 border-foreground p-6 md:p-10 bg-surface/70">
               <div className="absolute -top-3 left-6 px-3 bg-background">
-                <p className="text-[10px] uppercase tracking-[0.4em] text-foreground font-bold">
+                <p className="text-xs uppercase tracking-[0.4em] text-foreground font-bold">
                   aviso importante
                 </p>
               </div>
@@ -241,7 +241,7 @@ export default function AboutPage() {
                   </p>
                 </div>
 
-                <div className="pt-4 border-t border-foreground/20 flex flex-wrap gap-x-6 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted">
+                <div className="pt-4 border-t border-foreground/20 flex flex-wrap gap-x-6 gap-y-2 text-xs uppercase tracking-[0.25em] text-muted">
                   <span>— não é diagnóstico</span>
                   <span>— não é prescrição</span>
                   <span>— não coleta dados pessoais</span>
@@ -255,13 +255,13 @@ export default function AboutPage() {
           <section className="pt-8 flex flex-col sm:flex-row items-center justify-center gap-4 border-t border-border pt-12">
             <Link
               href="/"
-              className="border border-foreground px-8 py-3 text-[11px] uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all"
+              className="border border-foreground px-8 py-3 text-xs uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all"
             >
               começar
             </Link>
             <Link
               href="/method"
-              className="text-[11px] uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors"
+              className="text-xs uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors"
             >
               → ver o método de cálculo
             </Link>

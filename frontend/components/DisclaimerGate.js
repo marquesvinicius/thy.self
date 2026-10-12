@@ -9,7 +9,7 @@ export default function DisclaimerGate({ onAccept }) {
     <div className="w-full max-w-2xl mx-auto flex-1 flex flex-col justify-center py-8">
       <div className="relative border-2 border-foreground p-6 md:p-10 bg-surface/70">
         <div className="absolute -top-3 left-6 px-3 bg-background">
-          <p className="text-[10px] uppercase tracking-[0.4em] text-foreground font-bold">
+          <p className="text-xs uppercase tracking-[0.4em] text-foreground font-bold">
             antes de continuar
           </p>
         </div>
@@ -37,7 +37,7 @@ export default function DisclaimerGate({ onAccept }) {
             </p>
           </div>
 
-          <div className="pt-4 border-t border-foreground/20 flex flex-wrap gap-x-6 gap-y-2 text-[10px] uppercase tracking-[0.25em] text-muted">
+          <div className="pt-4 border-t border-foreground/20 flex flex-wrap gap-x-6 gap-y-2 text-xs uppercase tracking-[0.25em] text-muted">
             <span>— não é diagnóstico</span>
             <span>— não é prescrição</span>
             <span>— uso reflexivo e educacional</span>
@@ -47,7 +47,7 @@ export default function DisclaimerGate({ onAccept }) {
             <button
               type="button"
               onClick={onAccept}
-              className="border border-foreground px-10 py-3 text-[11px] uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all"
+              className="border border-foreground px-10 py-3 text-xs uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all"
             >
               entendi — revelar meu perfil
             </button>

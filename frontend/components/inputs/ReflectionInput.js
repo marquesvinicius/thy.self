@@ -23,9 +23,9 @@ export default function ReflectionInput({ question, onSelect, disabled }) {
                 disabled={disabled}
                 placeholder="Escreva seus pensamentos..."
                 maxLength={MAX_CHARS}
-                className="w-full min-h-[150px] bg-background border border-border p-4 text-sm resize-none focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
+                className="w-full min-h-[150px] bg-background border border-control p-4 text-sm resize-none focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
             />
-            <div className="flex items-baseline justify-between gap-4 mt-2 text-[10px] text-muted tracking-[0.2em] uppercase">
+            <div className="flex items-baseline justify-between gap-4 mt-2 text-xs text-muted tracking-[0.2em] uppercase">
                 {/* RN016: o texto livre é o único lugar onde a pessoa poderia se identificar */}
                 <span className="truncate">sem nome ou dados pessoais</span>
                 <span className="shrink-0 tabular-nums">{text.length}/{MAX_CHARS}</span>

@@ -21,7 +21,7 @@ export default function NarrativeBlock({ text, delay = 1800 }) {
       }}
     >
       <div className="border-l border-muted/30 pl-6 py-2">
-        <p className="text-[10px] uppercase tracking-[0.4em] text-muted mb-4">
+        <p className="text-xs uppercase tracking-[0.4em] text-muted mb-4">
           interpretação
         </p>
         <p className="text-sm md:text-base leading-relaxed text-foreground/80 italic">

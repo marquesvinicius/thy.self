@@ -21,10 +21,10 @@ export default function WorksBlock({ works = [], delay = 1200 }) {
       }}
       >
       <div className="mb-4 space-y-1">
-        <p className="text-[10px] uppercase tracking-[0.4em] text-muted">
+        <p className="text-xs uppercase tracking-[0.4em] text-muted">
           sugestões para você assistir
         </p>
-        <p className="text-[11px] text-faint leading-relaxed max-w-xl">
+        <p className="text-xs text-faint leading-relaxed max-w-xl">
           uma série, um filme e um anime em ressonância com o seu perfil — escolhidos para dialogar com as suas respostas.
         </p>
       </div>
@@ -36,14 +36,14 @@ export default function WorksBlock({ works = [], delay = 1200 }) {
           >
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold tracking-tight">{work.titulo}</h3>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-muted">
+              <span className="text-xs uppercase tracking-[0.2em] text-muted">
                 {work.tipo}
               </span>
             </div>
             {work.autor_ou_artista && (
-              <p className="text-[11px] text-foreground/70">{work.autor_ou_artista}</p>
+              <p className="text-xs text-foreground/70">{work.autor_ou_artista}</p>
             )}
-            <p className="text-[11px] leading-relaxed text-muted">{work.motivo}</p>
+            <p className="text-xs leading-relaxed text-muted">{work.motivo}</p>
           </article>
         ))}
       </div>

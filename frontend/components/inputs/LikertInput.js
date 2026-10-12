@@ -65,7 +65,7 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
             disabled={disabled}
             onClick={() => commit(alt.id)}
             className={`border px-4 py-2 text-sm transition ${
-              externalSelectedId === alt.id ? 'bg-foreground text-background border-foreground' : 'border-border'
+              externalSelectedId === alt.id ? 'bg-foreground text-background border-foreground' : 'border-control'
             }`}
           >
             {alt.text}
@@ -86,7 +86,7 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
 
   return (
     <div className="w-full max-w-xl mx-auto min-w-0 space-y-5">
-      <div className="hidden md:flex justify-between text-[10px] uppercase tracking-[0.25em] text-muted px-1">
+      <div className="hidden md:flex justify-between text-xs uppercase tracking-[0.25em] text-muted px-1">
         <span>Discordo</span>
         <span>Concordo</span>
       </div>
@@ -121,11 +121,11 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
                 className={`rounded-full border transition-all duration-200 flex items-center justify-center ${sizeMap[size]} ${
                   isSelected
                     ? 'bg-foreground border-foreground shadow-[0_0_18px_rgba(255,255,255,0.25)]'
-                    : `border-border ${toneRing}`
+                    : `border-control ${toneRing}`
                 } disabled:opacity-40 disabled:cursor-not-allowed`}
               />
               <span
-                className={`flex-1 min-w-0 text-[9px] md:text-[10px] uppercase tracking-[0.12em] text-left md:text-center leading-tight break-words md:max-w-[84px] transition-colors ${
+                className={`flex-1 min-w-0 text-xs md:text-xs uppercase tracking-[0.12em] text-left md:text-center leading-tight md:max-w-[112px] transition-colors ${
                   isSelected ? 'text-foreground' : 'text-muted'
                 }`}
               >
@@ -136,7 +136,7 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
         })}
       </div>
 
-      <p className="text-center text-[10px] uppercase tracking-[0.22em] text-faint pt-1">
+      <p className="text-center text-xs uppercase tracking-[0.22em] text-faint pt-1">
         toque em um círculo para confirmar
         <span className="hidden md:inline text-faint"> · ou use as teclas 1–5</span>
       </p>

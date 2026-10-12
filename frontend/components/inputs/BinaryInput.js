@@ -44,7 +44,7 @@ export default function BinaryInput(props) {
 
   return (
     <div className="w-full max-w-[680px] mx-auto">
-      <div className="border border-border divide-y divide-border/80">
+      <div className="border border-control divide-y divide-control">
         {items.map((alt) => {
           const id = alt.id ?? alt.alternative_id ?? alt.value;
           const text = alt.text ?? alt.label ?? alt.content ?? '';

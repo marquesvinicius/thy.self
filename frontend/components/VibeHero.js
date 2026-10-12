@@ -20,7 +20,7 @@ export default function VibeHero({ text, kicker = 'tua essência' }) {
         transform: visible ? 'translateY(0)' : 'translateY(16px)',
       }}
     >
-      <p className="text-[10px] uppercase tracking-[0.5em] text-muted mb-4">
+      <p className="text-xs uppercase tracking-[0.5em] text-muted mb-4">
         {kicker}
       </p>
       <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight leading-snug px-4">

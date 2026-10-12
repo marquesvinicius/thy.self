@@ -104,7 +104,7 @@ export default function AnswerReviewModal({ open, sessionId, onClose }) {
         {!loading && !error && data && (
           <div className="space-y-6">
             {/* Abas */}
-            <div className="flex border border-border divide-x divide-border text-[11px] uppercase tracking-[0.22em]">
+            <div className="flex border border-control divide-x divide-control text-xs uppercase tracking-[0.22em]">
               <button
                 onClick={() => setTab('objective')}
                 className={`flex-1 py-3 transition-colors ${
@@ -161,7 +161,7 @@ function ObjectiveTab({ byTrait, traitTotals }) {
   const traitKeys = Object.keys(TRAIT_META);
   return (
     <div className="space-y-7">
-      <p className="text-[11px] leading-relaxed text-faint">
+      <p className="text-xs leading-relaxed text-faint">
         As 30 perguntas do BFI-2-S agrupadas por traço. A marca à esquerda de
         cada resposta mostra a contribuição Likert assinada — o sinal já
         considera <em>reverse_key</em> (itens escritos no sentido oposto são
@@ -178,13 +178,13 @@ function ObjectiveTab({ byTrait, traitTotals }) {
           <section key={key} className="relative border border-border p-5 pt-6 space-y-4">
             <div className="absolute -top-2.5 left-4 px-2 bg-background flex items-baseline gap-2">
               <span className="text-sm font-bold tracking-tight leading-none">{meta.short}</span>
-              <h3 className="text-[11px] uppercase tracking-[0.24em] text-foreground font-semibold">
+              <h3 className="text-xs uppercase tracking-[0.24em] text-foreground font-semibold">
                 {meta.name}
               </h3>
             </div>
 
             {rows.length === 0 ? (
-              <p className="text-[10px] uppercase tracking-[0.22em] text-muted">sem respostas</p>
+              <p className="text-xs uppercase tracking-[0.22em] text-muted">sem respostas</p>
             ) : (
               <>
                 <div className="flex items-center gap-4">
@@ -200,7 +200,7 @@ function ObjectiveTab({ byTrait, traitTotals }) {
                       <ContributionBadge value={row?.contribution?.delta} reverseKey={row.reverse_key} />
                       <div className="flex-1 min-w-0">
                         <p className="text-[12px] leading-relaxed text-foreground/90">{row.question_text}</p>
-                        <p className="text-[11px] text-muted mt-1">
+                        <p className="text-xs text-muted mt-1">
                           resposta: <span className="text-foreground/80">{row.answer_text || '—'}</span>
                         </p>
                       </div>
@@ -227,7 +227,7 @@ function InterpretativeTab({ answers }) {
 
   return (
     <div className="space-y-5">
-      <p className="text-[11px] leading-relaxed text-faint">
+      <p className="text-xs leading-relaxed text-faint">
         As respostas narrativas não alteram o escore do Big Five — servem
         apenas como contexto qualitativo para o texto de interpretação e para
         as referências culturais.
@@ -236,27 +236,27 @@ function InterpretativeTab({ answers }) {
         {answers.map((row, index) => (
           <li key={row.id} className="relative border border-border p-5 pt-6 space-y-2">
             <div className="absolute -top-2.5 left-4 px-2 bg-background flex items-baseline gap-2">
-              <span className="text-[10px] tabular-nums text-faint">
+              <span className="text-xs tabular-nums text-faint">
                 {String(index + 1).padStart(2, '0')}
               </span>
-              <span className="text-[10px] uppercase tracking-[0.24em] text-foreground font-semibold">
+              <span className="text-xs uppercase tracking-[0.24em] text-foreground font-semibold">
                 {CATEGORY_LABELS[row.category_slug] || row.category_slug || 'outro'}
               </span>
             </div>
 
             <p className="text-[12px] leading-relaxed text-foreground/90">{row.question_text}</p>
             {row.answer_text && (
-              <p className="text-[11px] text-muted">
+              <p className="text-xs text-muted">
                 escolha: <span className="text-foreground/80">{row.answer_text}</span>
               </p>
             )}
             {row.user_observation && (
-              <blockquote className="text-[11px] leading-relaxed text-foreground/80 border-l border-border pl-3 italic">
+              <blockquote className="text-xs leading-relaxed text-foreground/80 border-l border-border pl-3 italic">
                 “{row.user_observation}”
               </blockquote>
             )}
             {!row.answer_text && !row.user_observation && (
-              <p className="text-[11px] text-muted italic">pulada</p>
+              <p className="text-xs text-muted italic">pulada</p>
             )}
           </li>
         ))}
@@ -284,7 +284,7 @@ function ContributionBadge({ value, reverseKey }) {
       <span className="text-sm font-semibold tabular-nums leading-none">
         {sign}{delta || 0}
       </span>
-      <span className="text-[8px] uppercase tracking-[0.18em] text-muted mt-1">
+      <span className="text-xs uppercase tracking-[0.18em] text-muted mt-1">
         {delta === 0 ? 'neutro' : reverseKey ? 'inv.' : 'dir.'}
       </span>
     </span>

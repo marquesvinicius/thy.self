@@ -51,7 +51,7 @@ export default function ResultActions({
         {typeof onReviewAnswers === 'function' && (
           <button
             onClick={onReviewAnswers}
-            className="text-[11px] uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors underline underline-offset-4"
+            className="text-xs uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors underline underline-offset-4"
             title="Veja o que você respondeu e quais traços cada resposta influenciou"
           >
             revisar respostas
@@ -59,7 +59,7 @@ export default function ResultActions({
         )}
         <button
           onClick={onNewSession}
-          className="text-[11px] uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors underline underline-offset-4"
+          className="text-xs uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors underline underline-offset-4"
         >
           começar nova sessão
         </button>

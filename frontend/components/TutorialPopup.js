@@ -42,7 +42,7 @@ export default function TutorialPopup({ types, onComplete }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-6">
             <div className="w-full max-w-md border border-foreground bg-background p-8 space-y-6">
-                <p className="text-[10px] uppercase tracking-[0.4em] text-muted">
+                <p className="text-xs uppercase tracking-[0.4em] text-muted">
                     como responder
                 </p>
                 <h3 className="text-xl font-bold tracking-tight">{tutorial.title}</h3>
@@ -50,7 +50,7 @@ export default function TutorialPopup({ types, onComplete }) {
                 <button
                     type="button"
                     onClick={handleNext}
-                    className="w-full border border-foreground px-6 py-3 text-[11px] uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all"
+                    className="w-full border border-foreground px-6 py-3 text-xs uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all"
                 >
                     {currentIndex < list.length - 1 ? 'próximo' : 'entendido'}
                 </button>
