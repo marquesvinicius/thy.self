@@ -7,7 +7,6 @@ import Header from '@/components/Header';
 import MysticBackground, { MysticEyesOverlay } from '@/components/MysticBackground';
 import ProgressBar from '@/components/ProgressBar';
 import MicroFeedback from '@/components/MicroFeedback';
-import TutorialPopup from '@/components/TutorialPopup';
 import StageTransition from '@/components/StageTransition';
 import QuestionRenderer from '@/components/QuestionRenderer';
 import { categoryLabel } from '@/lib/categoryLabel';
@@ -64,7 +63,6 @@ export default function Quiz() {
   const [undoError, setUndoError] = useState(null);
   const [flashing, setFlashing] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [pendingTutorials, setPendingTutorials] = useState([]);
   // Ritual de passagem BFI-2-S → narrativa. Acionado na primeira vez que o
   // backend serve uma pergunta de kind=interpretative (o picker prioriza
   // objetivas, então isso só acontece quando TODAS as 30 BFI-2-S foram
@@ -162,15 +160,6 @@ export default function Quiz() {
           if (!alreadySeen) {
             setShowStageTransition(true);
           }
-        }
-
-        // Calculate if we need to show a tutorial for any new types in this block
-        const storedSeen = JSON.parse(localStorage.getItem('thySelf_seenTutorials') || '[]');
-        const blockTypes = Array.from(new Set(data.questions.map(q => q.type)));
-        const newTypes = blockTypes.filter(t => !storedSeen.includes(t) && t !== 'multiple_choice' && !!t);
-
-        if (newTypes.length > 0) {
-          setPendingTutorials(newTypes);
         }
 
         setPhase('entering');
@@ -467,13 +456,6 @@ export default function Quiz() {
     await loadQuestions(sessionId);
   };
 
-  const handleTutorialComplete = () => {
-    const storedSeen = JSON.parse(localStorage.getItem('thySelf_seenTutorials') || '[]');
-    const updatedSeen = Array.from(new Set([...storedSeen, ...pendingTutorials]));
-    localStorage.setItem('thySelf_seenTutorials', JSON.stringify(updatedSeen));
-    setPendingTutorials([]);
-  };
-
   /**
    * Escolha do ato narrativo na tela de decisão: 'short' (teto de perguntas)
    * ou 'full' (catálogo inteiro). Persiste o modo, marca a tela como vista e
@@ -531,10 +513,7 @@ export default function Quiz() {
         />
       )}
 
-      {/* Ritual de passagem entre BFI-2-S e parte narrativa. Tem prioridade
-          sobre o TutorialPopup de widget: se o usuário estiver vendo o card
-          de transição, adiamos o tutorial de reflection/etc. até ele clicar
-          em "continuar" — assim as duas camadas não aparecem empilhadas. */}
+      {/* Ritual de passagem entre BFI-2-S e parte narrativa. */}
       {showStageTransition && (
         <StageTransition
           onChoose={handleChooseNarrativeMode}
@@ -542,10 +521,6 @@ export default function Quiz() {
           onPause={handlePauseSession}
           narrativeTotal={stageProgress?.interpretative_total ?? null}
         />
-      )}
-
-      {pendingTutorials.length > 0 && !showStageTransition && (
-        <TutorialPopup types={pendingTutorials} onComplete={handleTutorialComplete} />
       )}
 
       {flashing && (
