@@ -105,6 +105,10 @@ npm install
 npm run dev               # http://localhost:3001
 ```
 
+**Atalho.** Com as dependências dos dois projetos instaladas, `npm install` e
+`npm run dev` na raiz sobem o backend e o frontend juntos. O deploy não muda:
+cada parte continua publicada a partir da própria pasta.
+
 ### Variáveis de ambiente (`backend/.env`)
 
 | Variável | Obrigatória | Padrão | Para quê |

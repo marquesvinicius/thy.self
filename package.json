@@ -1,0 +1,12 @@
+{
+  "name": "thy.self",
+  "private": true,
+  "description": "Atalho local para subir o backend e o frontend juntos. O deploy continua separado: frontend/ na Vercel e backend/ no Render.",
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev:full": "npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
