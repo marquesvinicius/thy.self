@@ -246,8 +246,10 @@ const GAZE_MAX_Y = 3.8;
 
 // Ritmo contemplativo: o olho observa, não vigia. Tudo aqui é lento de
 // propósito — olhar que desliza, piscada preguiçosa, saída como quem adormece.
-const EYE_FADE_IN_MS = 1600;
-const EYE_FADE_OUT_MS = 1400;
+const EYE_FADE_IN_MS = 600;
+// Saída com pressa: some rápido assim que termina de fechar, sem a linha
+// fechada ficar parada na tela.
+const EYE_FADE_OUT_MS = 160;
 const EYE_VISIBLE_MIN_MS = 7000;
 const EYE_VISIBLE_JITTER_MS = 4000;
 const GAZE_IDLE_MS = 1400;
@@ -258,8 +260,9 @@ const GAZE_ATTEND_TRANSITION = `transform ${GAZE_ATTEND_MS}ms cubic-bezier(.4,.1
 const GAZE_SETTLE_MS = 350;
 // Cursor parado há pelo menos isto para o olho poder piscar.
 const POINTER_QUIET_MS = 900;
-// Quanto o olho fica fechado na saída antes de se esconder.
-const EXIT_CLOSED_HOLD_MS = 350;
+// O sumiço começa um pouco antes de a pálpebra terminar de fechar, para
+// o fim do fechamento e o sumiço serem um movimento só.
+const EXIT_HIDE_AT_MS = Math.round(BLINK_CLOSE_MS * 0.6);
 // Duração e curva de cada tipo de movimento de pálpebra.
 const LID_MOTION = {
   fast: { ms: BLINK_CLOSE_MS, ease: t => t * t },                   // piscada: fecha
@@ -365,7 +368,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
       return t;
     };
 
-    const openAt = 500;                                // surge de olhos fechados e abre devagar
+    const openAt = 120;                                // surge e já começa a abrir (sem linha parada)
     const settledAt = openAt + 1100;                   // pálpebras terminaram de abrir
     const visibleMs = EYE_VISIBLE_MIN_MS + Math.random() * EYE_VISIBLE_JITTER_MS;
     const closeAt = settledAt + visibleMs;             // início da despedida
@@ -420,14 +423,14 @@ function QuizEye({ x, y, size, uid, onDone }) {
     }
 
     // Saída: o olhar congela onde está, termina o movimento em curso, o olho
-    // pisca até fechar e, já fechado, se esconde (some e recua um pouco).
+    // pisca até fechar e some logo em seguida (rápido, recuando um pouco).
     schedule(() => {
       exitingRef.current = true;
       whenGazeQuiet(() => {
         lidsBusyRef.current = true;
         poseTo('closed', 'fast');
-        schedule(() => { setExiting(true); setVisible(false); }, BLINK_CLOSE_MS + EXIT_CLOSED_HOLD_MS);
-        schedule(() => onDone?.(), BLINK_CLOSE_MS + EXIT_CLOSED_HOLD_MS + EYE_FADE_OUT_MS + 100);
+        schedule(() => { setExiting(true); setVisible(false); }, EXIT_HIDE_AT_MS);
+        schedule(() => onDone?.(), EXIT_HIDE_AT_MS + EYE_FADE_OUT_MS + 100);
       }, { ignorePointer: true });
     }, closeAt);
 
