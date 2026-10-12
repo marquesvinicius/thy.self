@@ -185,6 +185,8 @@ function ResultContent() {
     if (!sessionId) return;
     try {
       const raw = sessionStorage.getItem(`reference_details_cache:${sessionId}`);
+      // Dado do sessionStorage, disponível só no navegador após a montagem.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw) setReferenceDetailsCache(JSON.parse(raw) || {});
     } catch {}
   }, [sessionId]);
