@@ -88,8 +88,12 @@ const QUIZ_PERIPHERAL_ZONES = [
 
 const MAX_VISIBLE_EYES = 2;
 
+/* Amêndoa com curvas cúbicas, no desenho do ícone do site: mais aberta e
+   cheia que a quadrática. A meia-altura visível é 0,75·ry. */
 function almondPath(cx, cy, rx, ry) {
-  return `M ${cx - rx},${cy} Q ${cx},${cy - ry} ${cx + rx},${cy} Q ${cx},${cy + ry} ${cx - rx},${cy} Z`;
+  const kx = rx * 0.42;
+  return `M ${cx - rx},${cy} C ${cx - kx},${cy - ry} ${cx + kx},${cy - ry} ${cx + rx},${cy} `
+    + `C ${cx + kx},${cy + ry} ${cx - kx},${cy + ry} ${cx - rx},${cy} Z`;
 }
 
 function CornerSigil({ x, y }) {
@@ -115,8 +119,9 @@ function CornerSigil({ x, y }) {
 function AmbientEyeNodes({ prefix, eyes, readingFocus = false }) {
   return eyes.map((e, i) => {
     const path = almondPath(e.cx, e.cy, e.rx, e.ry);
-    const irisR = e.ry * 0.72;
-    const pupilR = e.ry * 0.36;
+    const irisR = e.ry * 0.84;
+    const pupilR = e.ry * 0.43;
+    const stroke = e.ry * 0.065;
     // Timing dessincronizado por olho: 13–24s por ciclo de olhar, com o
     // delay da piscada reaproveitado como offset para quebrar qualquer
     // sincronia perceptível.
@@ -135,7 +140,7 @@ function AmbientEyeNodes({ prefix, eyes, readingFocus = false }) {
               animation: `ambientGaze ${gazeDur}s ${gazeDelay} ease-in-out infinite`,
             }}
           >
-            <circle cx={e.cx} cy={e.cy} r={irisR} fill="none" stroke="white" strokeWidth="0.22" />
+            <circle cx={e.cx} cy={e.cy} r={irisR} fill="none" stroke="white" strokeWidth={stroke} />
             <circle className="pupil-breath" cx={e.cx} cy={e.cy} r={pupilR} fill="white" />
           </g>
 
@@ -169,7 +174,7 @@ function AmbientEyeNodes({ prefix, eyes, readingFocus = false }) {
             }}
           />
         </g>
-        <path d={path} fill="none" stroke="white" strokeWidth="0.28" />
+        <path d={path} fill="none" stroke="white" strokeWidth={stroke} />
       </g>
     );
   });
@@ -452,7 +457,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
       >
         <defs>
           <clipPath id={clipId}>
-            <path d="M 2,21 Q 50,1 98,21 Q 50,41 2,21 Z" />
+            <path d="M 2,21 C 30,0 70,0 98,21 C 70,42 30,42 2,21 Z" />
           </clipPath>
         </defs>
 
@@ -464,7 +469,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
               transition: gazeAttending ? GAZE_ATTEND_TRANSITION : GAZE_IDLE_TRANSITION,
             }}
           >
-            <circle cx="50" cy="21" r="14" fill="none" stroke="white" strokeWidth="0.9" />
+            <circle cx="50" cy="21" r="17.6" fill="none" stroke="white" strokeWidth="1.3" />
             {/* Constrição no flash oracular (scale 0.8 por ~650ms) */}
             <g
               style={{
@@ -475,9 +480,8 @@ function QuizEye({ x, y, size, uid, onDone }) {
               }}
             >
               {/* Respiração lenta da pupila (±12% em 8s) */}
-              <circle className="pupil-breath" cx="50" cy="21" r="6.2" fill="white" />
+              <circle className="pupil-breath" cx="50" cy="21" r="9" fill="white" />
             </g>
-            <circle cx="52.5" cy="19" r="1.4" fill="white" opacity="0.85" />
           </g>
 
           {/* Pálpebra superior (faz a maior parte do percurso) */}
@@ -504,10 +508,10 @@ function QuizEye({ x, y, size, uid, onDone }) {
 
         {/* Contorno amendoado */}
         <path
-          d="M 2,21 Q 50,1 98,21 Q 50,41 2,21 Z"
+          d="M 2,21 C 30,0 70,0 98,21 C 70,42 30,42 2,21 Z"
           fill="none"
           stroke="white"
-          strokeWidth="1.1"
+          strokeWidth="1.4"
           strokeLinejoin="round"
         />
       </svg>
