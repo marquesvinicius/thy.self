@@ -20,6 +20,10 @@ import {
   clearNarrativeMode,
 } from '@/lib/narrativeMode';
 
+// Relógio fora do componente: só é chamado em handlers de resposta, nunca
+// durante a renderização (a regra react-hooks/purity não distingue os dois).
+const nowMs = () => Date.now();
+
 const BLOCK_SIZE = 1;
 // Pedimos 3 perguntas a mais que o bloco: ficam em memória (prefetch). Com
 // só 1, quem respondia rápido pelo teclado esvaziava a fila antes de o
@@ -94,7 +98,7 @@ export default function Quiz() {
   const [paceSamples, setPaceSamples] = useState({ objective: [], interpretative: [] });
 
   function recordPace(kind) {
-    const now = Date.now();
+    const now = nowMs();
     const last = paceRef.current.lastAt;
     paceRef.current.lastAt = now;
     if (!last) return;
@@ -202,6 +206,9 @@ export default function Quiz() {
       router.push('/');
       return;
     }
+    // sessionStorage só existe no navegador, depois da montagem: o efeito é o
+    // ponto certo para trazer esse valor para o estado.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSessionId(sid);
     loadQuestions(sid);
   }, [router, loadQuestions]);

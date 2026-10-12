@@ -22,14 +22,17 @@ export default function ResultActions({
   onReviewAnswers = null,
 }) {
   const [exportLoading, setExportLoading] = useState(false);
+  const [exportError, setExportError] = useState(false);
 
   async function handleExportPdf() {
     if (exportLoading || !profile) return;
     setExportLoading(true);
+    setExportError(false);
     try {
       await exportResultPdf({ profile, llmInterpretation });
     } catch (err) {
       console.error('Falha ao gerar PDF:', err);
+      setExportError(true);
     } finally {
       setExportLoading(false);
     }
@@ -46,6 +49,11 @@ export default function ResultActions({
           {exportLoading ? 'gerando pdf...' : 'exportar em pdf'}
         </button>
       </div>
+      {exportError && (
+        <p role="alert" className="text-center text-xs text-muted">
+          Não foi possível gerar o PDF. Tente de novo.
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
         {typeof onReviewAnswers === 'function' && (
