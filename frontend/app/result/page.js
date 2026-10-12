@@ -69,6 +69,18 @@ function loadResultPayload({
   return promise;
 }
 
+// A mensagem crua da API vem em inglês ("Session not found."). Na tela,
+// a pessoa vê sempre um texto em português, curto e acionável.
+function resultErrorMessage(err) {
+  if (err?.status === 404 || err?.status === 410) {
+    return 'Não encontramos um resultado para esta sessão.';
+  }
+  if (!err?.status) {
+    return 'Não foi possível conectar ao servidor. Aguarde alguns segundos e tente de novo.';
+  }
+  return 'Não foi possível carregar o resultado.';
+}
+
 export default function Result() {
   return (
     <Suspense fallback={
@@ -102,6 +114,7 @@ function ResultContent() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [regenLoading, setRegenLoading] = useState(false);
+  const [regenError, setRegenError] = useState(false);
   const [regenCount, setRegenCount] = useState(0);
   // Retry da narrativa quando a geração falhou no /analyze (LLM fora do ar
   // ou orçamento diário estourado). Reusa o endpoint de re-geração.
@@ -170,7 +183,7 @@ function ResultContent() {
           router.push('/');
           return;
         }
-        setError(err.message);
+        setError(resultErrorMessage(err));
         setLoading(false);
       }
     })();
@@ -256,6 +269,7 @@ function ResultContent() {
     if (!sessionId || regenLoading || regenExhausted) return;
 
     setRegenLoading(true);
+    setRegenError(false);
     try {
       const excludeReferenceNames = (llmInterpretation?.referencias || [])
         .map(ref => ref?.nome)
@@ -279,6 +293,8 @@ function ResultContent() {
     } catch (err) {
       if (err.message?.includes('Limite')) {
         setRegenCount(MAX_REGENS);
+      } else {
+        setRegenError(true);
       }
       console.error('Reinterpret failed:', err);
     } finally {
@@ -316,7 +332,10 @@ function ResultContent() {
         persistDetailToCache(cacheKey, data.reference_detail);
       }
     } catch (err) {
-      setDetailError(err.message || 'Não foi possível gerar o detalhamento.');
+      // 429/503 já vêm com texto em português do servidor (limite e IA fora do ar).
+      setDetailError(err.status === 429 || err.status === 503
+        ? err.message
+        : 'Não foi possível gerar o detalhamento.');
     } finally {
       setDetailLoading(false);
     }
@@ -372,6 +391,7 @@ function ResultContent() {
                 count: regenCount,
                 max: MAX_REGENS,
                 exhausted: regenExhausted,
+                error: regenError,
               } : null}
             />
 
