@@ -83,7 +83,9 @@ Pré-requisitos: **Node 22+** e um projeto Supabase (PostgreSQL gerenciado).
 
 **1. Banco.** No SQL Editor do Supabase, execute `backend/sql/schema.sql`
 (setup limpo). Em um banco já existente, aplique as migrations numeradas em
-ordem, de `migration_001` a `migration_011`.
+ordem, de `migration_001` a `migration_013` (a 012 agenda o descarte diário
+dos dados vencidos, RN016; a 013 mantém o servidor do Render acordado e
+só se aplica depois da publicação, ver "Publicação").
 
 **2. Backend.**
 
