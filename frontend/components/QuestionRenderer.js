@@ -61,7 +61,7 @@ function MultipleChoiceGrid({ question, value, onSelect, disabled }) {
             className={`text-left border px-5 py-3 text-sm leading-relaxed transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
               isSelected
                 ? 'bg-foreground/10 border-foreground shadow-[0_0_15px_rgba(255,255,255,0.1)]'
-                : 'border-border hover:border-foreground/50 hover:bg-foreground/5'
+                : 'border-control hover:border-foreground/50 hover:bg-foreground/5'
             }`}
           >
             {alt.text}

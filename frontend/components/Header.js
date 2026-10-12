@@ -25,7 +25,7 @@ export default function Header() {
         {!isHome && <Logo size="sm" />}
       </div>
       <nav
-        className="flex shrink-0 items-center gap-1 md:gap-5 text-[11px] md:text-[10px] uppercase tracking-[0.25em] md:tracking-[0.3em]"
+        className="flex shrink-0 items-center gap-1 md:gap-5 text-xs md:text-xs uppercase tracking-[0.25em] md:tracking-[0.3em]"
         aria-label="navegação principal"
       >
         {NAV_ITEMS.map((item) => {

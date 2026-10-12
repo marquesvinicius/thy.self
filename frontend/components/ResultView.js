@@ -67,14 +67,14 @@ export default function ResultView({
             sub="o personagem mais próximo do seu perfil no espaço pentadimensional OCEAN"
           />
           <div className="border border-border p-6 md:p-8 text-center space-y-4">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-muted">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted">
               {profile.archetype.universe}
             </p>
             <p className="text-2xl md:text-4xl font-bold tracking-tight">
               {profile.archetype.name}
             </p>
             {Number.isFinite(Number(profile.archetype.distance)) && (
-              <p className="text-[11px] text-faint leading-relaxed max-w-md mx-auto">
+              <p className="text-xs text-faint leading-relaxed max-w-md mx-auto">
                 distância euclidiana de{' '}
                 <span className="text-foreground/80 tabular-nums">
                   {Number(profile.archetype.distance).toFixed(1)}
@@ -85,7 +85,7 @@ export default function ResultView({
               </p>
             )}
             {profile.anti_archetype?.name && (
-              <p className="text-[10px] uppercase tracking-[0.2em] text-faint">
+              <p className="text-xs uppercase tracking-[0.2em] text-faint">
                 no extremo oposto: {profile.anti_archetype.name}
                 {profile.anti_archetype.universe ? ` (${profile.anti_archetype.universe})` : ''}
                 {Number.isFinite(Number(profile.anti_archetype.distance))
@@ -93,7 +93,7 @@ export default function ResultView({
                   : ''}
               </p>
             )}
-            <p className="text-[10px] uppercase tracking-[0.2em] text-faint pt-2 border-t border-border/50">
+            <p className="text-xs uppercase tracking-[0.2em] text-faint pt-2 border-t border-border/50">
               usado como calibrador de tom da narrativa — não é um rótulo
             </p>
           </div>
@@ -132,7 +132,7 @@ export default function ResultView({
               <button
                 onClick={regen.onRegenerate}
                 disabled={regen.loading || regen.exhausted}
-                className="border border-border px-8 py-3 text-[11px] uppercase tracking-[0.25em] text-muted hover:text-foreground hover:border-foreground transition-all disabled:opacity-30 disabled:cursor-not-allowed inline-flex items-center gap-3"
+                className="border border-control px-8 py-3 text-xs uppercase tracking-[0.25em] text-muted hover:text-foreground hover:border-foreground transition-all disabled:opacity-30 disabled:cursor-not-allowed inline-flex items-center gap-3"
               >
                 {regen.loading ? (
                   <>
@@ -175,9 +175,9 @@ export default function ResultView({
 function SectionHeader({ label, sub }) {
   return (
     <div className="space-y-2 text-center">
-      <p className="text-[10px] uppercase tracking-[0.4em] text-muted">{label}</p>
+      <p className="text-xs uppercase tracking-[0.4em] text-muted">{label}</p>
       {sub && (
-        <p className="text-[11px] text-faint max-w-md mx-auto leading-relaxed">
+        <p className="text-xs text-faint max-w-md mx-auto leading-relaxed">
           {sub}
         </p>
       )}

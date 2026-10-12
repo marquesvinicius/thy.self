@@ -6,18 +6,21 @@
   --color-muted: #999999;
   --color-faint: #808080;
   --color-border: #222222;
+  /* Contorno de botões, opções e campos: #666 sobre o preto dá 3,7:1,
+     acima do mínimo de 3:1 da WCAG 1.4.11 para componentes clicáveis.
+     --color-border fica para divisórias e cartões, que são decorativos. */
+  --color-control: #666666;
   --color-surface: #0a0a0a;
   --color-accent: #ffffff;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-/* Escala tipográfica global: 14px (~87,5% do default do browser).
-   Todos os tamanhos rem do Tailwind (text-xl…text-5xl) encolhem
-   proporcionalmente — equivale ao equilíbrio visual do zoom ~75–80%,
-   mas os micro-labels em px fixo (text-[10px]) permanecem legíveis. */
+/* Fonte base no padrão do navegador (16px). Antes era 14px, o que deixava
+   todos os tamanhos relativos ~12% menores e foi apontado como difícil de
+   ler na avaliação de usabilidade. */
 html {
-  font-size: 14px;
+  font-size: 16px;
 }
 
 body {

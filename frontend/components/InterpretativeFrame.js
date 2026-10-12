@@ -14,7 +14,7 @@ export default function InterpretativeFrame({ question, children }) {
   return (
     <div className="w-full flex flex-col items-center">
       <div className="w-full max-w-3xl space-y-6">
-        <span className="block text-[10px] uppercase tracking-[0.35em] text-muted text-center">
+        <span className="block text-xs uppercase tracking-[0.35em] text-muted text-center">
           {categoryLabel(question?.category)}
         </span>
       </div>

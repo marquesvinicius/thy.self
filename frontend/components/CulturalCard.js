@@ -42,7 +42,7 @@ export default function CulturalCard({
 
         {/* Category badge */}
         <div className="absolute top-3 left-3">
-          <span className="text-[9px] uppercase tracking-[0.2em] bg-background border border-border px-2 py-1">
+          <span className="text-xs uppercase tracking-[0.2em] bg-background border border-border px-2 py-1">
             {categoria}
           </span>
         </div>
@@ -53,14 +53,14 @@ export default function CulturalCard({
         <h3 className="text-sm font-bold tracking-tight">
           {nome}
         </h3>
-        <p className="text-[11px] leading-relaxed text-muted">
+        <p className="text-xs leading-relaxed text-muted">
           {motivo}
         </p>
         {onMoreDetails && (
           <button
             onClick={onMoreDetails}
             disabled={detailsLoading}
-            className="text-[10px] uppercase tracking-[0.22em] text-foreground/70 hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="text-xs uppercase tracking-[0.22em] text-foreground/70 hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {detailsLoading ? 'gerando detalhes...' : 'mais detalhes'}
           </button>

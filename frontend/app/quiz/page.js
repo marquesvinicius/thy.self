@@ -564,7 +564,7 @@ export default function Quiz() {
         {/* Status bar */}
         <div className="flex flex-col gap-3 px-5 sm:px-6 md:px-10 py-4 border-b border-border">
           <ProgressBar current={progress.answered} total={progress.total} />
-          <div className="flex flex-wrap items-center gap-5 text-[10px] uppercase tracking-widest text-muted">
+          <div className="flex flex-wrap items-center gap-5 text-xs uppercase tracking-widest text-muted">
             <span>respostas: {progress.answered}</span>
             {/* Indicador discreto da etapa atual. Referencia o mesmo texto
                 usado no card de transição (StageTransition) para reforçar
@@ -593,14 +593,14 @@ export default function Quiz() {
             )}
           </div>
           {undoError && (
-            <p className="text-[10px] text-foreground/80 tracking-wider">
+            <p className="text-xs text-foreground/80 tracking-wider">
               {undoError}
             </p>
           )}
         </div>
 
         {/* Ações abaixo da linha divisória */}
-        <div className="flex flex-wrap justify-between items-center gap-3 px-5 sm:px-6 md:px-10 py-2 md:py-3 text-[11px] md:text-[10px] uppercase tracking-widest text-muted">
+        <div className="flex flex-wrap justify-between items-center gap-3 px-5 sm:px-6 md:px-10 py-2 md:py-3 text-xs md:text-xs uppercase tracking-widest text-muted">
           <button
             onClick={handleUndo}
             disabled={undoing || submitting || inFlight > 0 || progress.answered === 0}
@@ -635,7 +635,7 @@ export default function Quiz() {
                   <div className={`w-full min-w-0 space-y-6 md:space-y-6 md:pr-10 md:border-r border-border/50 text-center md:text-left ${
                     q.kind === 'interpretative' ? 'md:pr-14' : ''
                   }`}>
-                    <span className="text-[10px] uppercase tracking-widest text-muted">
+                    <span className="text-xs uppercase tracking-widest text-muted">
                       {q.kind === 'objective' ? 'BFI-2-S' : categoryLabel(q.category)}
                     </span>
                     <h2
@@ -679,7 +679,7 @@ export default function Quiz() {
                         <button
                           onClick={() => handleSkipQuestion(q.id, 'reflection')}
                           disabled={submitting}
-                          className="text-[11px] uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors underline underline-offset-4 disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="text-xs uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors underline underline-offset-4 disabled:opacity-30 disabled:cursor-not-allowed"
                           title="Pule quando não se lembrar de uma situação específica"
                         >
                           pular pergunta
@@ -700,7 +700,7 @@ export default function Quiz() {
                       <button
                         onClick={() => handleSkipQuestion(q.id, q.type)}
                         disabled={submitting}
-                        className="text-[10px] uppercase tracking-[0.25em] text-faint hover:text-foreground transition-colors underline underline-offset-4 disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="text-xs uppercase tracking-[0.25em] text-faint hover:text-foreground transition-colors underline underline-offset-4 disabled:opacity-30 disabled:cursor-not-allowed"
                         title="Não altera seu escore — mas é menos material seu na leitura final"
                       >
                         pular — não altera seu escore

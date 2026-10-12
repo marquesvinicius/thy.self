@@ -55,7 +55,7 @@ export default function ModalShell({
         {/* Rótulo flutuante sobre a borda superior (assinatura visual do site) */}
         {label && (
           <div className="absolute -top-3 left-6 px-3 bg-background">
-            <p className="text-[10px] uppercase tracking-[0.4em] text-foreground font-bold">
+            <p className="text-xs uppercase tracking-[0.4em] text-foreground font-bold">
               {label}
             </p>
           </div>
@@ -65,7 +65,7 @@ export default function ModalShell({
         <div className="absolute -top-3 right-6 px-3 bg-background">
           <button
             onClick={onClose}
-            className="text-[10px] uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors inline-flex items-center gap-2"
+            className="text-xs uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors inline-flex items-center gap-2"
             title="Fechar (Esc)"
           >
             <span aria-hidden="true">×</span> fechar

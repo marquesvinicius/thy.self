@@ -51,7 +51,7 @@ export default function ReferenceDetailModal({
           </figure>
 
           <div className="space-y-3 pt-1">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-muted">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted">
               {reference.categoria}
             </p>
             <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-snug">
@@ -90,10 +90,10 @@ export default function ReferenceDetailModal({
                 className="relative border border-border p-5 pt-6"
               >
                 <div className="absolute -top-2.5 left-4 px-2 bg-background flex items-baseline gap-2">
-                  <span className="text-[10px] tabular-nums text-faint">
+                  <span className="text-xs tabular-nums text-faint">
                     {String(index + 1).padStart(2, '0')}
                   </span>
-                  <h3 className="text-[11px] uppercase tracking-[0.24em] text-foreground font-semibold">
+                  <h3 className="text-xs uppercase tracking-[0.24em] text-foreground font-semibold">
                     {section.titulo}
                   </h3>
                 </div>

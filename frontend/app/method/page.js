@@ -124,7 +124,7 @@ function SectionTitle({ eyebrow, title }) {
   return (
     <div className="space-y-2 mb-8">
       {eyebrow && (
-        <p className="text-[10px] uppercase tracking-[0.3em] text-muted">{eyebrow}</p>
+        <p className="text-xs uppercase tracking-[0.3em] text-muted">{eyebrow}</p>
       )}
       <h2 className="text-xl md:text-2xl font-bold tracking-tight">{title}</h2>
     </div>
@@ -160,7 +160,7 @@ export default function MethodPage() {
 
           {/* Hero */}
           <section className="pt-8 space-y-6 animate-fade-in">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-muted">método</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-muted">método</p>
             <h1 className="text-4xl md:text-6xl font-bold tracking-tighter leading-none">
               como o thy.self<br />calcula quem você é
             </h1>
@@ -195,12 +195,12 @@ export default function MethodPage() {
                       <h3 className="text-sm font-bold uppercase tracking-[0.2em]">
                         {col.column}
                       </h3>
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-muted mt-1">
+                      <p className="text-xs uppercase tracking-[0.2em] text-muted mt-1">
                         {col.subtitle}
                       </p>
                     </div>
                     <span
-                      className={`text-[9px] uppercase tracking-[0.2em] border px-2 py-1 whitespace-nowrap ${
+                      className={`text-xs uppercase tracking-[0.2em] border px-2 py-1 whitespace-nowrap ${
                         col.deterministic
                           ? 'border-foreground text-foreground'
                           : 'border-border text-muted'
@@ -241,13 +241,13 @@ export default function MethodPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-5 gap-2 mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 mt-6">
               {[-2, -1, 0, 1, 2].map((v) => (
-                <div key={v} className="border border-border p-3 text-center">
+                <div key={v} className="border border-border p-3 text-center flex items-center justify-center gap-3 sm:block">
                   <div className="text-lg font-bold tabular-nums">
                     {v > 0 ? `+${v}` : v}
                   </div>
-                  <div className="text-[9px] uppercase tracking-[0.15em] text-muted mt-1">
+                  <div className="text-xs uppercase tracking-[0.15em] text-muted sm:mt-1">
                     {v === -2 && 'discordo muito'}
                     {v === -1 && 'discordo'}
                     {v === 0 && 'neutro'}
@@ -257,7 +257,7 @@ export default function MethodPage() {
                 </div>
               ))}
             </div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-faint mt-3 text-center">
+            <p className="text-xs uppercase tracking-[0.2em] text-faint mt-3 text-center">
               escala Likert de 5 pontos · mapeada ao intervalo [−2, +2]
             </p>
           </section>
@@ -272,11 +272,11 @@ export default function MethodPage() {
               (Han, Kamber & Pei, 2011) e devolve um escore entre 0 e 100.
             </p>
 
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted mt-8 mb-2">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted mt-8 mb-2">
               etapa 1 · acumulação do escore bruto
             </p>
             <Formula tex={String.raw`\text{bruto}(d) = \sum_{i=1}^{6} \text{sign}_{i} \cdot \text{likert}_{i}`} />
-            <div className="text-[11px] md:text-xs text-muted leading-relaxed space-y-1 pl-2 border-l border-border/60 ml-2">
+            <div className="text-xs md:text-xs text-muted leading-relaxed space-y-1 pl-2 border-l border-border/60 ml-2">
               <p>
                 onde <InlineEq tex={String.raw`d \in \{O, C, E, A, N\}`} />,{' '}
                 <InlineEq tex={String.raw`\text{likert}_{i} \in \{-2, -1, 0, +1, +2\}`} />
@@ -290,21 +290,21 @@ export default function MethodPage() {
               </p>
             </div>
 
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted mt-8 mb-2">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted mt-8 mb-2">
               etapa 2 · normalização para a escala 0–100
             </p>
             <Formula
               tex={String.raw`\text{escore}(d) \;=\; \frac{\text{bruto}(d) - (-12)}{(+12) - (-12)} \times 100 \;=\; \frac{\text{bruto}(d) + 12}{24} \times 100`}
             />
 
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted mt-8 mb-2">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted mt-8 mb-2">
               etapa 3 · classificação em cinco níveis
             </p>
             <div className="border border-border divide-y divide-border">
               {LEVELS.map((lvl) => (
                 <div key={lvl.range} className="flex items-center justify-between px-4 py-3">
                   <span className="text-xs font-bold tabular-nums">{lvl.range}</span>
-                  <span className="text-[10px] uppercase tracking-[0.3em] text-muted">
+                  <span className="text-xs uppercase tracking-[0.3em] text-muted">
                     {lvl.label}
                   </span>
                 </div>
@@ -312,7 +312,7 @@ export default function MethodPage() {
             </div>
 
             <div className="border-l-2 border-foreground/40 pl-4 mt-8 space-y-2">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-foreground/70">
+              <p className="text-xs uppercase tracking-[0.2em] text-foreground/70">
                 propriedades garantidas
               </p>
               <ul className="text-xs text-muted space-y-1.5 leading-relaxed">
@@ -345,7 +345,7 @@ export default function MethodPage() {
                     </span>
                     <div>
                       <div className="text-sm uppercase tracking-[0.2em]">{dim.name}</div>
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-faint mt-0.5">
+                      <div className="text-xs uppercase tracking-[0.2em] text-faint mt-0.5">
                         {dim.english}
                       </div>
                     </div>
@@ -356,21 +356,21 @@ export default function MethodPage() {
                     <blockquote className="text-xs md:text-sm text-foreground/85 leading-relaxed italic">
                       “{dim.definition}”
                     </blockquote>
-                    <figcaption className="text-[10px] uppercase tracking-[0.25em] text-muted not-italic">
+                    <figcaption className="text-xs uppercase tracking-[0.25em] text-muted not-italic">
                       — {dim.source}
                     </figcaption>
                   </figure>
 
                   {/* BFI-2 facets */}
                   <div className="space-y-2">
-                    <p className="text-[10px] uppercase tracking-[0.25em] text-muted">
+                    <p className="text-xs uppercase tracking-[0.25em] text-muted">
                       facetas medidas no BFI-2-S
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {dim.facets.map((facet) => (
                         <span
                           key={facet}
-                          className="text-[11px] uppercase tracking-[0.15em] border border-border px-3 py-1.5 bg-surface/40"
+                          className="text-xs uppercase tracking-[0.15em] border border-border px-3 py-1.5 bg-surface/40"
                         >
                           {facet}
                         </span>
@@ -379,7 +379,7 @@ export default function MethodPage() {
                   </div>
 
                   {/* Poles */}
-                  <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.2em] text-muted pt-4 border-t border-border/50">
+                  <div className="flex items-center gap-3 text-xs uppercase tracking-[0.2em] text-muted pt-4 border-t border-border/50">
                     <span>← {dim.low}</span>
                     <span className="flex-1 border-t border-dashed border-border" />
                     <span>{dim.high} →</span>
@@ -389,7 +389,7 @@ export default function MethodPage() {
             </div>
 
             <div className="border-l-2 border-foreground/40 pl-4 mt-6 space-y-2">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-foreground/70">
+              <p className="text-xs uppercase tracking-[0.2em] text-foreground/70">
                 nota importante sobre os nomes
               </p>
               <p className="text-xs text-muted leading-relaxed">
@@ -415,7 +415,7 @@ export default function MethodPage() {
               </p>
               <p>
                 no schema do banco, cada pergunta carrega um campo{' '}
-                <code className="text-foreground bg-surface/80 px-1.5 py-0.5 text-[11px] border border-border/60">
+                <code className="text-foreground bg-surface/80 px-1.5 py-0.5 text-xs border border-border/60">
                   questions.kind
                 </code>{' '}
                 que identifica sua camada. o motor de cálculo filtra por esse
@@ -459,7 +459,7 @@ export default function MethodPage() {
               {AI_FLOW_STEPS.map((step, index) => (
                 <div key={step.number} className="border border-border p-4 space-y-3 relative">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-[10px] uppercase tracking-[0.2em] text-muted">
+                    <span className="text-xs uppercase tracking-[0.2em] text-muted">
                       etapa {step.number}
                     </span>
                     {index < AI_FLOW_STEPS.length - 1 && (
@@ -469,7 +469,7 @@ export default function MethodPage() {
                   <h3 className="text-xs font-bold uppercase tracking-[0.15em]">
                     {step.title}
                   </h3>
-                  <p className="text-[11px] text-muted leading-relaxed">
+                  <p className="text-xs text-muted leading-relaxed">
                     {step.text}
                   </p>
                 </div>
@@ -478,7 +478,7 @@ export default function MethodPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
               <div className="border border-foreground/60 p-5 space-y-2">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-muted">limites</div>
+                <div className="text-xs uppercase tracking-[0.2em] text-muted">limites</div>
                 <p className="text-xs text-muted leading-relaxed">
                   a IA não calcula os escores, não escolhe o arquétipo e não
                   transforma o resultado em diagnóstico. sua função é
@@ -486,7 +486,7 @@ export default function MethodPage() {
                 </p>
               </div>
               <div className="border border-border p-5 space-y-2">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-muted">se a IA falhar</div>
+                <div className="text-xs uppercase tracking-[0.2em] text-muted">se a IA falhar</div>
                 <p className="text-xs text-muted leading-relaxed">
                   o perfil OCEAN e o arquétipo continuam disponíveis. a
                   devolutiva pode recorrer ao fallback do sistema sem alterar o
@@ -508,25 +508,25 @@ export default function MethodPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
               <div className="border border-border p-4 space-y-2">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-muted">bloco [1]</div>
+                <div className="text-xs uppercase tracking-[0.2em] text-muted">bloco [1]</div>
                 <div className="text-xs font-bold uppercase tracking-[0.15em]">quantitativo</div>
-                <p className="text-[11px] text-muted leading-relaxed">
+                <p className="text-xs text-muted leading-relaxed">
                   os cinco escores já calculados, com suas classificações
                   textuais e eventuais tensões internas.
                 </p>
               </div>
               <div className="border border-border p-4 space-y-2">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-muted">bloco [2]</div>
+                <div className="text-xs uppercase tracking-[0.2em] text-muted">bloco [2]</div>
                 <div className="text-xs font-bold uppercase tracking-[0.15em]">qualitativo</div>
-                <p className="text-[11px] text-muted leading-relaxed">
+                <p className="text-xs text-muted leading-relaxed">
                   respostas interpretativas agrupadas por categoria. texto
                   livre do usuário preservado quando há.
                 </p>
               </div>
               <div className="border border-border p-4 space-y-2">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-muted">bloco [3]</div>
+                <div className="text-xs uppercase tracking-[0.2em] text-muted">bloco [3]</div>
                 <div className="text-xs font-bold uppercase tracking-[0.15em]">arquetípico</div>
-                <p className="text-[11px] text-muted leading-relaxed">
+                <p className="text-xs text-muted leading-relaxed">
                   nome e universo do arquétipo mais próximo, usado apenas
                   como calibrador de tom.
                 </p>
@@ -534,7 +534,7 @@ export default function MethodPage() {
             </div>
 
             <div className="border-l-2 border-foreground/40 pl-4 mt-8 space-y-2">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-foreground/70">
+              <p className="text-xs uppercase tracking-[0.2em] text-foreground/70">
                 isolamento cálculo–interpretação
               </p>
               <ul className="text-xs text-muted space-y-1.5 leading-relaxed">
@@ -559,7 +559,7 @@ export default function MethodPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="border border-foreground/60 p-5 space-y-2">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-muted">o que a tela mostra</div>
+                <div className="text-xs uppercase tracking-[0.2em] text-muted">o que a tela mostra</div>
                 <h3 className="text-sm font-bold uppercase tracking-[0.15em]">influência por resposta</h3>
                 <p className="text-xs text-muted leading-relaxed">
                   o enunciado da pergunta, a sua escolha na escala Likert, o
@@ -568,7 +568,7 @@ export default function MethodPage() {
                 </p>
               </div>
               <div className="border border-border p-5 space-y-2">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-muted">o que a tela não faz</div>
+                <div className="text-xs uppercase tracking-[0.2em] text-muted">o que a tela não faz</div>
                 <h3 className="text-sm font-bold uppercase tracking-[0.15em]">perfil imutável</h3>
                 <p className="text-xs text-muted leading-relaxed">
                   revisar não recalcula nada. o perfil objetivo é calculado uma
@@ -578,7 +578,7 @@ export default function MethodPage() {
               </div>
             </div>
 
-            <p className="text-[11px] text-faint leading-relaxed mt-6 italic">
+            <p className="text-xs text-faint leading-relaxed mt-6 italic">
               a intenção aqui é transparência, não editabilidade: você pode
               concordar ou discordar da leitura, mas o retrato do instante em
               que você respondeu permanece intacto.
@@ -624,7 +624,7 @@ export default function MethodPage() {
           {/* References */}
           <section>
             <SectionTitle eyebrow="12. referências" title="de onde vem cada decisão" />
-            <div className="space-y-2 text-[11px] md:text-xs text-muted leading-relaxed">
+            <div className="space-y-2 text-xs md:text-xs text-muted leading-relaxed">
               <p>
                 <strong className="text-foreground">SOTO, C. J.; JOHN, O. P.</strong> The next Big Five Inventory (BFI-2):
                 developing and assessing a hierarchical model with 15 facets to enhance bandwidth, fidelity, and predictive power.
@@ -659,13 +659,13 @@ export default function MethodPage() {
           <section className="pt-8 flex flex-col sm:flex-row items-center justify-center gap-4 border-t border-border pt-12">
             <Link
               href="/"
-              className="border border-foreground px-8 py-3 text-[11px] uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all"
+              className="border border-foreground px-8 py-3 text-xs uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all"
             >
               começar a avaliação
             </Link>
             <Link
               href="/about"
-              className="text-[11px] uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors"
+              className="text-xs uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors"
             >
               sobre o projeto →
             </Link>

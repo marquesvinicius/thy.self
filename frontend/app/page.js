@@ -117,12 +117,12 @@ export default function Home() {
                 alimenta o cálculo dos cinco fatores OCEAN, e uma interpretativa que
                 apenas enriquece o resultado final. Leia calmamente e responda de forma autêntica.
               </p>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-faint pt-1">
+              <p className="text-xs uppercase tracking-[0.2em] text-faint pt-1">
                 parte 1: ~5 min · parte 2 (opcional): ~8 min
               </p>
               {/* RN015: recomendação declarada, sem verificação — verificar idade exigiria coletar dados.
                   Fica neste guia, que só aparece ao começar uma sessão do zero. */}
-              <p className="text-[10px] uppercase tracking-[0.2em] text-faint">
+              <p className="text-xs uppercase tracking-[0.2em] text-faint">
                 recomendado para adultos · use com responsabilidade · não é diagnóstico
               </p>
             </div>
@@ -130,7 +130,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {QUESTION_TYPE_GUIDE.map((item) => (
                 <section key={item.key} className="border border-border/80 p-4 space-y-2">
-                  <h3 className="text-[11px] uppercase tracking-[0.2em]">{item.title}</h3>
+                  <h3 className="text-xs uppercase tracking-[0.2em]">{item.title}</h3>
                   <p className="text-xs text-muted leading-relaxed">{item.desc}</p>
                 </section>
               ))}
@@ -146,14 +146,14 @@ export default function Home() {
               <button
                 onClick={() => { setShowGuide(false); setStartError(null); }}
                 disabled={loading}
-                className="border border-border px-6 py-2 text-[11px] uppercase tracking-[0.2em] hover:border-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="border border-control px-6 py-2 text-xs uppercase tracking-[0.2em] hover:border-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 voltar
               </button>
               <button
                 onClick={handleStartQuiz}
                 disabled={loading}
-                className="border border-foreground px-6 py-2 text-[11px] uppercase tracking-[0.2em] hover:bg-foreground hover:text-background transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                className="border border-foreground px-6 py-2 text-xs uppercase tracking-[0.2em] hover:bg-foreground hover:text-background transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {loading ? 'iniciando...' : 'entendi, começar'}
               </button>
@@ -184,21 +184,21 @@ export default function Home() {
 
         {resumableSession && (
           <div className="pt-2 space-y-3 animate-fade-in">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-faint">
+            <p className="text-xs uppercase tracking-[0.25em] text-faint">
               você tem uma avaliação em andamento
             </p>
             <div className="flex items-center justify-center gap-6">
               <button
                 onClick={handleResumeSession}
                 disabled={loading}
-                className="text-[11px] uppercase tracking-[0.25em] text-foreground underline underline-offset-4 hover:text-foreground/70 transition-colors disabled:opacity-40"
+                className="text-xs uppercase tracking-[0.25em] text-foreground underline underline-offset-4 hover:text-foreground/70 transition-colors disabled:opacity-40"
               >
                 continuar de onde parei
               </button>
               <button
                 onClick={handleDiscardSession}
                 disabled={loading}
-                className="text-[11px] uppercase tracking-[0.25em] text-muted hover:text-foreground transition-colors disabled:opacity-40"
+                className="text-xs uppercase tracking-[0.25em] text-muted hover:text-foreground transition-colors disabled:opacity-40"
               >
                 descartar
               </button>
@@ -208,21 +208,21 @@ export default function Home() {
 
         {lastResultSession && !resumableSession && (
           <div className="pt-2 space-y-3 animate-fade-in">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-faint">
+            <p className="text-xs uppercase tracking-[0.25em] text-faint">
               você tem um resultado disponível
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
               <button
                 onClick={handleResumeResult}
                 disabled={loading}
-                className="border border-foreground px-5 py-2 text-[11px] uppercase tracking-[0.2em] hover:bg-foreground hover:text-background transition-all disabled:opacity-40"
+                className="border border-foreground px-5 py-2 text-xs uppercase tracking-[0.2em] hover:bg-foreground hover:text-background transition-all disabled:opacity-40"
               >
                 ver resultado
               </button>
               <button
                 onClick={handleStartClick}
                 disabled={loading}
-                className="border border-border px-5 py-2 text-[11px] uppercase tracking-[0.2em] hover:border-foreground transition-colors disabled:opacity-40"
+                className="border border-control px-5 py-2 text-xs uppercase tracking-[0.2em] hover:border-foreground transition-colors disabled:opacity-40"
               >
                 começar nova sessão
               </button>
@@ -231,7 +231,7 @@ export default function Home() {
         )}
       </div>
 
-      <footer className="absolute bottom-6 text-[10px] uppercase tracking-widest text-muted z-[1]">
+      <footer className="absolute bottom-6 text-xs uppercase tracking-widest text-muted z-[1]">
         thy.self &mdash; big five ocean
       </footer>
     </main>

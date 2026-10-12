@@ -88,7 +88,7 @@ export default function Result() {
 function OpeningResult() {
   return (
     <div className="flex-1 flex items-center justify-center" role="status" aria-live="polite">
-      <p className="text-[10px] uppercase tracking-[0.3em] text-muted animate-pulse">
+      <p className="text-xs uppercase tracking-[0.3em] text-muted animate-pulse">
         abrindo seu resultado…
       </p>
     </div>
@@ -375,13 +375,13 @@ function ResultContent() {
 
             {!hasNarrative && (
               <div className="text-center space-y-4">
-                <p className="text-[10px] uppercase tracking-[0.3em] text-faint">
+                <p className="text-xs uppercase tracking-[0.3em] text-faint">
                   interpretação narrativa indisponível no momento
                 </p>
                 <button
                   onClick={handleRetryNarrative}
                   disabled={retryLoading}
-                  className="border border-border px-8 py-3 text-[11px] uppercase tracking-[0.25em] text-muted hover:text-foreground hover:border-foreground transition-all disabled:opacity-30 disabled:cursor-not-allowed inline-flex items-center gap-3"
+                  className="border border-control px-8 py-3 text-xs uppercase tracking-[0.25em] text-muted hover:text-foreground hover:border-foreground transition-all disabled:opacity-30 disabled:cursor-not-allowed inline-flex items-center gap-3"
                 >
                   {retryLoading ? (
                     <>
@@ -393,7 +393,7 @@ function ResultContent() {
                   )}
                 </button>
                 {retryError && (
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-faint">
+                  <p className="text-xs uppercase tracking-[0.2em] text-faint">
                     {retryError}
                   </p>
                 )}
@@ -401,7 +401,7 @@ function ResultContent() {
             )}
 
             <div className="w-full max-w-3xl pt-4 space-y-6 text-center">
-              <p className="text-[10px] uppercase tracking-widest text-muted">
+              <p className="text-xs uppercase tracking-widest text-muted">
                 este resultado reflete tendências com base nas suas respostas. não é um laudo clínico.
               </p>
               <ResultActions

@@ -17,8 +17,8 @@ export default function ProgressBar(props) {
   return (
     <section className={`w-full max-w-[560px] mx-auto ${className}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] uppercase tracking-[0.3em] text-muted">{label}</span>
-        <span className="text-[11px] uppercase tracking-[0.2em] text-muted">
+        <span className="text-xs uppercase tracking-[0.3em] text-muted">{label}</span>
+        <span className="text-xs uppercase tracking-[0.2em] text-muted">
           {Math.round(percentage)}%
         </span>
       </div>
