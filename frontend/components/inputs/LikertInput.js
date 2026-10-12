@@ -91,16 +91,16 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
         <span>Concordo</span>
       </div>
 
-      <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between md:gap-4">
+      <div className="flex flex-col gap-[clamp(0.5rem,1.6dvh,1rem)] md:flex-row md:items-start md:justify-between md:gap-4">
         {orderedPairs.map(({ alt, size, label }) => {
           const isSelected = externalSelectedId === alt.id;
           const sizeMap = {
-            // No mobile, todos têm 64px para dar mais presença visual e
-            // aproveitar melhor a área vertical disponível.
-            // A hierarquia de tamanhos original permanece no desktop.
-            lg: 'h-16 w-16 md:h-16 md:w-16',
-            md: 'h-16 w-16 md:h-12 md:w-12',
-            sm: 'h-16 w-16 md:h-10 md:w-10',
+            // No mobile cada opção é uma linha compacta (a linha inteira recebe
+            // o toque), para as cinco caberem na tela sem rolagem. A hierarquia
+            // de tamanhos original permanece no desktop.
+            lg: 'h-7 w-7 md:h-16 md:w-16',
+            md: 'h-7 w-7 md:h-12 md:w-12',
+            sm: 'h-7 w-7 md:h-10 md:w-10',
           };
           // Mesmo destaque para os cinco círculos. O Neutro usava /40, que
           // sobre o preto equivale ao próprio --color-control (#666) e
@@ -108,7 +108,12 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
           const toneRing = 'hover:border-foreground/70';
 
           return (
-            <div key={alt.id} className="flex flex-row items-center justify-start gap-5 min-w-0 w-full md:flex-1 md:flex-col md:gap-2">
+            <div
+              key={alt.id}
+              className={`relative flex flex-row items-center justify-start gap-4 min-w-0 w-full min-h-[clamp(3rem,8dvh,5rem)] px-4 border transition-colors md:min-h-0 md:px-0 md:border-0 md:flex-1 md:flex-col md:gap-2 ${
+                isSelected ? 'border-foreground bg-foreground/10 md:bg-transparent' : 'border-border/70'
+              }`}
+            >
               <button
                 type="button"
                 aria-label={label}
@@ -116,14 +121,14 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
                 title={label}
                 disabled={disabled}
                 onClick={() => commit(alt.id)}
-                className={`rounded-full border transition-all duration-200 flex items-center justify-center ${sizeMap[size]} ${
+                className={`shrink-0 rounded-full border transition-all duration-200 flex items-center justify-center after:absolute after:inset-0 md:after:hidden ${sizeMap[size]} ${
                   isSelected
                     ? 'bg-foreground border-foreground shadow-[0_0_18px_rgba(255,255,255,0.25)]'
-                    : `border-control ${toneRing}`
+                    : `bg-background border-control ${toneRing}`
                 } disabled:opacity-40 disabled:cursor-not-allowed`}
               />
               <span
-                className={`flex-1 min-w-0 text-xs md:text-xs uppercase tracking-[0.12em] text-left md:text-center leading-tight md:max-w-[112px] transition-colors ${
+                className={`flex-1 min-w-0 text-xs md:text-xs [@media(min-height:760px)]:max-md:text-sm uppercase tracking-[0.12em] text-left md:text-center leading-tight md:max-w-[112px] transition-colors ${
                   isSelected ? 'text-foreground' : 'text-muted'
                 }`}
               >
@@ -135,7 +140,8 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
       </div>
 
       <p className="text-center text-xs uppercase tracking-[0.22em] text-faint pt-1">
-        toque em um círculo para confirmar
+        <span className="md:hidden">toque em uma opção para responder</span>
+        <span className="hidden md:inline">toque em um círculo para confirmar</span>
         <span className="hidden md:inline text-faint"> · ou use as teclas 1–5</span>
       </p>
     </div>

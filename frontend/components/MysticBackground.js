@@ -723,7 +723,7 @@ export function MysticEyesOverlay() {
 
   return (
     <div
-      className="pointer-events-none fixed inset-0"
+      className="pointer-events-none fixed inset-0 hidden md:block"
       style={{ zIndex: 0 }}
       aria-hidden="true"
     >

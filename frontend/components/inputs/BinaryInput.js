@@ -44,7 +44,7 @@ export default function BinaryInput(props) {
 
   return (
     <div className="w-full max-w-[680px] mx-auto">
-      <div className="border border-control divide-y divide-control">
+      <div className="border border-control divide-y divide-control bg-background">
         {items.map((alt) => {
           const id = alt.id ?? alt.alternative_id ?? alt.value;
           const text = alt.text ?? alt.label ?? alt.content ?? '';
@@ -56,7 +56,7 @@ export default function BinaryInput(props) {
               type="button"
               onClick={() => commit(id)}
               disabled={busy}
-              className={`w-full text-left px-5 py-5 text-sm md:text-base transition-colors ${
+              className={`w-full text-left px-5 py-4 md:py-5 text-sm md:text-base transition-colors ${
                 selected
                   ? 'bg-foreground text-background'
                   : 'text-foreground/88 hover:bg-foreground/5'

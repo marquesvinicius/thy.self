@@ -13,19 +13,21 @@ const NAV_ITEMS = [
   { href: '/method', label: 'método', prefetch: false },
 ];
 
-export default function Header() {
+export default function Header({ divider = false }) {
   const pathname = usePathname();
   const isHome = pathname === '/';
 
   return (
     <div
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-3 px-5 py-5 bg-black md:top-8 md:left-10 md:right-10 md:items-start md:gap-6 md:px-0 md:py-0 md:bg-transparent"
+      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-3 px-5 py-2 bg-black ${divider ? 'border-b border-border md:border-b-0' : ''} md:top-8 md:left-10 md:right-10 md:items-start md:gap-6 md:px-0 md:py-0 md:bg-transparent`}
     >
-      <div className="min-w-0 shrink-0 flex items-center min-h-11 md:min-h-0">
+      {/* Na home não há logo: o contêiner vazio sai do fluxo no celular para
+          o menu ocupar a largura toda, sem vazio à esquerda. */}
+      <div className={`min-w-0 shrink-0 items-center min-h-11 md:min-h-0 ${isHome ? 'hidden md:flex' : 'flex'}`}>
         {!isHome && <Logo size="sm" />}
       </div>
       <nav
-        className="flex shrink-0 items-center gap-1 md:gap-5 text-xs md:text-xs uppercase tracking-[0.25em] md:tracking-[0.3em]"
+        className={`flex items-center md:gap-5 ${isHome ? 'w-full justify-between md:w-auto md:justify-start' : 'shrink-0 gap-1'} text-xs md:text-xs uppercase tracking-[0.25em] md:tracking-[0.3em]`}
         aria-label="navegação principal"
       >
         {NAV_ITEMS.map((item) => {

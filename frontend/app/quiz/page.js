@@ -504,7 +504,7 @@ export default function Quiz() {
   if (!sessionId) return null;
 
   return (
-    <div className="min-h-screen flex flex-col overflow-x-hidden">
+    <div className="h-dvh md:h-auto md:min-h-screen flex flex-col overflow-x-hidden">
       <MysticBackground showEyes={false} />
       {showFeedback && (
         <MicroFeedback
@@ -531,22 +531,22 @@ export default function Quiz() {
         />
       )}
 
-      <Header />
+      <Header divider />
 
-      <main className="flex-1 flex flex-col pt-16 md:pt-20 relative z-[1] overflow-x-hidden">
+      <main className="flex-1 min-h-0 flex flex-col pt-16 md:pt-20 relative z-[1] overflow-x-hidden">
         {/* Anúncio para leitor de tela. A troca de pergunta é puramente
             visual (animação + troca de nó); sem uma região live, quem usa
             leitor de tela não recebe aviso nenhum de que avançou. */}
         <div aria-live="polite" aria-atomic="true" className="sr-only">
-          {questions.length > 0
+          {questions.length > 0 && !showStageTransition
             ? `Pergunta ${progress.answered + 1} de ${progress.total}. ${questions[0]?.text ?? ''}`
             : ''}
         </div>
 
         {/* Status bar */}
-        <div className="flex flex-col gap-3 px-5 sm:px-6 md:px-10 py-4 border-b border-border">
+        <div className="flex flex-col gap-3 px-5 sm:px-6 md:px-10 pt-3 pb-3 [@media(min-height:700px)]:max-md:pt-6 md:py-4 md:border-b border-border">
           <ProgressBar current={progress.answered} total={progress.total} />
-          <div className="flex flex-wrap items-center gap-5 text-xs uppercase tracking-widest text-muted">
+          <div className="hidden sm:flex flex-wrap items-center gap-5 text-xs uppercase tracking-widest text-muted">
             <span>respostas: {progress.answered}</span>
             {/* Indicador discreto da etapa atual. Referencia o mesmo texto
                 usado no card de transição (StageTransition) para reforçar
@@ -582,7 +582,7 @@ export default function Quiz() {
         </div>
 
         {/* Ações abaixo da linha divisória */}
-        <div className="flex flex-wrap justify-between items-center gap-3 px-5 sm:px-6 md:px-10 py-2 md:py-3 text-xs md:text-xs uppercase tracking-widest text-muted">
+        <div className="flex flex-wrap justify-between items-center gap-3 px-5 sm:px-6 md:px-10 py-1 [@media(min-height:700px)]:max-md:py-3 md:py-3 text-xs md:text-xs uppercase tracking-widest text-muted">
           <button
             onClick={handleUndo}
             disabled={undoing || submitting || inFlight > 0 || progress.answered === 0}
@@ -605,16 +605,16 @@ export default function Quiz() {
         </div>
 
         {/* Question Area */}
-        {questions.length > 0 ? (
-          <div className={`flex-1 flex flex-col items-center justify-start md:justify-center px-5 py-6 sm:px-6 sm:py-8 md:p-10 overflow-x-hidden md:overflow-hidden ${phaseClasses[phase]}`}>
+        {showStageTransition ? null : questions.length > 0 ? (
+          <div className={`flex-1 flex flex-col items-center justify-start md:justify-center px-5 py-3 sm:px-6 sm:py-6 md:p-10 min-h-0 overflow-y-auto overflow-x-hidden md:overflow-hidden ${phaseClasses[phase]}`}>
             <MysticEyesOverlay />
 
-            <div className="w-full max-w-6xl mx-auto min-w-0 flex-1 flex flex-col justify-start md:justify-center">
+            <div className="w-full max-w-6xl mx-auto min-w-0 flex-1 flex flex-col justify-center">
               {questions.map((q) => (
-                <div key={q.id} className="w-full min-w-0 flex flex-col md:grid md:grid-cols-2 gap-8 md:gap-20 items-center justify-center relative z-10" style={phase === 'entering' ? { animationDelay: `0ms`, animationFillMode: 'both' } : undefined}>
+                <div key={q.id} className="w-full min-w-0 flex flex-col md:grid md:grid-cols-2 gap-[clamp(1rem,4dvh,2.5rem)] md:gap-20 items-center justify-center relative z-10" style={phase === 'entering' ? { animationDelay: `0ms`, animationFillMode: 'both' } : undefined}>
 
                   {/* Left Side: Question */}
-                  <div className={`w-full min-w-0 space-y-6 md:space-y-6 md:pr-10 md:border-r border-border/50 text-center md:text-left ${
+                  <div className={`w-full min-w-0 space-y-[clamp(0.5rem,1.5dvh,1rem)] md:space-y-6 md:pr-10 md:border-r border-border/50 text-center md:text-left ${
                     q.kind === 'interpretative' ? 'md:pr-14' : ''
                   }`}>
                     <span className="text-xs uppercase tracking-widest text-muted">
@@ -624,8 +624,8 @@ export default function Quiz() {
                       id={`question-${q.id}-text`}
                       className={`font-bold leading-tight tracking-tight break-words text-balance ${
                         q.kind === 'interpretative'
-                          ? 'text-2xl md:text-3xl lg:text-4xl'
-                          : 'text-xl md:text-2xl lg:text-3xl'
+                          ? 'text-xl [@media(min-height:760px)]:max-md:text-2xl md:text-3xl lg:text-4xl'
+                          : 'text-xl [@media(min-height:760px)]:max-md:text-2xl md:text-2xl lg:text-3xl'
                       }`}
                     >
                       {q.text}
@@ -634,7 +634,7 @@ export default function Quiz() {
                   </div>
 
                   {/* Right Side: Options & Submit */}
-                  <div className="w-full max-w-md min-w-0 mx-auto flex flex-col items-center justify-center space-y-10 md:space-y-12">
+                  <div className="w-full max-w-md min-w-0 mx-auto flex flex-col items-center justify-center space-y-4 md:space-y-12">
                     {/* As opções formam um grupo semanticamente ligado ao
                         enunciado: sem isso, o leitor de tela anuncia cinco
                         botões soltos, sem dizer a que pergunta respondem. */}
