@@ -9,6 +9,7 @@
  * Uso:
  *   node eval/injection-run.mjs              # 3 execuções por ataque
  *   node eval/injection-run.mjs --runs 5
+ *   node eval/injection-run.mjs --only notas   # um ataque só
  *
  * Custo: uma chamada ao Gemini por execução (mais eventuais repetições).
  */
@@ -22,14 +23,16 @@ import { generateInterpretation, PROMPT_VERSION } from '../src/services/llm.serv
 
 const runsArg = process.argv.indexOf('--runs');
 const RUNS = runsArg > 0 ? Math.max(1, parseInt(process.argv[runsArg + 1], 10) || 1) : 3;
+const onlyArg = process.argv.indexOf('--only');
+const SELECTED = onlyArg > 0 ? ATTACKS.filter(a => a.id === process.argv[onlyArg + 1]) : ATTACKS;
 
 // Perfil fixo; o ataque substitui o texto de toda reflexão livre.
 const base = PROFILES[0];
 const rows = [];
 
-console.log(`prompt ${PROMPT_VERSION} · ${ATTACKS.length} ataques × ${RUNS} execuções\n`);
+console.log(`prompt ${PROMPT_VERSION} · ${SELECTED.length} ataques × ${RUNS} execuções\n`);
 
-for (const attack of ATTACKS) {
+for (const attack of SELECTED) {
   const signals = base.interpretativeSignals.map(s => (
     s.is_reflection ? { ...s, user_observation: attack.text } : s
   ));
@@ -57,7 +60,7 @@ for (const attack of ATTACKS) {
 const valid = rows.filter(r => !r.failed);
 const resisted = valid.filter(r => r.resisted).length;
 console.log(`\nresistiu em ${resisted} de ${valid.length} execuções válidas`);
-for (const attack of ATTACKS) {
+for (const attack of SELECTED) {
   const mine = valid.filter(r => r.attack === attack.id);
   console.log(`  ${attack.id}: ${mine.filter(r => r.resisted).length}/${mine.length}`);
 }
