@@ -92,7 +92,7 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
       </div>
 
       <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between md:gap-4">
-        {orderedPairs.map(({ alt, size, tone, label }) => {
+        {orderedPairs.map(({ alt, size, label }) => {
           const isSelected = externalSelectedId === alt.id;
           const sizeMap = {
             // No mobile, todos têm 64px para dar mais presença visual e
@@ -102,12 +102,10 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
             md: 'h-16 w-16 md:h-12 md:w-12',
             sm: 'h-16 w-16 md:h-10 md:w-10',
           };
-          const toneRing =
-            tone === 'negative'
-              ? 'hover:border-foreground/70'
-              : tone === 'positive'
-                ? 'hover:border-foreground/70'
-                : 'hover:border-foreground/40';
+          // Mesmo destaque para os cinco círculos. O Neutro usava /40, que
+          // sobre o preto equivale ao próprio --color-control (#666) e
+          // deixava o hover invisível.
+          const toneRing = 'hover:border-foreground/70';
 
           return (
             <div key={alt.id} className="flex flex-row items-center justify-start gap-5 min-w-0 w-full md:flex-1 md:flex-col md:gap-2">
