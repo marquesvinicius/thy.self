@@ -33,30 +33,30 @@ export default function StageTransition({
   const fullMinutes = fullCount ? Math.max(1, Math.round((fullCount * 25) / 60)) : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm animate-fade-in text-foreground p-4 md:p-6 overflow-y-auto">
-      <div className="max-w-xl w-full bg-background border-2 border-foreground/60 p-6 md:p-10 shadow-[0_0_60px_rgba(255,255,255,0.06)] relative space-y-6 my-auto">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background text-foreground p-3 md:p-6 overflow-y-auto">
+      <div className="max-w-xl w-full bg-background animate-fade-in border-2 border-foreground/60 p-5 md:p-10 relative space-y-3 md:space-y-6 my-auto">
         <div className="absolute -top-3 left-6 px-3 bg-background">
           <p className="text-xs uppercase tracking-[0.4em] text-foreground font-bold">
             parte 1 concluída
           </p>
         </div>
 
-        <h3 className="text-2xl md:text-3xl font-bold leading-tight tracking-tight pt-2">
+        <h3 className="text-xl md:text-3xl font-bold leading-tight tracking-tight pt-2">
           seus cinco eixos já podem ser calculados.
         </h3>
 
-        <div className="space-y-2 text-[13px] text-muted leading-relaxed">
+        <div className="space-y-1.5 md:space-y-2 text-xs md:text-[13px] text-muted leading-relaxed">
           <p className="text-foreground/80 text-xs uppercase tracking-[0.2em]">
             com as 30 respostas, já estão garantidos:
           </p>
-          <ul className="space-y-1.5">
+          <ul className="space-y-1 md:space-y-1.5">
             <li>✓ perfil OCEAN completo</li>
             <li>✓ arquétipo estatístico</li>
             <li>✓ referências culturais e interpretação da IA</li>
           </ul>
         </div>
 
-        <div className="border-t border-border pt-5 text-[13px] text-muted leading-relaxed">
+        <div className="border-t border-border pt-3 md:pt-5 text-xs md:text-[13px] text-muted leading-relaxed">
           <p>
             a <span className="text-foreground">parte 2</span> é narrativa e não
             altera nenhum escore. o que ela adiciona: dilemas, paradoxos e
@@ -65,10 +65,10 @@ export default function StageTransition({
           </p>
         </div>
 
-        <div className="space-y-3 pt-1">
+        <div className="space-y-2 md:space-y-3 pt-1">
           <button
             onClick={() => onChoose?.('short')}
-            className="w-full border border-foreground px-6 py-4 text-left transition-all hover:bg-foreground hover:text-background group"
+            className="w-full border border-foreground px-5 md:px-6 py-3 md:py-4 text-left transition-all hover:bg-foreground hover:text-background group"
           >
             <span className="block text-xs uppercase tracking-[0.3em]">
               versão curta
@@ -80,12 +80,12 @@ export default function StageTransition({
 
           <button
             onClick={() => onChoose?.('full')}
-            className="w-full border border-control px-6 py-4 text-left transition-all hover:border-foreground group"
+            className="w-full border border-foreground px-5 md:px-6 py-3 md:py-4 text-left transition-all hover:bg-foreground hover:text-background group"
           >
             <span className="block text-xs uppercase tracking-[0.3em]">
               versão completa
             </span>
-            <span className="block text-xs text-muted mt-1 normal-case tracking-normal">
+            <span className="block text-xs text-muted group-hover:text-background/70 mt-1 normal-case tracking-normal">
               {fullCount ? `${fullCount} perguntas · ~${fullMinutes} min` : 'todas as perguntas narrativas'}
               {' '}— leitura mais densa
             </span>
@@ -93,7 +93,7 @@ export default function StageTransition({
 
           <button
             onClick={onAnalyze}
-            className="w-full border border-control px-6 py-3 text-xs uppercase tracking-[0.25em] text-muted hover:text-foreground hover:border-foreground transition-all"
+            className="w-full border border-control px-4 md:px-6 py-3 text-xs uppercase tracking-[0.2em] md:tracking-[0.25em] text-muted hover:text-foreground hover:border-foreground transition-all"
           >
             encerrar agora — ver meu resultado
           </button>

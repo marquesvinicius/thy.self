@@ -267,12 +267,12 @@ function InterpretativeTab({ answers }) {
 
 function ContributionBadge({ value, reverseKey }) {
   const delta = Number(value || 0);
-  const sign = delta > 0 ? '+' : delta < 0 ? '' : '±';
+  const sign = delta > 0 ? '+' : '';
   const strong = Math.abs(delta) === 2;
 
   return (
     <span
-      className={`inline-flex flex-col items-center justify-center min-w-[42px] h-[42px] border px-2 shrink-0 ${
+      className={`inline-flex items-center justify-center min-w-[42px] h-8 border px-2 shrink-0 ${
         delta === 0
           ? 'border-border text-muted'
           : strong
@@ -283,9 +283,6 @@ function ContributionBadge({ value, reverseKey }) {
     >
       <span className="text-sm font-semibold tabular-nums leading-none">
         {sign}{delta || 0}
-      </span>
-      <span className="text-xs uppercase tracking-[0.18em] text-muted mt-1">
-        {delta === 0 ? 'neutro' : reverseKey ? 'inv.' : 'dir.'}
       </span>
     </span>
   );

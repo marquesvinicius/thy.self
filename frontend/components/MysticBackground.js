@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useSyncExternalStore } from 'react';
 
 /* =========================================================================
    MysticBackground
@@ -88,9 +88,58 @@ const QUIZ_PERIPHERAL_ZONES = [
 
 const MAX_VISIBLE_EYES = 2;
 
-function almondPath(cx, cy, rx, ry) {
-  return `M ${cx - rx},${cy} Q ${cx},${cy - ry} ${cx + rx},${cy} Q ${cx},${cy + ry} ${cx - rx},${cy} Z`;
+/* Amêndoa com curvas cúbicas, no desenho do ícone do site. A meia-altura
+   visível é 0,75·ry.
+
+   `closure` (0 = aberto, 1 = fechado) é a pálpebra: é o PRÓPRIO contorno que
+   se fecha, como num olho real. A borda de cima desce quase tudo, a de baixo
+   sobe pouco, e as duas se encontram numa linha levemente curvada para
+   baixo. A íris some porque o recorte (clipPath) usa esta mesma forma. */
+function almondPath(cx, cy, rx, ry, closure = 0) {
+  const kx = rx * 0.42;
+  const meet = cy + ry * 0.35;                     // linha da pálpebra fechada
+  const up = (cy - ry) + (meet - (cy - ry)) * closure;
+  const lo = (cy + ry) + (meet - (cy + ry)) * closure;
+  const f = n => Math.round(n * 1000) / 1000;
+  return `M ${f(cx - rx)},${f(cy)} C ${f(cx - kx)},${f(up)} ${f(cx + kx)},${f(up)} ${f(cx + rx)},${f(cy)} `
+    + `C ${f(cx + kx)},${f(lo)} ${f(cx - kx)},${f(lo)} ${f(cx - rx)},${f(cy)} Z`;
 }
+
+// Tempos de uma piscada humana: fecha em ~100 ms acelerando, fica fechado
+// um instante e reabre em ~200 ms desacelerando — um movimento contínuo,
+// sem paradas no meio (as paradas apareciam como "degraus").
+const BLINK_CLOSE_MS = 100;
+const BLINK_CLOSED_MS = 40;
+const BLINK_OPEN_MS = 200;
+
+// Piscada dos olhos de fundo. Começa em 86% do MESMO ciclo do olhar
+// (AMBIENT_GAZE), dentro da janela 76–100% em que o olhar está parado no
+// centro — nunca pisca enquanto a íris se desloca. As durações são fixas em
+// ms, então a piscada tem a mesma velocidade em olhos de ciclo curto ou longo.
+function ambientBlinkProps(e, durS, begin) {
+  const total = durS * 1000;
+  const t1 = 0.86;
+  const t2 = t1 + BLINK_CLOSE_MS / total;
+  const t3 = t2 + BLINK_CLOSED_MS / total;
+  const t4 = t3 + BLINK_OPEN_MS / total;
+  const steps = [[0, 0], [t1, 0], [t2, 1], [t3, 1], [t4, 0], [1, 0]];
+  return {
+    attributeName: 'd',
+    values: steps.map(([, c]) => almondPath(e.cx, e.cy, e.rx, e.ry, c)).join(';'),
+    keyTimes: steps.map(([t]) => t.toFixed(5)).join(';'),
+    calcMode: 'spline',
+    // parado · fecha acelerando · fechado · abre desacelerando · parado
+    keySplines: '0 0 1 1; 0.5 0 0.9 0.6; 0 0 1 1; 0.1 0.4 0.3 1; 0 0 1 1',
+    dur: `${durS}s`,
+    begin,
+    repeatCount: 'indefinite',
+  };
+}
+// Olhar dos olhos de fundo: dardo rápido (~2% do ciclo), fixação longa.
+const AMBIENT_GAZE = [
+  [0, '0 0'], [0.16, '0 0'], [0.18, '1.5 0.25'], [0.38, '1.5 0.25'], [0.40, '0 0'],
+  [0.55, '0 0'], [0.57, '-1.2 -0.2'], [0.74, '-1.2 -0.2'], [0.76, '0 0'], [1, '0 0'],
+];
 
 function CornerSigil({ x, y }) {
   return (
@@ -106,17 +155,19 @@ function CornerSigil({ x, y }) {
 /* --------------------------------------------------------------------------
    AmbientEyeNodes: eyes that blink organically at fixed positions.
 
-   Além das piscadas, cada olho tem um drift de olhar em CSS puro
-   (`ambientGaze`): a íris dardeja para um lado, fixa, volta ao centro,
-   dardeja para o outro — durações e delays diferentes por olho para que
-   nunca olhem todos juntos. A pupila respira (dilatação lenta, classe
-   global .pupil-breath). Zero JavaScript por olho.
+   Cada olho tem um ciclo próprio (duração e atraso diferentes, para nunca
+   olharem juntos) com animação nativa do SVG: a íris dardeja para um lado,
+   fixa, volta ao centro, dardeja para o outro (AMBIENT_GAZE), e a piscada
+   fecha o próprio contorno (ambientBlinkProps) só na fase em que o olhar está
+   parado. A pupila respira (classe global .pupil-breath). Zero JavaScript
+   por olho.
    -------------------------------------------------------------------------- */
-function AmbientEyeNodes({ prefix, eyes, readingFocus = false }) {
+function AmbientEyeNodes({ prefix, eyes, readingFocus = false, reduced = false }) {
   return eyes.map((e, i) => {
     const path = almondPath(e.cx, e.cy, e.rx, e.ry);
-    const irisR = e.ry * 0.72;
-    const pupilR = e.ry * 0.36;
+    const irisR = e.ry * 0.84;
+    const pupilR = e.ry * 0.43;
+    const stroke = e.ry * 0.065;
     // Timing dessincronizado por olho: 13–24s por ciclo de olhar, com o
     // delay da piscada reaproveitado como offset para quebrar qualquer
     // sincronia perceptível.
@@ -127,49 +178,28 @@ function AmbientEyeNodes({ prefix, eyes, readingFocus = false }) {
       ? `${(i * 5.5) % 22}s`
       : `${(i * 1.9) % 8}s`;
 
+    // Olhar e piscada no mesmo relógio (SMIL), com a piscada só quando o
+    // olhar está parado. Lendo (readingFocus): olhar lento e sem piscar.
+    const blink = !reduced && !readingFocus ? (
+      <animate {...ambientBlinkProps(e, gazeDur, gazeDelay)} />
+    ) : null;
+
     return (
       <g key={`${prefix}-${i}`} opacity={e.op}>
         <g clipPath={`url(#${prefix}-${i})`}>
-          <g
-            style={{
-              animation: `ambientGaze ${gazeDur}s ${gazeDelay} ease-in-out infinite`,
-            }}
-          >
-            <circle cx={e.cx} cy={e.cy} r={irisR} fill="none" stroke="white" strokeWidth="0.22" />
+          <g>
+            {!reduced && (
+              <animateTransform attributeName="transform" type="translate"
+                values={AMBIENT_GAZE.map(([, v]) => v).join(';')}
+                keyTimes={AMBIENT_GAZE.map(([t]) => t).join(';')}
+                dur={`${gazeDur}s`} begin={gazeDelay} repeatCount="indefinite" />
+            )}
+            <circle cx={e.cx} cy={e.cy} r={irisR} fill="none" stroke="white" strokeWidth={stroke} />
             <circle className="pupil-breath" cx={e.cx} cy={e.cy} r={pupilR} fill="white" />
           </g>
 
-          {/* Upper + lower lids closing toward the middle */}
-          <rect
-            x={e.cx - e.rx}
-            y={e.cy - e.ry}
-            width={e.rx * 2}
-            height={e.ry}
-            fill="black"
-            style={{
-              transform: 'scaleY(0)',
-              transformOrigin: '50% 0%',
-              animation: readingFocus
-                ? 'none'
-                : `ambientBlinkTop ${e.dur} ${e.delay} ease-in-out infinite`,
-            }}
-          />
-          <rect
-            x={e.cx - e.rx}
-            y={e.cy}
-            width={e.rx * 2}
-            height={e.ry}
-            fill="black"
-            style={{
-              transform: 'scaleY(0)',
-              transformOrigin: '50% 100%',
-              animation: readingFocus
-                ? 'none'
-                : `ambientBlinkBottom ${e.dur} ${e.delay} ease-in-out infinite`,
-            }}
-          />
         </g>
-        <path d={path} fill="none" stroke="white" strokeWidth="0.28" />
+        <path d={path} fill="none" stroke="white" strokeWidth={stroke}>{blink}</path>
       </g>
     );
   });
@@ -188,6 +218,13 @@ function AmbientEyeNodes({ prefix, eyes, readingFocus = false }) {
    a pálpebra superior faz a maior parte do percurso. Squint ocasional segura
    meio-fechado por 1–2 s — o "olhar avaliador".
 
+   Piscar e mover não se misturam: piscar durante a perseguição de um alvo
+   atrapalha o próprio movimento do olho (Rambold et al., Exp. Brain Res.,
+   2004/2005), e na tela isso parece falso. Por isso a piscada espera o olhar
+   ficar quieto (sem movimento em curso e sem cursor se mexendo), e o olhar
+   não se move enquanto as pálpebras estão em movimento. Na saída, o olho
+   para, pisca até fechar e só então se esconde.
+
    `prefers-reduced-motion`: pupila estática, sem sacadas/gaze/squint; a
    entrada/saída vira fade simples e as piscadas continuam discretas.
    -------------------------------------------------------------------------- */
@@ -197,10 +234,10 @@ function AmbientEyeNodes({ prefix, eyes, readingFocus = false }) {
 // amendoado corta o excesso) — é ela quem faz ~80% do percurso, como na
 // anatomia real; a inferior sobe pouco.
 const LID_POSES = {
-  closed: { upper: 1.7, lower: 0.5 },
-  open: { upper: 0, lower: 0 },
-  blink: { upper: 1.7, lower: 0.45 },
-  squint: { upper: 1.05, lower: 0.25 },
+  closed: 1,
+  open: 0,
+  blink: 1,
+  squint: 0.45,
 };
 
 // Limites de deslocamento da íris dentro da amêndoa (unidades do viewBox).
@@ -209,17 +246,41 @@ const GAZE_MAX_Y = 3.8;
 
 // Ritmo contemplativo: o olho observa, não vigia. Tudo aqui é lento de
 // propósito — olhar que desliza, piscada preguiçosa, saída como quem adormece.
-const EYE_FADE_IN_MS = 1600;
-const EYE_FADE_OUT_MS = 1400;
+const EYE_FADE_IN_MS = 600;
+// Saída com pressa: some rápido assim que termina de fechar, sem a linha
+// fechada ficar parada na tela.
+const EYE_FADE_OUT_MS = 160;
 const EYE_VISIBLE_MIN_MS = 7000;
 const EYE_VISIBLE_JITTER_MS = 4000;
-const GAZE_IDLE_TRANSITION = 'transform 1400ms cubic-bezier(.45,.05,.25,1)';
-const GAZE_ATTEND_TRANSITION = 'transform 800ms cubic-bezier(.4,.1,.3,1)';
-const LID_TRANSITIONS = {
-  fast: 'transform 170ms cubic-bezier(.55,0,.8,.4)',     // piscada: fecha
-  slow: 'transform 420ms cubic-bezier(.2,.65,.3,1)',     // piscada: reabre
-  drowsy: 'transform 1100ms cubic-bezier(.45,0,.55,1)',  // abrir/fechar de vez
+const GAZE_IDLE_MS = 1400;
+const GAZE_ATTEND_MS = 800;
+const GAZE_IDLE_TRANSITION = `transform ${GAZE_IDLE_MS}ms cubic-bezier(.45,.05,.25,1)`;
+const GAZE_ATTEND_TRANSITION = `transform ${GAZE_ATTEND_MS}ms cubic-bezier(.4,.1,.3,1)`;
+// Margem depois do fim do movimento antes de o olhar contar como "quieto".
+const GAZE_SETTLE_MS = 350;
+// Cursor parado há pelo menos isto para o olho poder piscar.
+const POINTER_QUIET_MS = 900;
+// O sumiço começa um pouco antes de a pálpebra terminar de fechar, para
+// o fim do fechamento e o sumiço serem um movimento só.
+const EXIT_HIDE_AT_MS = Math.round(BLINK_CLOSE_MS * 0.6);
+// Duração e curva de cada tipo de movimento de pálpebra.
+const LID_MOTION = {
+  fast: { ms: BLINK_CLOSE_MS, ease: t => t * t },                   // piscada: fecha
+  slow: { ms: BLINK_OPEN_MS, ease: t => 1 - (1 - t) ** 3 },         // piscada: reabre
+  drowsy: { ms: 1100, ease: t => (t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2) },
 };
+
+// Preferência de reduzir movimento, segura para SSR: o servidor assume
+// "sem redução" e o navegador lê a mídia real (e acompanha mudanças).
+function subscribeReducedMotion(onChange) {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+  media.addEventListener?.('change', onChange);
+  return () => media.removeEventListener?.('change', onChange);
+}
+function usePrefersReducedMotion() {
+  return useSyncExternalStore(subscribeReducedMotion, prefersReducedMotion, () => false);
+}
 
 function prefersReducedMotion() {
   if (typeof window === 'undefined' || !window.matchMedia) return false;
@@ -249,12 +310,50 @@ function QuizEye({ x, y, size, uid, onDone }) {
   // 'idle' (sacadas aleatórias) | 'attend' (seguindo cursor / evento)
   const gazeModeRef = useRef('idle');
   const attendUntilRef = useRef(0);
+  // Quando o movimento de olhar atual termina (mais a margem de assentar).
+  const gazeSettledAtRef = useRef(0);
+  // Último movimento do cursor (olho acompanhando = não pisca).
+  const lastPointerRef = useRef(0);
+  // Pálpebras em movimento: o olhar fica parado até terminar.
+  const lidsBusyRef = useRef(false);
+
+  // Fechamento atual das pálpebras (0 aberto, 1 fechado), animado até a
+  // pose pedida. É ele que desenha o contorno e o recorte da íris.
+  const [closure, setClosure] = useState(reduced ? 0 : 1);
+  const closureRef = useRef(reduced ? 0 : 1);
+  useEffect(() => {
+    const target = LID_POSES[lidPose];
+    const motion = LID_MOTION[lidSpeed] || LID_MOTION.slow;
+    const from = closureRef.current;
+    if (from === target) return undefined;
+    let raf = 0;
+    const start = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / motion.ms);
+      const value = from + (target - from) * motion.ease(t);
+      closureRef.current = value;
+      setClosure(value);
+      if (t < 1) raf = window.requestAnimationFrame(step);
+    };
+    raf = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(raf);
+  }, [lidPose, lidSpeed]);
+
+  // Move o olhar, a menos que as pálpebras estejam em movimento.
+  const moveGaze = useCallback((next, attending) => {
+    if (lidsBusyRef.current) return false;
+    setGazeAttending(attending);
+    setGaze(next);
+    gazeSettledAtRef.current = Date.now()
+      + (attending ? GAZE_ATTEND_MS : GAZE_IDLE_MS) + GAZE_SETTLE_MS;
+    return true;
+  }, []);
 
   // Muda a pose escolhendo a velocidade certa pela direção do movimento
   // (fechar = rápido, abrir = lento), a menos que uma velocidade seja pedida.
   const poseTo = useCallback((next, speed) => {
     setLidPose((prev) => {
-      const closing = LID_POSES[next].upper > LID_POSES[prev].upper;
+      const closing = LID_POSES[next] > LID_POSES[prev];
       setLidSpeed(speed || (closing ? 'fast' : 'slow'));
       return next;
     });
@@ -269,11 +368,33 @@ function QuizEye({ x, y, size, uid, onDone }) {
       return t;
     };
 
-    const openAt = 500;                                // surge de olhos fechados e abre devagar
+    const openAt = 120;                                // surge e já começa a abrir (sem linha parada)
     const settledAt = openAt + 1100;                   // pálpebras terminaram de abrir
     const visibleMs = EYE_VISIBLE_MIN_MS + Math.random() * EYE_VISIBLE_JITTER_MS;
-    const closeAt = settledAt + visibleMs;             // início do adormecer
-    const goneAt = closeAt + 400 + EYE_FADE_OUT_MS + 100;
+    const closeAt = settledAt + visibleMs;             // início da despedida
+
+    // Roda `fn` quando o olhar estiver quieto. `ignorePointer` vale para a
+    // saída: o cursor pode não parar nunca, mas o movimento em curso termina.
+    const whenGazeQuiet = (fn, { ignorePointer = false, tries = 0 } = {}) => {
+      const now = Date.now();
+      const moving = now < gazeSettledAtRef.current;
+      const tracking = !ignorePointer && now - lastPointerRef.current < POINTER_QUIET_MS;
+      if ((moving || tracking) && tries < 20) {
+        schedule(() => whenGazeQuiet(fn, { ignorePointer, tries: tries + 1 }), 300);
+        return;
+      }
+      fn();
+    };
+
+    // Piscada: fecha rápido, reabre devagar; o olhar fica parado o tempo todo.
+    const blink = () => {
+      if (exitingRef.current || lidsBusyRef.current) return;
+      lidsBusyRef.current = true;
+      poseTo('blink');
+      const reopenAt = BLINK_CLOSE_MS + BLINK_CLOSED_MS + Math.random() * 30;
+      schedule(() => { if (!exitingRef.current) poseTo('open'); }, reopenAt);
+      schedule(() => { if (!exitingRef.current) lidsBusyRef.current = false; }, reopenAt + BLINK_OPEN_MS + 20);
+    };
 
     schedule(() => setVisible(true), 30);
     schedule(() => poseTo('open', 'drowsy'), openAt);
@@ -285,36 +406,33 @@ function QuizEye({ x, y, size, uid, onDone }) {
 
       for (let i = 0; i < blinkCount; i++) {
         const jitter = (Math.random() - 0.5) * step * 0.3;
-        schedule(() => {
-          if (exitingRef.current) return;
-          poseTo('blink');
-          schedule(() => { if (!exitingRef.current) poseTo('open'); }, 200 + Math.random() * 120);
-        }, settledAt + step * (i + 1) + jitter);
+        schedule(() => whenGazeQuiet(blink), settledAt + step * (i + 1) + jitter);
       }
 
       // Olhar semicerrado ocasional (20%), lento e demorado (1.6–2.4s).
       if (Math.random() < 0.2) {
         const at = settledAt + visibleMs * (0.35 + Math.random() * 0.3);
-        schedule(() => {
-          if (exitingRef.current) return;
+        schedule(() => whenGazeQuiet(() => {
+          if (exitingRef.current || lidsBusyRef.current) return;
           poseTo('squint', 'drowsy');
           schedule(() => {
             if (!exitingRef.current) poseTo('open', 'drowsy');
           }, 1600 + Math.random() * 800);
-        }, at);
+        }), at);
       }
     }
 
-    // Saída: as pálpebras descem devagar e, no meio do caminho, o olho começa
-    // a se dissolver e a recuar um pouco. Assim não sobra o contorno vazio
-    // piscando sozinho, que era o que deixava a saída feia.
+    // Saída: o olhar congela onde está, termina o movimento em curso, o olho
+    // pisca até fechar e some logo em seguida (rápido, recuando um pouco).
     schedule(() => {
       exitingRef.current = true;
-      setGaze({ dx: 0, dy: 0 });
-      poseTo('closed', 'drowsy');
-      schedule(() => { setExiting(true); setVisible(false); }, 400);
+      whenGazeQuiet(() => {
+        lidsBusyRef.current = true;
+        poseTo('closed', 'fast');
+        schedule(() => { setExiting(true); setVisible(false); }, EXIT_HIDE_AT_MS);
+        schedule(() => onDone?.(), EXIT_HIDE_AT_MS + EYE_FADE_OUT_MS + 100);
+      }, { ignorePointer: true });
     }, closeAt);
-    schedule(() => onDone?.(), goneAt);
 
     return () => {
       timers.forEach((t) => window.clearTimeout(t));
@@ -337,15 +455,14 @@ function QuizEye({ x, y, size, uid, onDone }) {
         // Cursor mandou recentemente — não briga com a atenção.
       } else if (!exitingRef.current) {
         gazeModeRef.current = 'idle';
-        setGazeAttending(false);
         const r = Math.random();
         if (r < 0.35) {
-          setGaze({ dx: 0, dy: 0 }); // volta ao centro
+          moveGaze({ dx: 0, dy: 0 }, false); // volta ao centro
         } else {
-          setGaze({
+          moveGaze({
             dx: (Math.random() * 2 - 1) * GAZE_MAX_X * 0.6,
             dy: (Math.random() * 2 - 1) * GAZE_MAX_Y * 0.6,
-          });
+          }, false);
         }
       }
 
@@ -358,7 +475,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
       cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [reduced]);
+  }, [reduced, moveGaze]);
 
   // ── Perseguição do cursor: olha na direção do mouse, depois "perde o
   //    interesse" e volta às sacadas ──
@@ -374,11 +491,10 @@ function QuizEye({ x, y, size, uid, onDone }) {
       const vx = targetX - ex;
       const vy = targetY - ey;
       const len = Math.hypot(vx, vy) || 1;
-      setGazeAttending(true);
-      setGaze({
+      moveGaze({
         dx: (vx / len) * GAZE_MAX_X * 0.85,
         dy: (vy / len) * GAZE_MAX_Y * 0.85,
-      });
+      }, true);
     };
 
     // Segue o cursor com calma: no máximo uma atualização a cada 250 ms,
@@ -386,6 +502,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
     let lastMove = 0;
     const onMove = (e) => {
       const now = Date.now();
+      lastPointerRef.current = now;
       if (rafPending || now - lastMove < 250) return;
       lastMove = now;
       rafPending = true;
@@ -414,10 +531,9 @@ function QuizEye({ x, y, size, uid, onDone }) {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('thyself:answered', onAnswered);
     };
-  }, [x, y, reduced]);
+  }, [x, y, reduced, moveGaze]);
 
-  const pose = LID_POSES[lidPose];
-  const lidTransition = LID_TRANSITIONS[lidSpeed] || LID_TRANSITIONS.slow;
+  const eyeD = almondPath(50, 21, 48, 21, closure);
 
   const clipId = `quiz-eye-clip-${uid}`;
 
@@ -444,6 +560,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
       }}
     >
       <svg
+        data-closure={closure.toFixed(3)}
         viewBox="0 0 100 42"
         width="100%"
         height="100%"
@@ -452,7 +569,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
       >
         <defs>
           <clipPath id={clipId}>
-            <path d="M 2,21 Q 50,1 98,21 Q 50,41 2,21 Z" />
+            <path d={eyeD} />
           </clipPath>
         </defs>
 
@@ -464,7 +581,7 @@ function QuizEye({ x, y, size, uid, onDone }) {
               transition: gazeAttending ? GAZE_ATTEND_TRANSITION : GAZE_IDLE_TRANSITION,
             }}
           >
-            <circle cx="50" cy="21" r="14" fill="none" stroke="white" strokeWidth="0.9" />
+            <circle cx="50" cy="21" r="17.6" fill="none" stroke="white" strokeWidth="1.3" />
             {/* Constrição no flash oracular (scale 0.8 por ~650ms) */}
             <g
               style={{
@@ -475,39 +592,18 @@ function QuizEye({ x, y, size, uid, onDone }) {
               }}
             >
               {/* Respiração lenta da pupila (±12% em 8s) */}
-              <circle className="pupil-breath" cx="50" cy="21" r="6.2" fill="white" />
+              <circle className="pupil-breath" cx="50" cy="21" r="9" fill="white" />
             </g>
-            <circle cx="52.5" cy="19" r="1.4" fill="white" opacity="0.85" />
           </g>
 
-          {/* Pálpebra superior (faz a maior parte do percurso) */}
-          <rect
-            x="0" y="0" width="100" height="21"
-            fill="black"
-            style={{
-              transform: `scaleY(${pose.upper})`,
-              transformOrigin: '50% 0%',
-              transition: lidTransition,
-            }}
-          />
-          {/* Pálpebra inferior (sobe pouco — anatomia real) */}
-          <rect
-            x="0" y="21" width="100" height="21"
-            fill="black"
-            style={{
-              transform: `scaleY(${pose.lower})`,
-              transformOrigin: '50% 100%',
-              transition: lidTransition,
-            }}
-          />
         </g>
 
-        {/* Contorno amendoado */}
+        {/* Contorno: é ele que se fecha (pálpebra) */}
         <path
-          d="M 2,21 Q 50,1 98,21 Q 50,41 2,21 Z"
+          d={eyeD}
           fill="none"
           stroke="white"
-          strokeWidth="1.1"
+          strokeWidth="1.4"
           strokeLinejoin="round"
         />
       </svg>
@@ -627,7 +723,7 @@ export function MysticEyesOverlay() {
 
   return (
     <div
-      className="pointer-events-none fixed inset-0"
+      className="pointer-events-none fixed inset-0 hidden md:block"
       style={{ zIndex: 0 }}
       aria-hidden="true"
     >
@@ -651,6 +747,7 @@ export function MysticEyesOverlay() {
    -------------------------------------------------------------------------- */
 export default function MysticBackground({ showEyes = true, readingFocus = false }) {
   const prefix = 'ambient-eye';
+  const reducedMotion = usePrefersReducedMotion();
 
   return (
     <div
@@ -671,11 +768,19 @@ export default function MysticBackground({ showEyes = true, readingFocus = false
             xmlns="http://www.w3.org/2000/svg"
           >
             <defs>
-              {AMBIENT_EYES.map((e, i) => (
-                <clipPath key={i} id={`${prefix}-${i}`}>
-                  <path d={almondPath(e.cx, e.cy, e.rx, e.ry)} />
-                </clipPath>
-              ))}
+              {AMBIENT_EYES.map((e, i) => {
+                const gazeDur = readingFocus ? 42 + ((i * 7.5) % 24) : 13 + ((i * 3.7) % 11);
+                const gazeDelay = readingFocus ? `${(i * 5.5) % 22}s` : `${(i * 1.9) % 8}s`;
+                return (
+                  <clipPath key={i} id={`${prefix}-${i}`}>
+                    <path d={almondPath(e.cx, e.cy, e.rx, e.ry)}>
+                      {!reducedMotion && !readingFocus && (
+                        <animate {...ambientBlinkProps(e, gazeDur, gazeDelay)} />
+                      )}
+                    </path>
+                  </clipPath>
+                );
+              })}
             </defs>
 
             <CornerSigil x={3.5} y={3.5} />
@@ -687,6 +792,7 @@ export default function MysticBackground({ showEyes = true, readingFocus = false
                 prefix={prefix}
                 eyes={AMBIENT_EYES}
                 readingFocus={readingFocus}
+                reduced={reducedMotion}
               />
           </svg>
 
@@ -746,39 +852,6 @@ const sharedStyles = `
     background-image: radial-gradient(rgba(255, 255, 255, 0.22) 0.55px, transparent 0.55px);
     background-size: 3px 3px;
     animation: grainMove 12s linear infinite;
-  }
-
-  /* Ambient blink — anatomia assimétrica: a pálpebra superior fecha RÁPIDO
-     (86% → 87.2% do ciclo) e reabre mais devagar, com um "hang" de meia
-     pálpebra antes de abrir de vez (o segundo olhar). A inferior acompanha
-     com percurso menor (máx 0.45) — pálpebras reais não são simétricas. */
-  @keyframes ambientBlinkTop {
-    0%, 86%, 100%  { transform: scaleY(0); }
-    87.2%, 90%     { transform: scaleY(1.7); }   /* fecha rápido (cruza a linha média), segura */
-    92.5%          { transform: scaleY(0.9); }   /* reabre com peso */
-    94%, 95.5%     { transform: scaleY(0.6); }   /* hang de meia pálpebra */
-  }
-
-  @keyframes ambientBlinkBottom {
-    0%, 86%, 100%  { transform: scaleY(0); }
-    87.2%, 90%     { transform: scaleY(0.5); }
-    92.5%, 95.5%   { transform: scaleY(0.15); }
-  }
-
-  /* Drift de olhar dos olhos ambient — sacadas: dardo rápido (janela de ~2%
-     do ciclo), fixação longa, retorno ao centro, dardo para o outro lado.
-     Deslocamentos pequenos (unidades do viewBox 100×100) para a íris nunca
-     escapar da amêndoa nem no menor olho. Respeita prefers-reduced-motion. */
-  @keyframes ambientGaze {
-    0%, 16%        { transform: translate(0px, 0px); }
-    18%, 38%       { transform: translate(1.5px, 0.25px); }
-    40%, 55%       { transform: translate(0px, 0px); }
-    57%, 74%       { transform: translate(-1.2px, -0.2px); }
-    76%, 100%      { transform: translate(0px, 0px); }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    g[style*="ambientGaze"] { animation: none !important; }
   }
 
   @keyframes floatParticle {

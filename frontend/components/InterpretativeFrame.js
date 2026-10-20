@@ -13,13 +13,13 @@ import { categoryLabel } from '@/lib/categoryLabel';
 export default function InterpretativeFrame({ question, children }) {
   return (
     <div className="w-full flex flex-col items-center">
-      <div className="w-full max-w-3xl space-y-6">
+      <div className="hidden md:block w-full max-w-3xl space-y-6">
         <span className="block text-xs uppercase tracking-[0.35em] text-muted text-center">
           {categoryLabel(question?.category)}
         </span>
       </div>
 
-      <div className="w-full flex justify-center pt-6">
+      <div className="w-full flex justify-center md:pt-6">
         {children}
       </div>
     </div>

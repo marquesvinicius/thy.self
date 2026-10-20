@@ -50,7 +50,7 @@ export default function ModalShell({
       }}
     >
       <div
-        className={`relative w-full ${maxWidth} max-h-[88vh] flex flex-col border-2 border-foreground/60 bg-background shadow-[0_0_60px_rgba(255,255,255,0.06)] animate-fade-in-up`}
+        className={`relative w-full ${maxWidth} max-h-[88vh] flex flex-col pt-5 border-2 border-foreground/60 bg-background animate-fade-in-up`}
       >
         {/* Rótulo flutuante sobre a borda superior (assinatura visual do site) */}
         {label && (
@@ -72,8 +72,10 @@ export default function ModalShell({
           </button>
         </div>
 
-        {/* Área rolável do conteúdo */}
-        <div className="overflow-y-auto pt-7 pb-6 px-5 md:px-8">
+        {/* Área rolável do conteúdo. O respiro do topo é do painel (pt-5), não
+            daqui: assim o conteúdo some sob a borda em vez de passar por baixo
+            dos rótulos flutuantes. As bordas esmaecem para o corte não ser seco. */}
+        <div className="overflow-y-auto py-4 pb-6 px-5 md:px-8 [mask-image:linear-gradient(to_bottom,transparent,black_16px,black_calc(100%-16px),transparent)]">
           {children}
         </div>
       </div>

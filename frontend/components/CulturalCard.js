@@ -21,7 +21,7 @@ export default function CulturalCard({
       style={cardAnimationStyle}
     >
       {/* Image area */}
-      <div className="aspect-[4/3] bg-surface relative overflow-hidden">
+      <div className="aspect-square sm:aspect-[4/5] bg-surface relative overflow-hidden">
         {image_url ? (
           // Miniatura externa da Wikimedia (URL arbitrária por referência): next/image
           // exigiria cadastrar domínios remotos e reprocessar a imagem no servidor.
@@ -29,7 +29,7 @@ export default function CulturalCard({
           <img
             src={image_url}
             alt={nome}
-            className="w-full h-full object-cover opacity-80"
+            className="w-full h-full object-cover object-[50%_18%] opacity-80"
             loading="lazy"
           />
         ) : (

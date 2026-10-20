@@ -108,52 +108,74 @@ export default function Home() {
       <Header />
 
       {showGuide && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-sm p-4">
-          <div className="w-full max-w-3xl border border-foreground/25 bg-background p-6 md:p-8 space-y-6">
-            <div className="space-y-2">
-              <h2 className="text-sm md:text-base uppercase tracking-[0.2em]">Como responder o quiz</h2>
-              <p className="text-xs md:text-sm text-muted">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-sm p-0 md:p-4">
+          <div className="w-full max-w-3xl max-h-[100dvh] md:max-h-[90dvh] flex flex-col border-0 md:border border-foreground/25 bg-background">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 md:px-8 md:pt-8 md:pb-2 space-y-5 md:space-y-6">
+            <div className="space-y-3">
+              <p className="text-[0.65rem] uppercase tracking-[0.4em] text-faint">antes de começar</p>
+              <h2 className="text-base md:text-lg uppercase tracking-[0.2em]">Como responder o quiz</h2>
+              <p className="text-xs md:text-sm text-muted leading-relaxed">
                 O thy.self funciona em duas camadas: uma objetiva (BFI-2-S) que
                 alimenta o cálculo dos cinco fatores OCEAN, e uma interpretativa que
                 apenas enriquece o resultado final. Leia calmamente e responda de forma autêntica.
               </p>
-              <p className="text-xs uppercase tracking-[0.2em] text-faint pt-1">
-                parte 1: ~5 min · parte 2 (opcional): ~8 min
-              </p>
-              {/* RN015: recomendação declarada, sem verificação — verificar idade exigiria coletar dados.
-                  Fica neste guia, que só aparece ao começar uma sessão do zero. */}
-              <p className="text-xs uppercase tracking-[0.2em] text-faint">
-                recomendado para adultos · use com responsabilidade · não é diagnóstico
-              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {QUESTION_TYPE_GUIDE.map((item) => (
-                <section key={item.key} className="border border-border/80 p-4 space-y-2">
-                  <h3 className="text-xs uppercase tracking-[0.2em]">{item.title}</h3>
-                  <p className="text-xs text-muted leading-relaxed">{item.desc}</p>
-                </section>
+            <div className="grid grid-cols-2 gap-px bg-border/80 border border-border/80">
+              <div className="bg-background p-3 md:p-4 space-y-1">
+                <p className="text-[0.65rem] uppercase tracking-[0.25em] text-faint">parte 1</p>
+                <p className="text-sm md:text-base tracking-wide">~5 min</p>
+              </div>
+              <div className="bg-background p-3 md:p-4 space-y-1">
+                <p className="text-[0.65rem] uppercase tracking-[0.25em] text-faint">parte 2 · opcional</p>
+                <p className="text-sm md:text-base tracking-wide">~8 min</p>
+              </div>
+            </div>
+
+            <ol className="grid grid-cols-1 md:grid-cols-2 md:gap-x-8">
+              {QUESTION_TYPE_GUIDE.map((item, i) => (
+                <li
+                  key={item.key}
+                  className={`flex gap-4 border-border/80 py-4 ${
+                    i === 0 ? 'pt-0'
+                      : i === 1 ? 'border-t md:border-t-0 md:pt-0'
+                      : 'border-t'
+                  }`}
+                >
+                  <span className="text-xs text-faint tabular-nums pt-0.5">{String(i + 1).padStart(2, '0')}</span>
+                  <div className="space-y-1.5">
+                    <h3 className="text-xs uppercase tracking-[0.2em]">{item.title}</h3>
+                    <p className="text-xs text-muted leading-relaxed">{item.desc}</p>
+                  </div>
+                </li>
               ))}
+            </ol>
+
+            {/* RN015: recomendação declarada, sem verificação — verificar idade exigiria coletar dados.
+                Fica neste guia, que só aparece ao começar uma sessão do zero. */}
+            <p className="pt-2 text-[0.65rem] uppercase tracking-[0.2em] text-faint leading-relaxed">
+              recomendado para adultos · use com responsabilidade · não é diagnóstico
+            </p>
             </div>
 
-            <div className="flex flex-col items-end gap-3 pt-2">
+            <div className="shrink-0 flex flex-col gap-3 bg-background p-4 md:px-8 md:pt-3 md:pb-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
               {startError && (
                 <p className="w-full text-xs text-foreground/80 leading-relaxed border border-foreground/20 px-3 py-2">
                   {startError}
                 </p>
               )}
-              <div className="flex justify-end gap-3">
+              <div className="grid grid-cols-2 md:flex md:justify-end gap-3">
               <button
                 onClick={() => { setShowGuide(false); setStartError(null); }}
                 disabled={loading}
-                className="border border-control px-6 py-2 text-xs uppercase tracking-[0.2em] hover:border-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="border border-control px-6 py-3 md:py-2 text-xs uppercase tracking-[0.2em] hover:border-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 voltar
               </button>
               <button
                 onClick={handleStartQuiz}
                 disabled={loading}
-                className="border border-foreground px-6 py-2 text-xs uppercase tracking-[0.2em] hover:bg-foreground hover:text-background transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                className="border border-foreground px-6 py-3 md:py-2 text-xs uppercase tracking-[0.2em] hover:bg-foreground hover:text-background transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {loading ? 'iniciando...' : 'entendi, começar'}
               </button>
@@ -170,8 +192,43 @@ export default function Home() {
           Conhece-te a ti mesmo
         </p>
 
-        {!lastResultSession && (
-          <div className="pt-8">
+        {resumableSession && (
+          <div className="pt-4 space-y-5 animate-fade-in">
+            <div className="space-y-3">
+              <p className="text-xs uppercase tracking-[0.25em] text-faint">
+                avaliação em andamento
+              </p>
+              <button
+                onClick={handleResumeSession}
+                disabled={loading}
+                aria-label="continuar de onde parei"
+                className="border border-foreground px-10 py-3 text-xs uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                continuar
+              </button>
+            </div>
+            <div className="flex items-center justify-center gap-4 text-xs uppercase tracking-[0.2em] text-muted">
+              <button
+                onClick={handleStartClick}
+                disabled={loading}
+                className="min-h-11 px-2 hover:text-foreground transition-colors disabled:opacity-40"
+              >
+                começar do zero
+              </button>
+              <span className="text-faint" aria-hidden="true">·</span>
+              <button
+                onClick={handleDiscardSession}
+                disabled={loading}
+                className="min-h-11 px-2 hover:text-foreground transition-colors disabled:opacity-40"
+              >
+                descartar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!lastResultSession && !resumableSession && (
+          <div className="pt-4">
             <button
               onClick={handleStartClick}
               disabled={loading}
@@ -182,47 +239,25 @@ export default function Home() {
           </div>
         )}
 
-        {resumableSession && (
-          <div className="pt-2 space-y-3 animate-fade-in">
-            <p className="text-xs uppercase tracking-[0.25em] text-faint">
-              você tem uma avaliação em andamento
-            </p>
-            <div className="flex items-center justify-center gap-6">
-              <button
-                onClick={handleResumeSession}
-                disabled={loading}
-                className="text-xs uppercase tracking-[0.25em] text-foreground underline underline-offset-4 hover:text-foreground/70 transition-colors disabled:opacity-40"
-              >
-                continuar de onde parei
-              </button>
-              <button
-                onClick={handleDiscardSession}
-                disabled={loading}
-                className="text-xs uppercase tracking-[0.25em] text-muted hover:text-foreground transition-colors disabled:opacity-40"
-              >
-                descartar
-              </button>
-            </div>
-          </div>
-        )}
-
         {lastResultSession && !resumableSession && (
-          <div className="pt-2 space-y-3 animate-fade-in">
-            <p className="text-xs uppercase tracking-[0.25em] text-faint">
-              você tem um resultado disponível
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
+          <div className="pt-4 space-y-5 animate-fade-in">
+            <div className="space-y-3">
+              <p className="text-xs uppercase tracking-[0.25em] text-faint">
+                resultado disponível
+              </p>
               <button
                 onClick={handleResumeResult}
                 disabled={loading}
-                className="border border-foreground px-5 py-2 text-xs uppercase tracking-[0.2em] hover:bg-foreground hover:text-background transition-all disabled:opacity-40"
+                className="border border-foreground px-10 py-3 text-xs uppercase tracking-[0.3em] hover:bg-foreground hover:text-background transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 ver resultado
               </button>
+            </div>
+            <div className="flex items-center justify-center text-xs uppercase tracking-[0.2em] text-muted">
               <button
                 onClick={handleStartClick}
                 disabled={loading}
-                className="border border-control px-5 py-2 text-xs uppercase tracking-[0.2em] hover:border-foreground transition-colors disabled:opacity-40"
+                className="min-h-11 px-2 hover:text-foreground transition-colors disabled:opacity-40"
               >
                 começar nova sessão
               </button>
