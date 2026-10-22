@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSession } from '@/services/api';
 import Logo from '@/components/Logo';
@@ -15,6 +15,11 @@ import {
   getActiveSessionSnapshot,
   getActiveSessionServerSnapshot,
 } from '@/lib/activeSession';
+
+// O plano gratuito do Render adormece o backend. A primeira requisição
+// acorda o processo e pode passar de 30s; antes disso o botão só diz
+// "iniciando..." e parece travado.
+const SLOW_START_NOTICE_MS = 6000;
 
 const QUESTION_TYPE_GUIDE = [
   {
@@ -44,6 +49,10 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [startError, setStartError] = useState(null);
+  const [slowStart, setSlowStart] = useState(false);
+  const slowStartTimer = useRef(null);
+
+  useEffect(() => () => clearTimeout(slowStartTimer.current), []);
 
   // Marcador de sessão em andamento lido como external store: aparece no
   // primeiro paint do cliente e reage sozinho a set/clear (inclusive de
@@ -62,13 +71,19 @@ export default function Home() {
   async function handleStartQuiz() {
     setLoading(true);
     setStartError(null);
+    setSlowStart(false);
+    clearTimeout(slowStartTimer.current);
+    slowStartTimer.current = setTimeout(() => setSlowStart(true), SLOW_START_NOTICE_MS);
     try {
       const session = await createSession();
+      clearTimeout(slowStartTimer.current);
       sessionStorage.setItem('session_id', session.session_id);
       setActiveSession(session.session_id);
       clearLastResultSession();
       router.push('/quiz');
     } catch (err) {
+      clearTimeout(slowStartTimer.current);
+      setSlowStart(false);
       console.error('Failed to create session:', err);
       const msg = err?.message || '';
       setStartError(
@@ -159,6 +174,11 @@ export default function Home() {
             </div>
 
             <div className="shrink-0 flex flex-col gap-3 bg-background p-4 md:px-8 md:pt-3 md:pb-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              {slowStart && !startError && (
+                <p className="w-full text-xs text-muted leading-relaxed border border-border px-3 py-2" role="status">
+                  o servidor está inicializando. a primeira visita pode levar um pouco mais.
+                </p>
+              )}
               {startError && (
                 <p className="w-full text-xs text-foreground/80 leading-relaxed border border-foreground/20 px-3 py-2">
                   {startError}
@@ -166,7 +186,7 @@ export default function Home() {
               )}
               <div className="grid grid-cols-2 md:flex md:justify-end gap-3">
               <button
-                onClick={() => { setShowGuide(false); setStartError(null); }}
+                onClick={() => { setShowGuide(false); setStartError(null); setSlowStart(false); }}
                 disabled={loading}
                 className="border border-control px-6 py-3 md:py-2 text-xs uppercase tracking-[0.2em] hover:border-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >

@@ -21,6 +21,9 @@
    ler na avaliação de usabilidade. */
 html {
   font-size: 16px;
+  /* A home cabe na janela; Sobre e Método não. Sem o gutter reservado, a
+     barra só aparece nas páginas longas e o menu, preso à direita, anda. */
+  scrollbar-gutter: stable;
 }
 
 body {
