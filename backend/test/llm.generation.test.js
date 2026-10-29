@@ -352,6 +352,41 @@ test('erros transitórios são retentados com recuo; persistentes degradam para 
   }
 });
 
+test('modelo fora do ar (404) passa direto para o reserva, sem retentar no mesmo', async () => {
+  const gone = httpError(404, '[GoogleGenerativeAI Error]: Error fetching from https://x/models/gemini-2.5-flash-lite:generateContent: [404 Not Found] model is no longer available');
+  script = [gone, payload()];
+  const result = await generateInterpretation(PROFILE, null, [], null);
+
+  assert.equal(result.vibe_resumo, payload().vibe_resumo);
+  assert.deepEqual(calls.map(c => c.config.model), ['gemini-2.5-flash-lite', 'gemini-flash-lite-latest']);
+});
+
+test('cadeia de modelos vem do ambiente; 404 em todos degrada para null', async () => {
+  const saved = { model: env.geminiModel, fallbacks: env.geminiFallbackModels };
+  try {
+    env.geminiModel = 'modelo-a';
+    env.geminiFallbackModels = ['modelo-b', 'modelo-a'];
+    assert.deepEqual(llm.getModelChain(), ['modelo-a', 'modelo-b']);
+
+    script = [httpError(404), httpError(404)];
+    assert.equal(await generateInterpretation(PROFILE, null, [], null), null);
+    assert.deepEqual(calls.map(c => c.config.model), ['modelo-a', 'modelo-b']);
+
+    env.geminiFallbackModels = [];
+    assert.deepEqual(llm.getModelChain(), ['modelo-a']);
+  } finally {
+    env.geminiModel = saved.model;
+    env.geminiFallbackModels = saved.fallbacks;
+  }
+});
+
+test('erro transitório no reserva não pula modelo: retenta nele', async () => {
+  script = [httpError(404), httpError(503), payload()];
+  const result = await withFakeTimers(() => generateInterpretation(PROFILE, null, [], null));
+  assert.ok(result);
+  assert.deepEqual(calls.map(c => c.config.model), ['gemini-2.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-flash-lite-latest']);
+});
+
 test('erro transitório seguido de sucesso recupera o resultado', async () => {
   script = [httpError(503), payload()];
   const result = await withFakeTimers(() => generateInterpretation(PROFILE, null, [], null));

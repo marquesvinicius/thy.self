@@ -32,7 +32,7 @@ Project-level artifacts at the repo root: raw question CSVs (`questions.csv`, `q
 - `npm run test:e2e` — Playwright end-to-end suite in `e2e/` (needs the backend running on 3000 and a seeded database).
 
 ### Required env (`backend/.env`)
-`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` are required — `src/config/environment.js` throws at import time if either is missing. Optional: `PORT`, `NODE_ENV`, `ALLOWED_ORIGINS` (comma-separated — **required** when `NODE_ENV=production`; `environment.js` throws otherwise), `GEMINI_API_KEY`, `LLM_DAILY_LIMIT`, `LLM_LOG_PROMPT`.
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` are required — `src/config/environment.js` throws at import time if either is missing. Optional: `PORT`, `NODE_ENV`, `ALLOWED_ORIGINS` (comma-separated — **required** when `NODE_ENV=production`; `environment.js` throws otherwise), `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_FALLBACK_MODELS`, `LLM_DAILY_LIMIT`, `LLM_LOG_PROMPT`.
 
 The 30-item minimum is **not** env-configurable: it comes from the instrument (RN002), not from operations. `MIN_ANSWERS_FOR_ANALYSIS` and `MAX_QUESTIONS_PER_SESSION` were removed — they were dead constants.
 
@@ -71,7 +71,7 @@ Dev-only routes mount under `/api/v1/dev` when `NODE_ENV === 'development'` (cur
 Public share endpoints were removed (aligned with current DERS RF001–RF007; see `migration_005_drop_public_share.sql`).
 
 ### LLM layer
-`src/services/llm.service.js` calls Gemini (`gemini-2.5-flash-lite`) with retries + timeout, guarded by `llm-limiter.js`. Budgets are **persisted in Postgres** (`llm_daily_usage` table, `results.regen_count`, `results.detail_count`) with atomic RPCs, falling back to in-memory counters only when the database is unreachable: daily budget via `LLM_DAILY_LIMIT`, max 3 regenerations and 6 reference details per session. Reference images are fetched by `image.service.js`. Fallback work/reference lists in `llm.service.js` are used when the API key is absent or the call fails — keep these fallbacks when editing, because dev environments frequently run without `GEMINI_API_KEY`. Interpretation output carries schema versions (`INTERPRETATION_SCHEMA_VERSION`, `DETAIL_SCHEMA_VERSION`) — bump these when changing the response shape.
+`src/services/llm.service.js` calls Gemini (`gemini-2.5-flash-lite` by default, `GEMINI_MODEL`) with retries + timeout — on a 404 (model retired) it moves down `GEMINI_FALLBACK_MODELS` (default `gemini-flash-lite-latest`) — guarded by `llm-limiter.js`. Budgets are **persisted in Postgres** (`llm_daily_usage` table, `results.regen_count`, `results.detail_count`) with atomic RPCs, falling back to in-memory counters only when the database is unreachable: daily budget via `LLM_DAILY_LIMIT`, max 3 regenerations and 6 reference details per session. Reference images are fetched by `image.service.js`. Fallback work/reference lists in `llm.service.js` are used when the API key is absent or the call fails — keep these fallbacks when editing, because dev environments frequently run without `GEMINI_API_KEY`. Interpretation output carries schema versions (`INTERPRETATION_SCHEMA_VERSION`, `DETAIL_SCHEMA_VERSION`) — bump these when changing the response shape.
 
 ### Archetype matching
 `archetype.service.js` delegates to the Postgres function `find_closest_archetype(user_o, user_c, user_e, user_a, user_n)` (defined in `migration_003_archetypes.sql`). The math lives in the DB, not in Node. Catalog rows are loaded by `npm run seed` from `scripts/etl/thy_self_characters.json`.

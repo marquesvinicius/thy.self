@@ -27,6 +27,12 @@ export const env = {
     ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
     : [],
   geminiApiKey: process.env.GEMINI_API_KEY || null,
+  // Modelo principal e reservas (separados por vírgula), tentados em ordem
+  // quando o anterior responde 404. Vazio = padrões de llm.service.js.
+  geminiModel: process.env.GEMINI_MODEL?.trim() || null,
+  geminiFallbackModels: process.env.GEMINI_FALLBACK_MODELS !== undefined
+    ? process.env.GEMINI_FALLBACK_MODELS.split(',').map(m => m.trim()).filter(Boolean)
+    : null,
   llmDailyLimit: parseInt(process.env.LLM_DAILY_LIMIT, 10) || 50,
   // Quantos proxies à frente do servidor são confiáveis para ler o IP real
   // (X-Forwarded-For). Render: 1. Local e testes: 0, nenhum.

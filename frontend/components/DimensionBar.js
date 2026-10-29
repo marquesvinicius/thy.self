@@ -62,10 +62,13 @@ export default function DimensionBar({ dimension, consistency = null, animate = 
           />
         </div>
 
-        <div className="flex justify-between text-xs uppercase tracking-widest text-muted">
-          <span>{dimension.lowLabel}</span>
-          <span className="text-foreground/60">{dimension.level}</span>
-          <span>{dimension.highLabel}</span>
+        {/* Grade de três colunas com espaçamento: com flex/justify-between,
+            no celular o nível e o polo alto quebravam linha e encostavam
+            ("MODERADOSENSÍVEL / REATIVO"). */}
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-start text-xs uppercase tracking-wider md:tracking-widest text-muted">
+          <span className="text-left">{dimension.lowLabel}</span>
+          <span className="text-center text-foreground/60">{dimension.level}</span>
+          <span className="text-right">{dimension.highLabel}</span>
         </div>
 
         {dimension.description && (

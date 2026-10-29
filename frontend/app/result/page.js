@@ -248,8 +248,11 @@ function ResultContent() {
         setRegenCount(Math.max(0, MAX_REGENS - data._regen.remaining));
       }
     } catch (err) {
+      // Decide pelo código, não pelo texto: a mensagem do 503 (IA fora do ar)
+      // também contém "Limite", e o usuário via "limite de tentativas
+      // atingido" logo na primeira tentativa.
       setRetryError(
-        err.message?.includes('Limite')
+        err.code === 'REGEN_LIMIT_REACHED'
           ? 'Limite de tentativas atingido para esta sessão.'
           : 'Ainda indisponível. Tente novamente em instantes.',
       );
@@ -291,7 +294,7 @@ function ResultContent() {
         setRegenCount(prev => prev + 1);
       }
     } catch (err) {
-      if (err.message?.includes('Limite')) {
+      if (err.code === 'REGEN_LIMIT_REACHED') {
         setRegenCount(MAX_REGENS);
       } else {
         setRegenError(true);

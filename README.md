@@ -119,6 +119,8 @@ cada parte continua publicada a partir da própria pasta.
 | `NODE_ENV` | não | `development` | em `production`, exige `ALLOWED_ORIGINS` |
 | `ALLOWED_ORIGINS` | em produção | — | origens liberadas no CORS (lista separada por vírgula) |
 | `GEMINI_API_KEY` | não | — | sem ela, a interpretação é desligada e o perfil numérico continua |
+| `GEMINI_MODEL` | não | `gemini-2.5-flash-lite` | modelo usado na interpretação |
+| `GEMINI_FALLBACK_MODELS` | não | `gemini-flash-lite-latest` | reservas (vírgula) tentadas quando o modelo responde 404 |
 | `LLM_DAILY_LIMIT` | não | `50` | teto diário de chamadas ao LLM |
 | `LLM_LOG_PROMPT` | não | ligado fora de produção | imprime o prompt enviado (auditoria — RNF018) |
 
