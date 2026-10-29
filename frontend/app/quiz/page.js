@@ -578,7 +578,7 @@ export default function Quiz() {
         </div>
 
         {/* Status bar */}
-        <div className="flex flex-col gap-3 px-5 sm:px-6 md:px-10 pt-3 pb-3 [@media(min-height:700px)]:max-md:pt-6 md:py-4 md:border-b border-border">
+        <div className="flex flex-col gap-3 px-6 md:px-10 pt-3 pb-2 [@media(min-height:700px)]:max-md:pt-5 md:py-4 md:border-b border-border">
           <ProgressBar current={progress.answered} total={progress.total} />
           <div className="hidden sm:flex flex-wrap items-center gap-5 text-xs uppercase tracking-widest text-muted">
             <span>respostas: {progress.answered}</span>
@@ -616,7 +616,7 @@ export default function Quiz() {
         </div>
 
         {/* Ações abaixo da linha divisória */}
-        <div className="flex flex-wrap justify-between items-center gap-3 px-5 sm:px-6 md:px-10 py-1 [@media(min-height:700px)]:max-md:py-3 md:py-3 text-xs md:text-xs uppercase tracking-widest text-muted">
+        <div className="flex flex-wrap justify-between items-center gap-3 px-6 md:px-10 py-1 [@media(min-height:700px)]:max-md:py-2 md:py-3 text-xs md:text-xs uppercase tracking-widest text-muted">
           <button
             onClick={handleUndo}
             disabled={undoing || submitting || inFlight > 0 || progress.answered === 0}
@@ -640,12 +640,12 @@ export default function Quiz() {
 
         {/* Question Area */}
         {showStageTransition ? null : questions.length > 0 ? (
-          <div className={`flex-1 flex flex-col items-center justify-start md:justify-center px-5 py-3 sm:px-6 sm:py-6 md:p-10 min-h-0 overflow-y-auto overflow-x-hidden md:overflow-hidden ${phaseClasses[phase]}`}>
+          <div className={`flex-1 flex flex-col items-center justify-start md:justify-center px-6 pt-1 pb-3 sm:py-6 md:p-10 min-h-0 overflow-y-auto overflow-x-hidden md:overflow-hidden ${phaseClasses[phase]}`}>
             <MysticEyesOverlay />
 
-            <div className="w-full max-w-6xl mx-auto min-w-0 flex-1 flex flex-col justify-center">
+            <div className="w-full max-w-6xl mx-auto min-w-0 flex-1 flex flex-col justify-start md:justify-center">
               {questions.map((q) => (
-                <div key={q.id} className="w-full min-w-0 flex flex-col md:grid md:grid-cols-2 gap-[clamp(1rem,4dvh,2.5rem)] md:gap-20 items-center justify-center relative z-10" style={phase === 'entering' ? { animationDelay: `0ms`, animationFillMode: 'both' } : undefined}>
+                <div key={q.id} className="w-full min-w-0 flex flex-col md:grid md:grid-cols-2 gap-[clamp(1.5rem,5dvh,3rem)] md:gap-20 items-center justify-center relative z-10" style={phase === 'entering' ? { animationDelay: `0ms`, animationFillMode: 'both' } : undefined}>
 
                   {/* Left Side: Question */}
                   <div className={`w-full min-w-0 space-y-[clamp(0.5rem,1.5dvh,1rem)] md:space-y-6 md:pr-10 md:border-r border-border/50 text-center md:text-left ${
@@ -658,8 +658,8 @@ export default function Quiz() {
                       id={`question-${q.id}-text`}
                       className={`font-bold leading-tight tracking-tight break-words text-balance ${
                         q.kind === 'interpretative'
-                          ? 'text-xl [@media(min-height:760px)]:max-md:text-2xl md:text-3xl lg:text-4xl'
-                          : 'text-xl [@media(min-height:760px)]:max-md:text-2xl md:text-2xl lg:text-3xl'
+                          ? 'text-xl md:text-3xl lg:text-4xl'
+                          : 'text-xl md:text-2xl lg:text-3xl'
                       }`}
                     >
                       {q.text}

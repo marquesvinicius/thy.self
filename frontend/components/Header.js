@@ -19,7 +19,7 @@ export default function Header({ divider = false }) {
 
   return (
     <div
-      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-3 px-5 py-2 bg-black ${divider ? 'border-b border-border md:border-b-0' : ''} md:top-8 md:left-10 md:right-10 md:items-start md:gap-6 md:px-0 md:py-0 md:bg-transparent`}
+      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-3 px-6 py-2 bg-black ${divider ? 'border-b border-border md:border-b-0' : ''} md:top-8 md:left-10 md:right-10 md:items-start md:gap-6 md:px-0 md:py-0 md:bg-transparent`}
     >
       {/* Na home não há logo: o contêiner vazio sai do fluxo no celular para
           o menu ocupar a largura toda, sem vazio à esquerda. */}
@@ -27,7 +27,7 @@ export default function Header({ divider = false }) {
         {!isHome && <Logo size="sm" />}
       </div>
       <nav
-        className={`flex items-center md:gap-5 ${isHome ? 'w-full justify-between md:w-auto md:justify-start' : 'shrink-0 gap-1'} text-xs md:text-xs uppercase tracking-[0.25em] md:tracking-[0.3em]`}
+        className={`flex items-center md:gap-5 ${isHome ? 'w-full justify-between md:w-auto md:justify-start' : 'shrink-0 gap-1'} text-xs md:text-xs uppercase tracking-[0.18em] md:tracking-[0.3em]`}
         aria-label="navegação principal"
       >
         {NAV_ITEMS.map((item) => {
