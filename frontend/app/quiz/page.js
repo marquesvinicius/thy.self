@@ -91,6 +91,9 @@ export default function Quiz() {
   // POSTs otimistas em voo — o "voltar" fica bloqueado enquanto houver um,
   // senão o undo apagaria a resposta anterior à que ainda não chegou.
   const [inFlight, setInFlight] = useState(0);
+  // Geração do prefetch: cada "voltar" invalida os reabastecimentos em voo,
+  // para que uma resposta atrasada não traga de volta uma fila antiga.
+  const refillGenRef = useRef(0);
   // Ritmo real do usuário: timestamps da última resposta + amostras por camada.
   const paceRef = useRef({ lastAt: null });
   const [paceSamples, setPaceSamples] = useState({ objective: [], interpretative: [] });
@@ -250,6 +253,12 @@ export default function Quiz() {
     submittedRef.current.add(question.id);
     recordPace('objective');
     setInFlight(n => n + 1);
+    // Progresso otimista: a barra anda no clique. A resposta do servidor
+    // substitui o valor logo depois, e uma falha recarrega tudo dele.
+    setProgress(prev => ({ ...prev, answered: prev.answered + 1 }));
+    setStageProgress(prev => (prev
+      ? { ...prev, objective_answered: prev.objective_answered + 1 }
+      : prev));
 
     // Reabastecimentos disparados por respostas rápidas podem chegar fora de
     // ordem e trazer de volta uma pergunta já respondida (ou a que está na
@@ -281,22 +290,36 @@ export default function Quiz() {
       // Sem prefetch disponível: o refill abaixo (pós-POST) recarrega tudo.
     }, 140);
 
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      setInFlight(n => Math.max(0, n - 1));
+    };
+
     try {
       const res = await submitAnswer(sessionId, question.id, payload);
+      // Max: com respostas rápidas, a confirmação de uma chega depois do
+      // incremento otimista da seguinte e não deve fazer a barra recuar.
+      // (O "voltar" fica bloqueado enquanto há envio, e recarrega do servidor.)
       setProgress(prev => ({
         ...prev,
-        answered: res.progress.answered,
-        canAnalyze: res.progress.can_analyze,
+        answered: Math.max(prev.answered, res.progress.answered),
+        canAnalyze: prev.canAnalyze || res.progress.can_analyze,
       }));
       setStageProgress(prev => (prev
-        ? { ...prev, objective_answered: res.progress.objective_answered }
+        ? { ...prev, objective_answered: Math.max(prev.objective_answered, res.progress.objective_answered) }
         : prev));
 
       if (!next) {
         // Fila secou (última objetiva ou prefetch perdido): busca completa,
-        // que também detecta a fronteira entre atos.
+        // que também detecta a fronteira entre atos. Ela troca a pergunta da
+        // tela, então o "voltar" só é liberado quando ela termina.
         await loadQuestions(sessionId);
       } else {
+        // A resposta já está salva: o "voltar" pode ser liberado sem esperar
+        // o reabastecimento, que é descartado se um "voltar" vier antes.
+        release();
         await refillQueue(next.id);
       }
     } catch (err) {
@@ -306,28 +329,38 @@ export default function Quiz() {
       queueRef.current = [];
       await loadQuestions(sessionId);
     } finally {
-      setInFlight(n => Math.max(0, n - 1));
+      release();
     }
   }
 
   /** Reabastece o prefetch com a pergunta seguinte à que está na tela. */
   async function refillQueue(currentQuestionId) {
+    const gen = refillGenRef.current;
     try {
       const data = await getQuestions(
         sessionId,
         FETCH_SIZE,
         narrativeLimitFor(sessionId),
       );
-      setProgress({
-        answered: data.total_answered,
+      // Um "voltar" aconteceu enquanto esta busca viajava: ela é antiga.
+      if (gen !== refillGenRef.current) return;
+      // Na mesma geração o progresso só cresce: esta busca pode ter saído
+      // antes de uma resposta otimista mais nova.
+      setProgress(prev => ({
+        answered: Math.max(prev.answered, data.total_answered),
         total: data.total_answered + data.total_available,
-        canAnalyze: data.can_analyze,
+        canAnalyze: prev.canAnalyze || data.can_analyze,
+      }));
+      setStageProgress(prev => {
+        const sp = data.stage_progress || null;
+        if (!sp || !prev) return sp;
+        return { ...sp, objective_answered: Math.max(prev.objective_answered, sp.objective_answered) };
       });
-      setStageProgress(data.stage_progress || null);
       queueRef.current = (data.questions || []).filter(
         q => q.id !== currentQuestionId && !submittedRef.current.has(q.id)
       ).slice(0, FETCH_SIZE - BLOCK_SIZE);
     } catch (err) {
+      if (gen !== refillGenRef.current) return;
       // Prefetch é otimização: se falhar, o fluxo cai no caminho com loading.
       queueRef.current = [];
       if (err?.status === 410 || err?.code === 'GONE') {
@@ -409,6 +442,7 @@ export default function Quiz() {
     if (undoing || submitting || !sessionId) return;
     setUndoError(null);
     setUndoing(true);
+    refillGenRef.current += 1;
     try {
       await undoLastAnswer(sessionId);
       // A pergunta desfeita volta à tela e precisa aceitar resposta de novo:
