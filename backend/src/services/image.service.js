@@ -11,10 +11,10 @@ const FETCH_TIMEOUT = 7000;
 const MAX_RETRY_WAIT_MS = 1500;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
-// A política da Wikimedia exige User-Agent descritivo; sem ele as requisições
-// são limitadas de forma agressiva.
+// A política da Wikimedia exige User-Agent descritivo COM contato (URL ou
+// e-mail); sem ele as requisições vindas de servidores em nuvem são barradas.
 const WIKI_USER_AGENT =
-  'thy.self/1.0 (TFC Engenharia de Software UniRV; verificacao de referencias)';
+  'thy.self/1.0 (https://thyself-six.vercel.app; TFC Engenharia de Software UniRV)';
 
 /*
  * Por que em lote: a versão anterior fazia uma requisição por referência,
@@ -62,6 +62,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
  * Devolve null quando não deu para obter resposta.
  */
 async function getJson(url) {
+  let lastFailure = null;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
@@ -72,15 +73,19 @@ async function getJson(url) {
         headers: { Accept: 'application/json', 'User-Agent': WIKI_USER_AGENT },
       });
       if (res.ok) return await res.json();
+      lastFailure = `HTTP ${res.status}`;
       const header = Number(res.headers?.get?.('retry-after'));
       if (Number.isFinite(header) && header > 0) retryAfterMs = header * 1000;
-    } catch {
+    } catch (err) {
       // timeout ou rede: tenta de novo
+      lastFailure = err?.name === 'AbortError' ? 'timeout' : (err?.message || 'erro de rede');
     } finally {
       clearTimeout(timer);
     }
     if (attempt < 2) await wait(Math.min(retryAfterMs, MAX_RETRY_WAIT_MS));
   }
+  // Sem isso, "Reference kept despite failed lookup" não diz por que falhou.
+  logger.warn('Wikimedia lookup failed', { host: new URL(url).hostname, motivo: lastFailure });
   return null;
 }
 
