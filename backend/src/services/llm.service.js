@@ -6,7 +6,12 @@ import { checkDailyBudget, recordLLMCall } from './llm-limiter.js';
 import { logger } from '../utils/logger.js';
 
 const LLM_TIMEOUT = 60000;
-const MODEL_NAME = 'gemini-2.5-flash-lite';
+const DEFAULT_MODEL = 'gemini-2.5-flash-lite';
+// Alias que o Google mantém apontado para o Flash-Lite mais recente. É a rede
+// de segurança quando o modelo fixo sai do ar: a família 2.5 já respondeu 404
+// ("no longer available") antes da data anunciada, e com isso TODA
+// interpretação virava null em produção, sem nenhum sinal para o usuário.
+const DEFAULT_FALLBACK_MODELS = ['gemini-flash-lite-latest'];
 const MAX_RETRIES = 2;
 const RETRY_BASE_MS = 800;
 const INTERPRETATION_SCHEMA_VERSION = '1.3.0';
@@ -152,6 +157,30 @@ const REFERENCE_FALLBACKS = [
 ];
 
 let genAI = null;
+
+/** Modelos tentados em ordem: o configurado e, se ele não existir, os reservas. */
+export function getModelChain() {
+  const primary = env.geminiModel || DEFAULT_MODEL;
+  const fallbacks = Array.isArray(env.geminiFallbackModels)
+    ? env.geminiFallbackModels
+    : DEFAULT_FALLBACK_MODELS;
+  return [...new Set([primary, ...fallbacks].filter(Boolean))];
+}
+
+/**
+ * Modelo desligado ou nome inválido (404 / NOT_FOUND). Não adianta repetir
+ * no mesmo modelo — só trocar de modelo resolve.
+ */
+export function isModelUnavailableError(err) {
+  if (!err) return false;
+  const status = err.status || err.statusCode || 0;
+  if (status === 404) return true;
+  const message = `${err.message || ''}`.toLowerCase();
+  return message.includes('404')
+    || message.includes('not_found')
+    || message.includes('is not found')
+    || message.includes('no longer available');
+}
 
 function getClient() {
   if (!env.geminiApiKey) return null;
@@ -1036,6 +1065,9 @@ function parseReferenceDetailResponse(text, referenceName) {
 
 function shouldRetryError(err) {
   if (!err) return false;
+  // 404 não é transitório. E sem esta guarda ele casava com 'rate' abaixo:
+  // a mensagem do SDK cita a URL ".../models/x:generateContent".
+  if (isModelUnavailableError(err)) return false;
   const message = `${err.message || ''}`.toLowerCase();
   const status = err.status || err.statusCode || 0;
 
@@ -1073,7 +1105,7 @@ async function callLLMWithTimeout(model, prompt) {
   }
 }
 
-async function generateRawInterpretation(model, prompt) {
+async function generateRawInterpretation(model, prompt, modelName) {
   let attempt = 0;
   let lastError = null;
 
@@ -1091,7 +1123,7 @@ async function generateRawInterpretation(model, prompt) {
         prompt_tokens: usage.promptTokenCount || null,
         candidates_tokens: usage.candidatesTokenCount || null,
         total_tokens: usage.totalTokenCount || null,
-        model: MODEL_NAME,
+        model: modelName,
       });
 
       return text;
@@ -1105,6 +1137,8 @@ async function generateRawInterpretation(model, prompt) {
         retryable,
         duration_ms: durationMs,
         error: err.message,
+        status: err.status || err.statusCode || null,
+        model: modelName,
       });
 
       if (!retryable || attempt === MAX_RETRIES) {
@@ -1127,7 +1161,7 @@ async function generateRawInterpretation(model, prompt) {
  * verification runs. Controlled by LLM_LOG_PROMPT (default: enabled in
  * non-production).
  */
-function logPromptPayload(label, systemInstruction, prompt, temperature) {
+function logPromptPayload(label, systemInstruction, prompt, temperature, modelName) {
   const flag = (process.env.LLM_LOG_PROMPT || '').toLowerCase();
   const enabled = flag === ''
     ? env.nodeEnv !== 'production'
@@ -1136,7 +1170,7 @@ function logPromptPayload(label, systemInstruction, prompt, temperature) {
   if (!enabled) return;
 
   logger.info(`${label} → prompt dispatched`, {
-    model: MODEL_NAME,
+    model: modelName,
     temperature,
     system_length: systemInstruction.length,
     prompt_length: prompt.length,
@@ -1147,7 +1181,7 @@ function logPromptPayload(label, systemInstruction, prompt, temperature) {
   /* eslint-disable no-console */
   const banner = '─'.repeat(72);
   console.log(`\n${banner}`);
-  console.log(`[LLM PROMPT] ${label} · model=${MODEL_NAME} · temp=${temperature}`);
+  console.log(`[LLM PROMPT] ${label} · model=${modelName} · temp=${temperature}`);
   console.log(banner);
   console.log('--- system_instruction ---');
   console.log(systemInstruction);
@@ -1155,6 +1189,39 @@ function logPromptPayload(label, systemInstruction, prompt, temperature) {
   console.log(prompt);
   console.log(`${banner}\n`);
   /* eslint-enable no-console */
+}
+
+/**
+ * Percorre a cadeia de modelos: só passa ao próximo quando o atual não existe
+ * mais (404). Erros transitórios já têm retry dentro de cada modelo, e erros
+ * de conteúdo/parse não melhoram trocando de modelo.
+ */
+async function generateWithModelChain(client, { systemInstruction, generationConfig, prompt, label, temperature }) {
+  const chain = getModelChain();
+  let lastError = null;
+
+  for (const modelName of chain) {
+    const model = client.getGenerativeModel({
+      model: modelName,
+      systemInstruction,
+      generationConfig,
+    });
+    logPromptPayload(label, systemInstruction, prompt, temperature, modelName);
+
+    try {
+      const text = await generateRawInterpretation(model, prompt, modelName);
+      return { text, modelName };
+    } catch (err) {
+      lastError = err;
+      if (!isModelUnavailableError(err)) throw err;
+      logger.warn(`${label}: modelo indisponível, tentando o próximo`, {
+        model: modelName,
+        error: err.message,
+      });
+    }
+  }
+
+  throw lastError || new Error('No LLM model available');
 }
 
 async function generateStructuredOutput({
@@ -1188,15 +1255,13 @@ async function generateStructuredOutput({
       generationConfig.responseSchema = responseSchema;
     }
 
-    const model = client.getGenerativeModel({
-      model: MODEL_NAME,
+    const { text, modelName } = await generateWithModelChain(client, {
       systemInstruction,
       generationConfig,
+      prompt,
+      label: errorLabel,
+      temperature,
     });
-
-    logPromptPayload(errorLabel, systemInstruction, prompt, temperature);
-
-    const text = await generateRawInterpretation(model, prompt);
 
     let parsed;
     try {
@@ -1205,6 +1270,7 @@ async function generateStructuredOutput({
       logger.error(`${errorLabel} parse failed`, {
         error: parseErr.message,
         raw_preview: text.slice(0, 500),
+        model: modelName,
       });
       throw parseErr;
     }
@@ -1215,7 +1281,8 @@ async function generateStructuredOutput({
     logger.error(`${errorLabel} failed (graceful skip)`, {
       error: err.message,
       name: err.name,
-      model: MODEL_NAME,
+      status: err.status || err.statusCode || null,
+      models: getModelChain(),
     });
     return null;
   }

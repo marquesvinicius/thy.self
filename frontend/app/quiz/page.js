@@ -6,6 +6,7 @@ import { getQuestions, submitAnswer, undoLastAnswer } from '@/services/api';
 import Header from '@/components/Header';
 import MysticBackground, { MysticEyesOverlay } from '@/components/MysticBackground';
 import ProgressBar from '@/components/ProgressBar';
+import QuizActions from '@/components/QuizActions';
 import MicroFeedback from '@/components/MicroFeedback';
 import StageTransition from '@/components/StageTransition';
 import QuestionRenderer from '@/components/QuestionRenderer';
@@ -503,6 +504,15 @@ export default function Quiz() {
 
   if (!sessionId) return null;
 
+  const sessionActions = {
+    onUndo: handleUndo,
+    undoDisabled: undoing || submitting || inFlight > 0 || progress.answered === 0,
+    undoing,
+    canAnalyze: progress.canAnalyze,
+    onAnalyze: handleAnalyze,
+    onEndSession: handleEndSession,
+  };
+
   return (
     <div className="h-dvh md:h-auto md:min-h-screen flex flex-col overflow-x-hidden">
       <MysticBackground showEyes={false} />
@@ -544,7 +554,7 @@ export default function Quiz() {
         </div>
 
         {/* Status bar */}
-        <div className="flex flex-col gap-3 px-6 md:px-10 pt-3 pb-2 [@media(min-height:700px)]:max-md:pt-5 md:py-4 md:border-b border-border">
+        <div className="flex flex-col gap-3 px-6 md:px-10 pt-3 pb-1 [@media(min-height:700px)]:max-md:pt-4 md:py-4 md:border-b border-border">
           <ProgressBar current={progress.answered} total={progress.total} />
           <div className="hidden sm:flex flex-wrap items-center gap-5 text-xs uppercase tracking-widest text-muted">
             <span>respostas: {progress.answered}</span>
@@ -581,32 +591,13 @@ export default function Quiz() {
           )}
         </div>
 
-        {/* Ações abaixo da linha divisória */}
-        <div className="flex flex-wrap justify-between items-center gap-3 px-6 md:px-10 py-1 [@media(min-height:700px)]:max-md:py-2 md:py-3 text-xs md:text-xs uppercase tracking-widest text-muted">
-          <button
-            onClick={handleUndo}
-            disabled={undoing || submitting || inFlight > 0 || progress.answered === 0}
-            className="inline-flex items-center gap-2 min-h-11 md:min-h-0 py-2 md:py-0 hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Desfazer a última resposta"
-          >
-            <span aria-hidden="true">←</span>
-            {undoing ? 'voltando...' : 'voltar'}
-          </button>
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-6">
-            {progress.canAnalyze && (
-              <button onClick={handleAnalyze} className="text-foreground border border-foreground min-h-11 md:min-h-0 px-4 py-2 md:py-1 hover:bg-foreground hover:text-background transition-all">
-                analisar
-              </button>
-            )}
-            <button onClick={handleEndSession} className="min-h-11 md:min-h-0 px-2 py-2 md:py-0 hover:text-foreground transition-colors">
-              terminar sessão
-            </button>
-          </div>
-        </div>
+        {/* Ações abaixo da linha divisória (desktop). No celular elas vão
+            para a barra do rodapé, no fim do <main>. */}
+        <QuizActions {...sessionActions} />
 
         {/* Question Area */}
         {showStageTransition ? null : questions.length > 0 ? (
-          <div className={`flex-1 flex flex-col items-center justify-start md:justify-center px-6 pt-1 pb-3 sm:py-6 md:p-10 min-h-0 overflow-y-auto overflow-x-hidden md:overflow-hidden ${phaseClasses[phase]}`}>
+          <div className={`flex-1 flex flex-col items-center justify-start md:justify-center px-6 pt-4 pb-4 sm:py-6 md:p-10 min-h-0 overflow-y-auto overflow-x-hidden md:overflow-hidden ${phaseClasses[phase]}`}>
             <MysticEyesOverlay />
 
             <div className="w-full max-w-6xl mx-auto min-w-0 flex-1 flex flex-col justify-start md:justify-center">
@@ -712,6 +703,8 @@ export default function Quiz() {
             </div>
           </div>
         )}
+
+        <QuizActions variant="dock" {...sessionActions} />
       </main>
     </div>
   );
