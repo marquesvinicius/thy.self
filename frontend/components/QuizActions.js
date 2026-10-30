@@ -25,9 +25,9 @@ export default function QuizActions({
     return (
       <nav
         aria-label="Ações da sessão"
-        className="md:hidden shrink-0 relative z-[2] border-t border-border bg-background/90 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/90 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]"
       >
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 h-14 text-xs uppercase tracking-[0.12em] text-muted whitespace-nowrap">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 h-14 text-xs uppercase tracking-[0.08em] text-muted whitespace-nowrap">
           <button
             onClick={onUndo}
             disabled={undoDisabled}

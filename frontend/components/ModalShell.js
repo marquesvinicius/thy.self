@@ -44,28 +44,28 @@ export default function ModalShell({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-sm p-4 md:p-8"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-background/85 backdrop-blur-sm p-4 md:p-8"
       onMouseDown={event => {
         if (event.target === event.currentTarget) onClose?.();
       }}
     >
       <div
-        className={`relative w-full ${maxWidth} max-h-[88vh] flex flex-col pt-5 border-2 border-foreground/60 bg-background animate-fade-in-up`}
+        className={`relative w-full ${maxWidth} max-h-[88vh] max-h-[85dvh] flex flex-col pt-5 border-2 border-foreground/60 bg-background animate-fade-in-up`}
       >
         {/* Rótulo flutuante sobre a borda superior (assinatura visual do site) */}
         {label && (
           <div className="absolute -top-3 left-6 px-3 bg-background">
-            <p className="text-xs uppercase tracking-[0.4em] text-foreground font-bold">
+            <p className="text-xs uppercase tracking-[0.18em] md:tracking-[0.4em] text-foreground font-bold">
               {label}
             </p>
           </div>
         )}
 
         {/* Botão fechar flutuante na borda, alinhado à direita */}
-        <div className="absolute -top-3 right-6 px-3 bg-background">
+        <div className="hidden md:block absolute -top-3 right-6 px-3 bg-background">
           <button
             onClick={onClose}
-            className="text-xs uppercase tracking-[0.3em] text-muted hover:text-foreground transition-colors inline-flex items-center gap-2"
+            className="text-xs uppercase tracking-[0.15em] md:tracking-[0.3em] text-muted hover:text-foreground transition-colors inline-flex items-center gap-2"
             title="Fechar (Esc)"
           >
             <span aria-hidden="true">×</span> fechar
@@ -78,6 +78,15 @@ export default function ModalShell({
         <div className="overflow-y-auto py-4 pb-6 px-5 md:px-8 [mask-image:linear-gradient(to_bottom,transparent,black_16px,black_calc(100%-16px),transparent)]">
           {children}
         </div>
+
+        {/* No celular o "fechar" da borda é pequeno e pode ficar fora do
+            alcance do polegar: um botão largo no rodapé do painel resolve. */}
+        <button
+          onClick={onClose}
+          className="md:hidden shrink-0 min-h-12 border-t border-border text-xs uppercase tracking-[0.3em] text-muted active:text-foreground"
+        >
+          fechar
+        </button>
       </div>
     </div>
   );

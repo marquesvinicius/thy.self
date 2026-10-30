@@ -514,7 +514,7 @@ export default function Quiz() {
   };
 
   return (
-    <div className="h-dvh md:h-auto md:min-h-screen flex flex-col overflow-x-hidden">
+    <div className="min-h-dvh md:min-h-screen flex flex-col overflow-x-hidden">
       <MysticBackground showEyes={false} />
       {showFeedback && (
         <MicroFeedback
@@ -543,7 +543,7 @@ export default function Quiz() {
 
       <Header divider />
 
-      <main className="flex-1 min-h-0 flex flex-col pt-16 md:pt-20 relative z-[1] overflow-x-hidden">
+      <main className="flex-1 min-h-0 flex flex-col pt-16 md:pt-20 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0 relative z-[1] overflow-x-hidden">
         {/* Anúncio para leitor de tela. A troca de pergunta é puramente
             visual (animação + troca de nó); sem uma região live, quem usa
             leitor de tela não recebe aviso nenhum de que avançou. */}
@@ -597,7 +597,7 @@ export default function Quiz() {
 
         {/* Question Area */}
         {showStageTransition ? null : questions.length > 0 ? (
-          <div className={`flex-1 flex flex-col items-center justify-start md:justify-center px-6 pt-4 pb-4 sm:py-6 md:p-10 min-h-0 overflow-y-auto overflow-x-hidden md:overflow-hidden ${phaseClasses[phase]}`}>
+          <div className={`flex-1 flex flex-col items-center justify-start md:justify-center px-6 pt-4 pb-4 sm:py-6 md:p-10 overflow-x-hidden md:min-h-0 md:overflow-hidden ${phaseClasses[phase]}`}>
             <MysticEyesOverlay />
 
             <div className="w-full max-w-6xl mx-auto min-w-0 flex-1 flex flex-col justify-start md:justify-center">
