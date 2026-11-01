@@ -7,6 +7,7 @@ import Header from '@/components/Header';
 import MysticBackground, { MysticEyesOverlay } from '@/components/MysticBackground';
 import ProgressBar from '@/components/ProgressBar';
 import QuizActions from '@/components/QuizActions';
+import ModalShell from '@/components/ModalShell';
 import MicroFeedback from '@/components/MicroFeedback';
 import StageTransition from '@/components/StageTransition';
 import QuestionRenderer from '@/components/QuestionRenderer';
@@ -62,6 +63,8 @@ export default function Quiz() {
   const [submitting, setSubmitting] = useState(false);
   const [undoing, setUndoing] = useState(false);
   const [undoError, setUndoError] = useState(null);
+  // Confirmação de "terminar sessão" quando já há respostas (o progresso se perde).
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const [flashing, setFlashing] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   // Ritual de passagem BFI-2-S → narrativa. Acionado na primeira vez que o
@@ -483,7 +486,18 @@ export default function Quiz() {
     router.push('/result?analyze=1');
   }
 
+  // Com respostas dadas, pede confirmação antes de encerrar: a sessão
+  // encerrada não pode ser retomada e não gera resultado.
+  function requestEndSession() {
+    if (progress.answered > 0) {
+      setConfirmEnd(true);
+      return;
+    }
+    handleEndSession();
+  }
+
   function handleEndSession() {
+    setConfirmEnd(false);
     sessionStorage.removeItem('session_id');
     clearActiveSession();
     clearNarrativeMode();
@@ -510,7 +524,7 @@ export default function Quiz() {
     undoing,
     canAnalyze: progress.canAnalyze,
     onAnalyze: handleAnalyze,
-    onEndSession: handleEndSession,
+    onEndSession: requestEndSession,
   };
 
   return (
@@ -705,6 +719,46 @@ export default function Quiz() {
         )}
 
         <QuizActions variant="dock" {...sessionActions} />
+
+        <ModalShell
+          open={confirmEnd}
+          onClose={() => setConfirmEnd(false)}
+          label="terminar sessão"
+          maxWidth="max-w-md sm:max-w-lg"
+          showMobileClose={false}
+        >
+          <div className="space-y-4 text-left">
+            <p className="text-base font-bold leading-snug">
+              Você já respondeu {progress.answered}{' '}
+              {progress.answered === 1 ? 'pergunta' : 'perguntas'}.
+            </p>
+            <p className="text-sm text-muted leading-relaxed">
+              Se terminar agora, a avaliação é encerrada, essas respostas são
+              perdidas e o resultado não é gerado.
+            </p>
+            {progress.canAnalyze && (
+              <p className="text-sm text-muted leading-relaxed">
+                Seu resultado já pode ser gerado: use o botão{' '}
+                <span className="text-foreground">analisar</span> para vê-lo.
+              </p>
+            )}
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <button
+                onClick={() => setConfirmEnd(false)}
+                className="min-h-11 flex-1 px-4 bg-foreground text-background border border-foreground text-xs uppercase tracking-[0.1em] whitespace-nowrap active:opacity-80 transition-opacity"
+                autoFocus
+              >
+                continuar respondendo
+              </button>
+              <button
+                onClick={handleEndSession}
+                className="min-h-11 flex-1 px-4 border border-control text-muted text-xs uppercase tracking-[0.1em] whitespace-nowrap hover:text-foreground hover:border-foreground transition-colors"
+              >
+                terminar mesmo assim
+              </button>
+            </div>
+          </div>
+        </ModalShell>
       </main>
     </div>
   );

@@ -14,6 +14,8 @@ import { useEffect } from 'react';
  *   open, onClose  — controle externo.
  *   label          — rótulo curto flutuante na borda (ex.: "revisar respostas").
  *   maxWidth       — classe Tailwind do painel (default 'max-w-2xl').
+ *   showMobileClose — botão "fechar" largo no rodapé do celular (default true);
+ *                    desligue quando o próprio conteúdo já traz os botões.
  *   children       — conteúdo (o shell fornece o scroll interno).
  */
 export default function ModalShell({
@@ -21,6 +23,7 @@ export default function ModalShell({
   onClose,
   label = '',
   maxWidth = 'max-w-2xl',
+  showMobileClose = true,
   children,
 }) {
   useEffect(() => {
@@ -50,6 +53,9 @@ export default function ModalShell({
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={label || undefined}
         className={`relative w-full ${maxWidth} max-h-[88vh] max-h-[85dvh] flex flex-col pt-5 border-2 border-foreground/60 bg-background animate-fade-in-up`}
       >
         {/* Rótulo flutuante sobre a borda superior (assinatura visual do site) */}
@@ -81,12 +87,14 @@ export default function ModalShell({
 
         {/* No celular o "fechar" da borda é pequeno e pode ficar fora do
             alcance do polegar: um botão largo no rodapé do painel resolve. */}
+        {showMobileClose && (
         <button
           onClick={onClose}
           className="md:hidden shrink-0 min-h-12 border-t border-border text-xs uppercase tracking-[0.3em] text-muted active:text-foreground"
         >
           fechar
         </button>
+        )}
       </div>
     </div>
   );

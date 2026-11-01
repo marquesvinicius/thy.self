@@ -40,6 +40,9 @@ export default function LikertInput({ question, currentValue, onSelect, disabled
       const tag = event.target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target?.isContentEditable) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
+      // Com um modal aberto (ex.: confirmar "terminar sessão"), o número
+      // digitado não pode responder a pergunta que está por trás dele.
+      if (document.querySelector('[role="dialog"]')) return;
 
       const index = ['1', '2', '3', '4', '5'].indexOf(event.key);
       if (index === -1) return;
