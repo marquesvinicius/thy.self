@@ -29,7 +29,7 @@ test('respostas coerentes dentro do eixo não geram tensão', () => {
   assert.ok(result.E.stddev <= 1.2);
 });
 
-test('oscilação entre extremos (+2/−2) dispara tensão (stddev = 2 > 1.2)', () => {
+test('oscilação entre extremos (+2/−2) dispara tensão (stddev = 2, os dois extremos)', () => {
   const answers = [2, -2, 2, -2, 2, -2].map(v => objectiveAnswer('N', v));
   const result = calculateConsistency(answers);
 
@@ -90,17 +90,41 @@ test('valores não numéricos e traits inválidos são descartados', () => {
   assert.equal(result.A.mean, 1);
 });
 
-test('limiar de tensão é estrito: stddev exatamente 1,2 não dispara', () => {
-  const result = calculateConsistency([objectiveAnswer('A', 1.2), objectiveAnswer('A', -1.2)]);
-  assert.equal(result.A.stddev, 1.2);
-  assert.equal(result.A.tension, false);
+test('dispersão alta sem os dois extremos não é tensão', () => {
+  // stddev exatamente 1,5, mas ninguém marcou −2: não houve oscilação entre extremos.
+  const result = calculateConsistency([-1, -1, -1, 2, 2, 2].map(v => objectiveAnswer('O', v)));
+  assert.deepEqual(result.O, { mean: 0.5, stddev: 1.5, tension: false, n: 6 });
 });
 
-test('limiar sobre Likert real: 1,15 não é tensão, 1,21 é', () => {
-  const below = calculateConsistency([-1, 0, 1, 2, 2, 2].map(v => objectiveAnswer('O', v)));
-  const above = calculateConsistency([-1, 0, 2, 2, 2, 2].map(v => objectiveAnswer('O', v)));
-  assert.deepEqual(below.O, { mean: 1, stddev: 1.15, tension: false, n: 6 });
-  assert.deepEqual(above.O, { mean: 1.17, stddev: 1.21, tension: true, n: 6 });
+test('os dois extremos com dispersão moderada não são tensão', () => {
+  // +2 e −2 aparecem, mas o resto é coerente: stddev 1,25, abaixo de 1,5.
+  const result = calculateConsistency([2, -2, 1, 1, 1, 1].map(v => objectiveAnswer('O', v)));
+  assert.deepEqual(result.O, { mean: 0.67, stddev: 1.25, tension: false, n: 6 });
+});
+
+test('os dois extremos com dispersão alta são tensão', () => {
+  const result = calculateConsistency([2, -2, 2, -2, 1, 1].map(v => objectiveAnswer('O', v)));
+  assert.deepEqual(result.O, { mean: 0.33, stddev: 1.7, tension: true, n: 6 });
+});
+
+test('limiar é inclusivo: stddev exatamente 1,5 com os dois extremos é tensão', () => {
+  // [−2, −2, −1, −1, 1, 2]: média −0,5; variância 2,25; stddev 1,5.
+  const result = calculateConsistency([-2, -2, -1, -1, 1, 2].map(v => objectiveAnswer('A', v)));
+  assert.equal(result.A.stddev, 1.5);
+  assert.equal(result.A.tension, true);
+});
+
+test('o extremo conta depois da inversão da chave reversa', () => {
+  // Item reverso respondido com −2 vira +2: junto de diretos −2, são os dois extremos.
+  const answers = [
+    objectiveAnswer('N', -2, true),
+    objectiveAnswer('N', -2, true),
+    objectiveAnswer('N', -2),
+    objectiveAnswer('N', -2),
+  ];
+  const result = calculateConsistency(answers);
+  assert.equal(result.N.stddev, 2);
+  assert.equal(result.N.tension, true);
 });
 
 test('interpretativa com traço e impacto não entra no bucket do traço', () => {

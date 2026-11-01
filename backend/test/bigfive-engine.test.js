@@ -100,7 +100,7 @@ test('calculateProfile ignores interpretative answers entirely', () => {
 });
 
 test('calculateConsistency flags high-variance traits as tension', () => {
-  // Alternating +2 / -2 across 6 items for O → stddev = 2.0 > 1.2
+  // Alternating +2 / -2 across 6 items for O → stddev = 2.0 with both extremes
   const alternating = [
     makeObjective({ trait: 'O', value:  2 }),
     makeObjective({ trait: 'O', value: -2 }),

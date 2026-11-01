@@ -6,11 +6,14 @@ import { readObjectiveLikert } from './likert.js';
  *
  * With BFI-2-S Likert values in [-2, +2] and 6 items per trait, the maximum
  * possible population stddev of the signed contributions is 2.0 (alternating
- * +2 / -2 across all items). An stddev > 1.2 therefore means the respondent
- * oscillated strongly between endpoints on this trait, which is the signal
- * we want to surface as "internal contradiction" to the LLM.
+ * +2 / -2 across all items). The 6 items cover different facets of the trait,
+ * so some spread is normal: with the old cut (stddev > 1.2) almost every
+ * profile showed tension on most axes. Tension now requires a high spread
+ * (>= 1.5) AND both endpoints on the same trait (a signed +2 and a signed -2),
+ * which is what the user-facing text claims ("oscillated between extremes").
  */
-const TENSION_THRESHOLD = 1.2;
+const TENSION_THRESHOLD = 1.5;
+const LIKERT_EXTREME = 2;
 
 /**
  * Per-trait consistency (mean + population stddev of the signed Likert
@@ -43,7 +46,9 @@ export function calculateConsistency(answers) {
     result[key] = {
       mean: Math.round(mean * 100) / 100,
       stddev: Math.round(stddev * 100) / 100,
-      tension: stddev > TENSION_THRESHOLD,
+      tension: stddev >= TENSION_THRESHOLD
+        && values.includes(LIKERT_EXTREME)
+        && values.includes(-LIKERT_EXTREME),
       n,
     };
   }

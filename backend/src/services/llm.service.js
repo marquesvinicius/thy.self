@@ -737,7 +737,7 @@ function buildUserPrompt(profile, consistency, interpretativeSignals, archetype,
   const tensionAxes = formatTensionLines(consistency, 'respostas oscilaram entre extremos.');
 
   const tensionsBlock = tensionAxes.length > 0
-    ? `Tensões internas detectadas (desvio-padrão por eixo > 1.2):\n${tensionAxes.join('\n')}\nIMPORTANTE: estas tensões são o fio condutor da "interpretacao" — não um rodapé.`
+    ? `Tensões internas detectadas (desvio-padrão por eixo ≥ 1,5, com os dois extremos da escala no mesmo eixo):\n${tensionAxes.join('\n')}\nIMPORTANTE: estas tensões são o fio condutor da "interpretacao" — não um rodapé.`
     : NO_TENSION_TEXT;
 
   const styleBlock = buildResponseStyleBlock(options.responseStyle);
@@ -899,7 +899,7 @@ function buildReferenceDetailPrompt(profile, consistency, interpretativeSignals,
   let tensionsBlock = '';
   if (consistency) {
     tensionsBlock = tensions.length > 0
-      ? `Tensões internas detectadas (desvio-padrão por eixo > 1.2):\n${tensions.join('\n')}`
+      ? `Tensões internas detectadas (desvio-padrão por eixo ≥ 1,5, com os dois extremos da escala no mesmo eixo):\n${tensions.join('\n')}`
       : NO_TENSION_TEXT;
   }
 
